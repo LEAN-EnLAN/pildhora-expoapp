@@ -1,4 +1,4 @@
-import { Text, View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { Text, View, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 
 export default function CaregiverDashboard() {
@@ -16,39 +16,39 @@ export default function CaregiverDashboard() {
   ];
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.greeting}>Caregiver Dashboard</Text>
-        <Text style={styles.subtitle}>Monitor your patients</Text>
+    <ScrollView className="flex-1 bg-background">
+      <View className="p-5 bg-white mb-4">
+        <Text className="text-2xl font-bold text-text">Caregiver Dashboard</Text>
+        <Text className="text-base text-textSecondary mt-1">Monitor your patients</Text>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Patient Overview</Text>
+      <View className="bg-white mx-4 mb-4 rounded-xl p-4">
+        <Text className="text-lg font-semibold text-text mb-3">Patient Overview</Text>
         {patients.map((patient) => (
-          <View key={patient.id} style={styles.patientCard}>
-            <View style={styles.patientInfo}>
-              <Text style={styles.patientName}>{patient.name}</Text>
-              <Text style={styles.patientDetails}>
+          <View key={patient.id} className="flex-row justify-between items-center py-3 border-b border-gray-200">
+            <View className="flex-1">
+              <Text className="text-base font-medium text-text">{patient.name}</Text>
+              <Text className="text-sm text-textSecondary mt-0.5">
                 Adherence: {patient.adherence}% | Last taken: {patient.lastTaken}
               </Text>
             </View>
-            <View style={[styles.adherenceIndicator, { backgroundColor: patient.adherence > 80 ? '#34C759' : '#FF9500' }]}>
-              <Text style={styles.adherenceText}>{patient.adherence}%</Text>
+            <View className={`px-3 py-1.5 rounded-full ${patient.adherence > 80 ? 'bg-success' : 'bg-warning'}`}>
+              <Text className="text-white font-semibold text-sm">{patient.adherence}%</Text>
             </View>
           </View>
         ))}
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Recent Tasks</Text>
+      <View className="bg-white mx-4 mb-4 rounded-xl p-4">
+        <Text className="text-lg font-semibold text-text mb-3">Recent Tasks</Text>
         {recentTasks.map((task) => (
-          <View key={task.id} style={styles.taskCard}>
-            <View style={styles.taskInfo}>
-              <Text style={styles.taskTitle}>{task.title}</Text>
-              <Text style={styles.taskPatient}>{task.patient}</Text>
+          <View key={task.id} className="flex-row justify-between items-center py-3 border-b border-gray-200">
+            <View className="flex-1">
+              <Text className="text-base font-medium text-text">{task.title}</Text>
+              <Text className="text-sm text-textSecondary mt-0.5">{task.patient}</Text>
             </View>
-            <View style={[styles.taskStatus, task.completed && styles.completedStatus]}>
-              <Text style={[styles.taskStatusText, task.completed && styles.completedStatusText]}>
+            <View className={`px-3 py-1.5 rounded-full ${task.completed ? 'bg-success' : 'bg-warning'}`}>
+              <Text className="text-white font-semibold text-sm">
                 {task.completed ? 'Done' : 'Pending'}
               </Text>
             </View>
@@ -56,152 +56,18 @@ export default function CaregiverDashboard() {
         ))}
       </View>
 
-      <View style={styles.actionButtons}>
-        <TouchableOpacity style={styles.actionButton}>
-          <Text style={styles.actionButtonText}>Add Medication</Text>
+      <View className="flex-row mx-4 mb-4">
+        <TouchableOpacity className="flex-1 bg-primary p-4 rounded-xl items-center mr-2">
+          <Text className="text-white text-base font-semibold">Add Medication</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton}>
-          <Text style={styles.actionButtonText}>Generate Report</Text>
+        <TouchableOpacity className="flex-1 bg-primary p-4 rounded-xl items-center ml-2">
+          <Text className="text-white text-base font-semibold">Generate Report</Text>
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Text style={styles.backButtonText}>Back to Role Selection</Text>
+      <TouchableOpacity className="bg-primary m-4 p-4 rounded-xl items-center" onPress={() => router.back()}>
+        <Text className="text-white text-base font-semibold">Back to Role Selection</Text>
       </TouchableOpacity>
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F2F2F7',
-  },
-  header: {
-    padding: 20,
-    backgroundColor: 'white',
-    marginBottom: 16,
-  },
-  greeting: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#8E8E93',
-    marginTop: 4,
-  },
-  section: {
-    backgroundColor: 'white',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 12,
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 12,
-  },
-  patientCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-  patientInfo: {
-    flex: 1,
-  },
-  patientName: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#1C1C1E',
-  },
-  patientDetails: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginTop: 2,
-  },
-  adherenceIndicator: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  adherenceText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  taskCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-  taskInfo: {
-    flex: 1,
-  },
-  taskTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#1C1C1E',
-  },
-  taskPatient: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginTop: 2,
-  },
-  taskStatus: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#FF9500',
-  },
-  completedStatus: {
-    backgroundColor: '#34C759',
-  },
-  taskStatusText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  completedStatusText: {
-    color: 'white',
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    marginHorizontal: 16,
-    marginBottom: 16,
-  },
-  actionButton: {
-    flex: 1,
-    backgroundColor: '#007AFF',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginHorizontal: 4,
-  },
-  actionButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  backButton: {
-    margin: 16,
-    padding: 16,
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  backButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
