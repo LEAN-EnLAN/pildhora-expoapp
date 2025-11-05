@@ -1,5 +1,134 @@
-import { Text, View, TouchableOpacity, ScrollView } from 'react-native';
+import { Text, View, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F2F2F7',
+  },
+  header: {
+    padding: 20,
+    backgroundColor: 'white',
+    marginBottom: 16,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1C1C1E',
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: '#8E8E93',
+    marginTop: 4,
+  },
+  card: {
+    backgroundColor: 'white',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 12,
+    padding: 16,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1C1C1E',
+    marginBottom: 12,
+  },
+  patientItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  patientInfo: {
+    flex: 1,
+  },
+  patientName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1C1C1E',
+  },
+  patientDetails: {
+    fontSize: 14,
+    color: '#8E8E93',
+    marginTop: 2,
+  },
+  adherenceBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  goodAdherence: {
+    backgroundColor: '#34C759',
+  },
+  warningAdherence: {
+    backgroundColor: '#FF9500',
+  },
+  adherenceText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  taskItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  taskInfo: {
+    flex: 1,
+  },
+  taskTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1C1C1E',
+  },
+  taskPatient: {
+    fontSize: 14,
+    color: '#8E8E93',
+    marginTop: 2,
+  },
+  completedBadge: {
+    backgroundColor: '#34C759',
+  },
+  pendingBadge: {
+    backgroundColor: '#FF9500',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  button: {
+    flex: 1,
+    backgroundColor: '#007AFF',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  leftButton: {
+    marginRight: 8,
+  },
+  rightButton: {
+    marginLeft: 8,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  backButton: {
+    backgroundColor: '#007AFF',
+    margin: 16,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+});
 
 export default function CaregiverDashboard() {
   const router = useRouter();
@@ -16,39 +145,45 @@ export default function CaregiverDashboard() {
   ];
 
   return (
-    <ScrollView className="flex-1 bg-background">
-      <View className="p-5 bg-white mb-4">
-        <Text className="text-2xl font-bold text-text">Caregiver Dashboard</Text>
-        <Text className="text-base text-textSecondary mt-1">Monitor your patients</Text>
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Caregiver Dashboard</Text>
+        <Text style={styles.headerSubtitle}>Monitor your patients</Text>
       </View>
 
-      <View className="bg-white mx-4 mb-4 rounded-xl p-4">
-        <Text className="text-lg font-semibold text-text mb-3">Patient Overview</Text>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Patient Overview</Text>
         {patients.map((patient) => (
-          <View key={patient.id} className="flex-row justify-between items-center py-3 border-b border-gray-200">
-            <View className="flex-1">
-              <Text className="text-base font-medium text-text">{patient.name}</Text>
-              <Text className="text-sm text-textSecondary mt-0.5">
+          <View key={patient.id} style={styles.patientItem}>
+            <View style={styles.patientInfo}>
+              <Text style={styles.patientName}>{patient.name}</Text>
+              <Text style={styles.patientDetails}>
                 Adherence: {patient.adherence}% | Last taken: {patient.lastTaken}
               </Text>
             </View>
-            <View className={`px-3 py-1.5 rounded-full ${patient.adherence > 80 ? 'bg-success' : 'bg-warning'}`}>
-              <Text className="text-white font-semibold text-sm">{patient.adherence}%</Text>
+            <View style={[
+                styles.adherenceBadge,
+                patient.adherence > 80 ? styles.goodAdherence : styles.warningAdherence
+              ]}>
+              <Text style={styles.adherenceText}>{patient.adherence}%</Text>
             </View>
           </View>
         ))}
       </View>
 
-      <View className="bg-white mx-4 mb-4 rounded-xl p-4">
-        <Text className="text-lg font-semibold text-text mb-3">Recent Tasks</Text>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Recent Tasks</Text>
         {recentTasks.map((task) => (
-          <View key={task.id} className="flex-row justify-between items-center py-3 border-b border-gray-200">
-            <View className="flex-1">
-              <Text className="text-base font-medium text-text">{task.title}</Text>
-              <Text className="text-sm text-textSecondary mt-0.5">{task.patient}</Text>
+          <View key={task.id} style={styles.taskItem}>
+            <View style={styles.taskInfo}>
+              <Text style={styles.taskTitle}>{task.title}</Text>
+              <Text style={styles.taskPatient}>{task.patient}</Text>
             </View>
-            <View className={`px-3 py-1.5 rounded-full ${task.completed ? 'bg-success' : 'bg-warning'}`}>
-              <Text className="text-white font-semibold text-sm">
+            <View style={[
+                styles.adherenceBadge,
+                task.completed ? styles.completedBadge : styles.pendingBadge
+              ]}>
+              <Text style={styles.adherenceText}>
                 {task.completed ? 'Done' : 'Pending'}
               </Text>
             </View>
@@ -56,17 +191,17 @@ export default function CaregiverDashboard() {
         ))}
       </View>
 
-      <View className="flex-row mx-4 mb-4">
-        <TouchableOpacity className="flex-1 bg-primary p-4 rounded-xl items-center mr-2">
-          <Text className="text-white text-base font-semibold">Add Medication</Text>
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity style={[styles.button, styles.leftButton]}>
+          <Text style={styles.buttonText}>Add Medication</Text>
         </TouchableOpacity>
-        <TouchableOpacity className="flex-1 bg-primary p-4 rounded-xl items-center ml-2">
-          <Text className="text-white text-base font-semibold">Generate Report</Text>
+        <TouchableOpacity style={[styles.button, styles.rightButton]}>
+          <Text style={styles.buttonText}>Generate Report</Text>
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity className="bg-primary m-4 p-4 rounded-xl items-center" onPress={() => router.back()}>
-        <Text className="text-white text-base font-semibold">Back to Role Selection</Text>
+      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <Text style={styles.buttonText}>Back to Role Selection</Text>
       </TouchableOpacity>
     </ScrollView>
   );

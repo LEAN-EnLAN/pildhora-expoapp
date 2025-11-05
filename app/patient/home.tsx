@@ -1,5 +1,106 @@
-import { Text, View, TouchableOpacity, ScrollView } from 'react-native';
+import { Text, View, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F2F2F7',
+  },
+  header: {
+    padding: 20,
+    backgroundColor: 'white',
+    marginBottom: 16,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1C1C1E',
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: '#8E8E93',
+    marginTop: 4,
+  },
+  card: {
+    backgroundColor: 'white',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 12,
+    padding: 16,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1C1C1E',
+    marginBottom: 12,
+  },
+  medicationItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  medicationInfo: {
+    flex: 1,
+  },
+  medicationName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1C1C1E',
+  },
+  medicationTime: {
+    fontSize: 14,
+    color: '#8E8E93',
+    marginTop: 2,
+  },
+  takeButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  takenButton: {
+    backgroundColor: '#E5E7EB',
+  },
+  availableButton: {
+    backgroundColor: '#34C759',
+  },
+  takenButtonText: {
+    fontWeight: '600',
+    color: '#8E8E93',
+  },
+  availableButtonText: {
+    fontWeight: '600',
+    color: 'white',
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  statusText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#34C759',
+  },
+  batteryText: {
+    fontSize: 14,
+    color: '#8E8E93',
+  },
+  backButton: {
+    backgroundColor: '#007AFF',
+    margin: 16,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  backButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});
 
 export default function PatientHome() {
   const router = useRouter();
@@ -16,26 +117,32 @@ export default function PatientHome() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-background">
-      <View className="p-5 bg-white mb-4">
-        <Text className="text-2xl font-bold text-text">Good morning!</Text>
-        <Text className="text-base text-textSecondary mt-1">Here are your medications for today</Text>
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Good morning!</Text>
+        <Text style={styles.headerSubtitle}>Here are your medications for today</Text>
       </View>
 
-      <View className="bg-white mx-4 mb-4 rounded-xl p-4">
-        <Text className="text-lg font-semibold text-text mb-3">Upcoming</Text>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Upcoming</Text>
         {upcomingMedications.map((med) => (
-          <View key={med.id} className="flex-row justify-between items-center py-3 border-b border-gray-200">
-            <View className="flex-1">
-              <Text className="text-base font-medium text-text">{med.name}</Text>
-              <Text className="text-sm text-textSecondary mt-0.5">{med.time}</Text>
+          <View key={med.id} style={styles.medicationItem}>
+            <View style={styles.medicationInfo}>
+              <Text style={styles.medicationName}>{med.name}</Text>
+              <Text style={styles.medicationTime}>{med.time}</Text>
             </View>
             <TouchableOpacity
-              className={`px-5 py-2 rounded-full ${med.taken ? 'bg-gray-200' : 'bg-success'}`}
+              style={[
+                styles.takeButton,
+                med.taken ? styles.takenButton : styles.availableButton
+              ]}
               onPress={() => handleTakeMedication(med.id)}
               disabled={med.taken}
             >
-              <Text className={`font-semibold ${med.taken ? 'text-textSecondary' : 'text-white'}`}>
+              <Text style={[
+                styles.availableButtonText,
+                med.taken && styles.takenButtonText
+              ]}>
                 {med.taken ? 'Taken' : 'Take'}
               </Text>
             </TouchableOpacity>
@@ -43,16 +150,16 @@ export default function PatientHome() {
         ))}
       </View>
 
-      <View className="bg-white mx-4 mb-4 rounded-xl p-4">
-        <Text className="text-lg font-semibold text-text mb-3">Pillbox Status</Text>
-        <View className="flex-row justify-between items-center">
-          <Text className="text-base font-medium text-success">Connected</Text>
-          <Text className="text-sm text-textSecondary">Battery: 85%</Text>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Pillbox Status</Text>
+        <View style={styles.statusContainer}>
+          <Text style={styles.statusText}>Connected</Text>
+          <Text style={styles.batteryText}>Battery: 85%</Text>
         </View>
       </View>
 
-      <TouchableOpacity className="bg-primary m-4 p-4 rounded-xl items-center" onPress={() => router.back()}>
-        <Text className="text-white text-base font-semibold">Back to Role Selection</Text>
+      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <Text style={styles.backButtonText}>Back to Role Selection</Text>
       </TouchableOpacity>
     </ScrollView>
   );
