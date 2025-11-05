@@ -35,10 +35,6 @@ This document outlines the current status of Firebase integration in the Pildhor
    - Database rules updated to allow authenticated users
    - Temporary development access until December 31, 2025
 
-### ⚠️ Action Required
-1. **Environment Variables** (`.env`)
-   - The `.env` file currently contains placeholder values
-   - These need to be replaced with actual Firebase project values
 
 ## Setup Instructions
 
