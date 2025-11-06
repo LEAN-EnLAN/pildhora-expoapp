@@ -1,9 +1,11 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, connectAuthEmulator } from 'firebase/auth';
+import { getAuth, connectAuthEmulator, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import { getDatabase, connectDatabaseEmulator } from 'firebase/database';
 import { diagnoseNetworkIssues } from '../../utils/networkCheck';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 // Firebase configuration using individual environment variables
 // Nota: Las variables deben comenzar con "EXPO_PUBLIC_" para estar disponibles en tiempo de ejecución.
@@ -76,8 +78,17 @@ try {
   throw error;
 }
 
-// Initialize Firebase services
-export const auth = getAuth(app);
+// Initialize Firebase Auth
+const authInstance = getAuth(app);
+// Ensure web persistence across reloads/tabs
+if (Platform.OS === 'web') {
+  try {
+    setPersistence(authInstance, browserLocalPersistence);
+  } catch (e) {
+    console.warn('[Firebase] Failed to set web auth persistence', e);
+  }
+}
+export const auth = authInstance;
 export const db = getFirestore(app);
 export const functions = getFunctions(app);
 export const rdb = getDatabase(app);

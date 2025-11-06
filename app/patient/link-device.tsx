@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Switch } from 'react-native';
+import Slider from '@react-native-community/slider';
+import { ColorPicker, fromHsv } from 'react-native-color-picker';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../src/store';
 import { linkDeviceToUser, unlinkDeviceFromUser } from '../../src/services/deviceLinking';
@@ -182,6 +184,21 @@ export default function LinkDeviceScreen() {
     }));
   };
 
+  const setIntensity = (id: string, value: number) => {
+    setDeviceStats((prev) => ({
+      ...prev,
+      [id]: { ...(prev[id] || {}), ledIntensity: Math.max(0, Math.min(1023, Math.round(value))) }
+    }));
+  };
+
+  const hexToRgb = (hex: string): [number, number, number] => {
+    const clean = hex.replace('#','');
+    const r = parseInt(clean.substring(0,2), 16);
+    const g = parseInt(clean.substring(2,4), 16);
+    const b = parseInt(clean.substring(4,6), 16);
+    return [r,g,b];
+  };
+
   const saveDeviceConfig = async (id: string) => {
     setDeviceStats((prev) => ({ ...prev, [id]: { ...(prev[id] || {}), saving: true, saveError: null } }));
     try {
@@ -271,27 +288,30 @@ export default function LinkDeviceScreen() {
                       <Text style={styles.infoText}>Intensidad LED</Text>
                       <Text style={{ fontWeight: '600', color: '#1C1C1E' }}>{stats?.ledIntensity ?? 512}</Text>
                     </View>
-                    <View style={styles.controlRow}>
-                      <TouchableOpacity style={styles.smallButton} onPress={() => adjustIntensity(id, -64)}>
-                        <Text style={styles.smallButtonText}>-64</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.smallButton} onPress={() => adjustIntensity(id, +64)}>
-                        <Text style={styles.smallButtonText}>+64</Text>
-                      </TouchableOpacity>
-                    </View>
+                    <Slider
+                      minimumValue={0}
+                      maximumValue={1023}
+                      step={1}
+                      value={stats?.ledIntensity ?? 512}
+                      onValueChange={(val) => setIntensity(id, val)}
+                      style={{ marginVertical: 8 }}
+                      minimumTrackTintColor="#007AFF"
+                      maximumTrackTintColor="#D1D5DB"
+                    />
                   </View>
                   <View>
                     <View style={styles.statsRow}>
                       <Text style={styles.infoText}>Color LED</Text>
                       <View style={[styles.swatch, { backgroundColor: colorHex }]} />
                     </View>
-                    <View style={styles.swatchesRow}>
-                      {[
-                        [255,0,0], [0,255,0], [0,0,255], [255,255,0], [0,255,255], [255,0,255], [255,255,255], [0,0,0]
-                      ].map((rgb, idx) => (
-                        <TouchableOpacity key={idx} style={[styles.swatch, { backgroundColor: `#${rgb.map(c=>c.toString(16).padStart(2,'0')).join('')}` }]} onPress={() => setColor(id, rgb as [number,number,number])} />
-                      ))}
-                    </View>
+                    <ColorPicker
+                      oldColor={colorHex}
+                      onColorChange={(c) => {
+                        const hex = fromHsv(c);
+                        setColor(id, hexToRgb(hex));
+                      }}
+                      style={{ height: 220, marginTop: 8 }}
+                    />
                   </View>
                   <View style={styles.statsRow}>
                     <TouchableOpacity style={[styles.button, { flex: 1 }]} onPress={() => saveDeviceConfig(id)} disabled={stats?.saving}>
