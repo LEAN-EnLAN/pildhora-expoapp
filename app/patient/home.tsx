@@ -1,5 +1,12 @@
-import { Text, View, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { useDispatch, useSelector } from 'react-redux';
 import { useRouter } from 'expo-router';
+import { RootState, AppDispatch } from '../../src/store';
+import { logout } from '../../src/store/slices/authSlice';
+
+// Note: Removed NextMedicationCard, DailyMedicationItem, and VisualPillbox components
+// along with their associated data structures and helpers to simplify the home screen.
 
 const styles = StyleSheet.create({
   container: {
@@ -7,86 +14,59 @@ const styles = StyleSheet.create({
     backgroundColor: '#F2F2F7',
   },
   header: {
-    padding: 20,
-    backgroundColor: 'white',
-    marginBottom: 16,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#8E8E93',
-    marginTop: 4,
-  },
-  card: {
-    backgroundColor: 'white',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 12,
-    padding: 16,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 12,
-  },
-  medicationItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    backgroundColor: 'white',
+    paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
-  medicationInfo: {
-    flex: 1,
+  headerLeft: {
+    gap: 4,
   },
-  medicationName: {
-    fontSize: 16,
-    fontWeight: '500',
+  brand: {
+    fontSize: 22,
+    fontWeight: '800',
     color: '#1C1C1E',
   },
-  medicationTime: {
+  greeting: {
     fontSize: 14,
     color: '#8E8E93',
-    marginTop: 2,
   },
-  takeButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  takenButton: {
-    backgroundColor: '#E5E7EB',
-  },
-  availableButton: {
-    backgroundColor: '#34C759',
-  },
-  takenButtonText: {
-    fontWeight: '600',
-    color: '#8E8E93',
-  },
-  availableButtonText: {
-    fontWeight: '600',
-    color: 'white',
-  },
-  statusContainer: {
+  headerRight: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: 8,
   },
-  statusText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#34C759',
+  headerBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
   },
-  batteryText: {
-    fontSize: 14,
+  historyBtn: { backgroundColor: '#007AFF' },
+  emergencyBtn: { backgroundColor: '#FF3B30' },
+  logoutBtn: { backgroundColor: '#8E8E93' },
+  headerBtnText: { color: 'white', fontWeight: '700' },
+  section: {
+    padding: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    marginBottom: 8,
+  },
+  card: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  emptyRow: {
     color: '#8E8E93',
+    paddingVertical: 12,
+    textAlign: 'center',
   },
   backButton: {
     backgroundColor: '#007AFF',
@@ -103,64 +83,62 @@ const styles = StyleSheet.create({
 });
 
 export default function PatientHome() {
+  const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
+  const { user } = useSelector((state: RootState) => state.auth);
+  // Emergency modal replaced with a simple alert to avoid missing component issues
 
-  // Mock data - will be replaced with Redux state
-  const upcomingMedications = [
-    { id: '1', name: 'Aspirin', time: '08:00', taken: false },
-    { id: '2', name: 'Vitamin D', time: '12:00', taken: true },
-  ];
+  const displayName = user?.name || (user?.email ? user.email.split('@')[0] : 'Paciente');
 
-  const handleTakeMedication = (id: string) => {
-    // TODO: Implement medication taking logic
-    console.log('Take medication:', id);
+  const handleHistory = () => router.push('/patient/history');
+  const handleEmergency = () => {
+    Alert.alert('Emergencia', 'Si necesitas ayuda, contacta a tu cuidador o servicio de emergencia.');
+  };
+  const handleLogout = async () => {
+    await dispatch(logout());
+    router.replace('/');
   };
 
   return (
     <ScrollView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Good morning!</Text>
-        <Text style={styles.headerSubtitle}>Here are your medications for today</Text>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Upcoming</Text>
-        {upcomingMedications.map((med) => (
-          <View key={med.id} style={styles.medicationItem}>
-            <View style={styles.medicationInfo}>
-              <Text style={styles.medicationName}>{med.name}</Text>
-              <Text style={styles.medicationTime}>{med.time}</Text>
-            </View>
-            <TouchableOpacity
-              style={[
-                styles.takeButton,
-                med.taken ? styles.takenButton : styles.availableButton
-              ]}
-              onPress={() => handleTakeMedication(med.id)}
-              disabled={med.taken}
-            >
-              <Text style={[
-                styles.availableButtonText,
-                med.taken && styles.takenButtonText
-              ]}>
-                {med.taken ? 'Taken' : 'Take'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        ))}
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Pillbox Status</Text>
-        <View style={styles.statusContainer}>
-          <Text style={styles.statusText}>Connected</Text>
-          <Text style={styles.batteryText}>Battery: 85%</Text>
+        <View style={styles.headerLeft}>
+          <Text style={styles.brand}>PILDHORA</Text>
+          <Text style={styles.greeting}>Hola, {displayName}</Text>
+        </View>
+        <View style={styles.headerRight}>
+          <TouchableOpacity style={[styles.headerBtn, styles.historyBtn]} onPress={handleHistory}>
+            <Text style={styles.headerBtnText}>MI HISTORIAL</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.headerBtn, styles.emergencyBtn]} onPress={handleEmergency}>
+            <Text style={styles.headerBtnText}>EMERGENCIA</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.headerBtn, styles.logoutBtn]} onPress={handleLogout}>
+            <Text style={styles.headerBtnText}>Salir</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Text style={styles.backButtonText}>Back to Role Selection</Text>
-      </TouchableOpacity>
+      {/* Simplified content after component removals */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Bienvenido</Text>
+        <View style={styles.card}>
+          <Text style={{ color: '#1C1C1E', marginBottom: 8 }}>
+            Tu panel ha sido simplificado. Puedes enlazar tu dispositivo o revisar tu historial.
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity style={[styles.headerBtn, styles.historyBtn]} onPress={() => router.push('/patient/link-device')}>
+              <Text style={styles.headerBtnText}>ENLAZAR DISPOSITIVO</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.headerBtn, styles.historyBtn]} onPress={handleHistory}>
+              <Text style={styles.headerBtnText}>VER HISTORIAL</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+
+      {/* EmergencyModal removed; using Alert for emergency action */}
     </ScrollView>
   );
 }

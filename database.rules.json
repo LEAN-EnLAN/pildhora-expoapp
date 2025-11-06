@@ -1,11 +1,29 @@
 {
   "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null",
+    ".read": false,
+    ".write": false,
     "users": {
       "$uid": {
         ".read": "$uid === auth.uid",
         ".write": "$uid === auth.uid"
+      }
+    },
+    "devices": {
+      "$deviceID": {
+        "state": {
+          ".read": "auth != null && root.child('users').child(auth.uid).child('devices').child($deviceID).val() === true",
+          ".write": false
+        },
+        "config": {
+          ".read": "auth != null && root.child('users').child(auth.uid).child('devices').child($deviceID).val() === true",
+          ".write": "auth != null && root.child('users').child(auth.uid).child('devices').child($deviceID).val() === true"
+        }
+      }
+    },
+    "adherence_logs": {
+      "$userID": {
+        ".read": "auth != null && $userID === auth.uid",
+        ".write": false
       }
     }
   }

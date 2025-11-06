@@ -23,6 +23,33 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.userId;
     }
     
+    // Devices metadata and access control (query-friendly)
+    match /devices/{deviceId} {
+      allow read: if request.auth != null && request.auth.uid in resource.data.linkedUsers;
+      // Linked users (patient or caregiver) can update desiredConfig only
+      allow update: if request.auth != null &&
+        request.auth.uid in resource.data.linkedUsers &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['desiredConfig','updatedAt']);
+      // Device docs should be created by backend functions only
+      allow create, delete: if false;
+    }
+
+    // Device link documents for audit and queries
+    match /deviceLinks/{linkId} {
+      allow read: if request.auth != null &&
+        (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.createdBy);
+      // Allow the authenticated user to create/update/delete their own link docs.
+      // Support both request.resource (for create/merge updates) and resource (for existing docs).
+      allow create: if request.auth != null &&
+        (request.auth.uid == request.resource.data.createdBy || request.auth.uid == request.resource.data.userId);
+      allow update, delete: if request.auth != null && (
+        request.auth.uid == request.resource.data.createdBy ||
+        request.auth.uid == request.resource.data.userId ||
+        request.auth.uid == resource.data.createdBy ||
+        request.auth.uid == resource.data.userId
+      );
+    }
+
     // Temporary development rule - will expire on December 31, 2025
     // This allows full access during development but should be replaced
     // with more specific rules before production deployment

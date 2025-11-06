@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Text, View, TouchableOpacity, TextInput, Alert, Image, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
-import { signIn } from '../../src/store/slices/authSlice';
+import { signIn, logout } from '../../src/store/slices/authSlice';
 import { RootState, AppDispatch } from '../../src/store';
+import { auth } from '../../src/services/firebase';
 
 const styles = StyleSheet.create({
   container: {
@@ -126,7 +127,13 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
-  const { loading, error } = useSelector((state: RootState) => state.auth);
+  const { loading, error, isAuthenticated, user } = useSelector((state: RootState) => state.auth);
+
+  // If a user is already authenticated, show a helpful banner and option to log out.
+  // This avoids confusion where an existing session could redirect unexpectedly.
+  useEffect(() => {
+    // No automatic redirect here to allow explicit login/logout testing.
+  }, []);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -135,20 +142,34 @@ export default function LoginScreen() {
     }
 
     try {
-      const result = await dispatch(signIn({ email, password })).unwrap();
+      const result = await dispatch(signIn({ email: email.trim(), password })).unwrap();
       // Navigation will be handled by auth state change
       if (result.role === 'patient') {
         router.replace('/patient/home');
       } else {
         router.replace('/caregiver/dashboard');
       }
-    } catch (error) {
-      Alert.alert('Login Failed', error as string);
+    } catch (error: any) {
+      // Show friendlier messages for common Firebase Auth errors
+      const message = typeof error === 'string' ? error : (error?.message || 'Unknown error');
+      let friendly = message;
+      if (message.includes('auth/wrong-password')) friendly = 'Incorrect password. Please try again.';
+      if (message.includes('auth/user-not-found')) friendly = 'No account found with that email.';
+      if (message.includes('auth/too-many-requests')) friendly = 'Too many attempts. Please wait a moment and try again.';
+      Alert.alert('Login Failed', friendly);
     }
   };
 
   const navigateToSignup = () => {
     router.push('/auth/signup');
+  };
+
+  const handleLogout = async () => {
+    // Explicitly log out to clear any existing session and persisted auth state
+    await dispatch(logout());
+    // Also ensure Firebase Auth session is cleared
+    try { await auth.signOut(); } catch {}
+    Alert.alert('Logged Out', 'You have been signed out. You can now log in with a different account.');
   };
 
   return (
@@ -158,6 +179,17 @@ export default function LoginScreen() {
     >
       <View style={styles.innerContainer}>
         <View style={styles.formContainer}>
+          {/* Session Banner */}
+          {isAuthenticated && user ? (
+            <View style={{ backgroundColor: '#FFF3CD', borderColor: '#FFEEBA', borderWidth: 1, padding: 12, borderRadius: 8, marginBottom: 16 }}>
+              <Text style={{ color: '#856404' }}>
+                You are currently signed in as {user.email || user.name}. If you want to test logging in as another user, please log out first.
+              </Text>
+              <TouchableOpacity onPress={handleLogout} style={{ marginTop: 8 }}>
+                <Text style={{ color: '#007AFF', fontWeight: '600' }}>Log Out</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
           {/* Logo/Icon */}
           <View style={styles.logoContainer}>
             <View style={styles.logo}>

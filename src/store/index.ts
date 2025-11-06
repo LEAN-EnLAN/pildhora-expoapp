@@ -8,11 +8,12 @@ import authReducer from './slices/authSlice';
 import medicationsReducer from './slices/medicationsSlice';
 import tasksReducer from './slices/tasksSlice';
 import bleReducer from './slices/bleSlice';
+import deviceReducer from './slices/deviceSlice';
 
 const persistConfig = {
   key: 'root',
   storage: AsyncStorage,
-  whitelist: ['auth', 'medications', 'tasks'], // Persist these slices, not BLE state
+  whitelist: ['auth', 'medications', 'tasks'], // Persist these slices, not BLE/device real-time state
 };
 
 const rootReducer = combineReducers({
@@ -20,6 +21,7 @@ const rootReducer = combineReducers({
   medications: medicationsReducer,
   tasks: tasksReducer,
   ble: bleReducer,
+  device: deviceReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

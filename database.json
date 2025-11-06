@@ -1,0 +1,34 @@
+{
+  "devices": {
+    "DEVICE-001": {
+      "state": {
+        "is_online": true,
+        "battery_level": 85,
+        "current_status": "PENDING",
+        "last_event_at": 0
+      },
+      "config": {
+        "led_intensity": 512,
+        "led_color_rgb": [255, 0, 0],
+        "alarm_mode": "both"
+      }
+    }
+  },
+  "users": {
+    "VRExADHJveRjUxhR0OvgfBQzU7G3": {
+      "devices": {
+        "DEVICE-001": true
+      }
+    },
+    "vwAJSWocW6WoslFj0jc5XYssYaJ3": {
+      "devices": {
+        "DEVICE-001": true
+      }
+    },
+    "vtBGfPfbEhU6Z7njl1YsujrUexc2": {
+      "devices": {
+        "DEVICE-001": true
+      }
+    }
+  }
+}
