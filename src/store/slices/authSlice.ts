@@ -3,6 +3,7 @@ import { User, ApiResponse } from '../../types';
 import { auth, db } from '../../services/firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { convertTimestamps } from '../../utils/firestoreUtils';
 
 interface AuthState {
   user: User | null;
@@ -54,7 +55,8 @@ export const signIn = createAsyncThunk(
       // Get user data from Firestore
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       if (userDoc.exists()) {
-        return userDoc.data() as User;
+        const userData = convertTimestamps(userDoc.data()) as User;
+        return userData;
       } else {
         throw new Error('User data not found');
       }
@@ -79,17 +81,27 @@ export const checkAuthState = createAsyncThunk(
   'auth/checkAuthState',
   async (_, { dispatch }) => {
     return new Promise<User | null>((resolve) => {
+      console.log('[Auth] Checking authentication state...');
       const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
         if (firebaseUser) {
+          console.log('[Auth] Firebase user authenticated:', firebaseUser.uid);
           // Get user data from Firestore
-          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data() as User;
-            resolve(userData);
-          } else {
+          try {
+            const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+            if (userDoc.exists()) {
+              const userData = convertTimestamps(userDoc.data()) as User;
+              console.log('[Auth] User data loaded from Firestore:', userData);
+              resolve(userData);
+            } else {
+              console.error('[Auth] User document not found in Firestore');
+              resolve(null);
+            }
+          } catch (error) {
+            console.error('[Auth] Error loading user data from Firestore:', error);
             resolve(null);
           }
         } else {
+          console.log('[Auth] No authenticated Firebase user');
           resolve(null);
         }
         unsubscribe();

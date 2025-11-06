@@ -6,6 +6,13 @@ import { useEffect } from 'react';
 import { ensurePushTokensRegistered } from '../src/services/notifications/push';
 import { Platform } from 'react-native';
 
+// Extend Window interface for testing
+declare global {
+  interface Window {
+    __REDUX_STORE__?: typeof store;
+  }
+}
+
 function NotificationsBootstrapper() {
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
   const userId = useSelector((state: RootState) => state.auth.user?.id);
@@ -23,6 +30,11 @@ function NotificationsBootstrapper() {
 }
 
 export default function RootLayout() {
+  // Expose store to window for testing in browser
+  if (typeof window !== 'undefined') {
+    window.__REDUX_STORE__ = store;
+  }
+  
   return (
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>

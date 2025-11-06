@@ -1,0 +1,13 @@
+diff --git a/node_modules/react-native-color-picker/dist/HoloColorPicker.js b/node_modules/react-native-color-picker/dist/HoloColorPicker.js
+index 1234567..abcdefg 100644
+--- a/node_modules/react-native-color-picker/dist/HoloColorPicker.js
++++ b/node_modules/react-native-color-picker/dist/HoloColorPicker.js
+@@ -12,7 +12,7 @@
+ })();
+ import React from "react";
+-import { I18nManager, Image, InteractionManager, Slider, StyleSheet, TouchableOpacity, View, } from "react-native";
++import { I18nManager, Image, InteractionManager, StyleSheet, TouchableOpacity, View, } from "react-native";
++import Slider from "@react-native-community/slider";
+ import tinycolor from "tinycolor2";
+ import { createPanResponder } from "./utils";
+ var HoloColorPicker = /** @class */ (function (_super) {

@@ -35,8 +35,10 @@ export function useCollectionSWR<T>({
 
       // Fast initial read
       try {
+        console.log(`[useCollectionSWR] Executing query for ${cacheKey}:`, query);
         const snap = await getDocs(query);
         const docs = snap.docs.map(d => ({ id: d.id, ...d.data() })) as T[];
+        console.log(`[useCollectionSWR] Query successful for ${cacheKey}, found ${docs.length} documents`);
         if (mounted) {
           setData(docs);
           setSource('firestore');
@@ -44,18 +46,35 @@ export function useCollectionSWR<T>({
           setLoading(false);
         }
       } catch (e: any) {
+        console.error(`[useCollectionSWR] Query failed for ${cacheKey}:`, e);
+        console.error(`[useCollectionSWR] Error details:`, {
+          message: e.message,
+          code: e.code,
+          permissionDenied: e.code === 'permission-denied',
+          unauthenticated: e.code === 'unauthenticated'
+        });
         setError(e);
       }
 
       // Live updates
       unsub = onSnapshot(query, (snapshot: QuerySnapshot) => {
         const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as T[];
+        console.log(`[useCollectionSWR] Live update for ${cacheKey}, received ${docs.length} documents`);
         if (mounted) {
           setData(docs);
           setSource('firestore');
           setCache(cacheKey, docs);
         }
-      }, (e) => setError(e));
+      }, (e) => {
+        console.error(`[useCollectionSWR] Live update failed for ${cacheKey}:`, e);
+        console.error(`[useCollectionSWR] Live update error details:`, {
+          message: e.message,
+          code: e.code,
+          permissionDenied: e.code === 'permission-denied',
+          unauthenticated: e.code === 'unauthenticated'
+        });
+        setError(e);
+      });
     })();
 
     return () => {

@@ -32,6 +32,15 @@ export const store = configureStore({
     getDefaultMiddleware({
       serializableCheck: {
         ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE', 'persist/REGISTER'],
+        // Ignore all date/timestamp fields for serializable check
+        ignoredPaths: [
+          'auth.user.createdAt',
+          'medications.medications.createdAt',
+          'medications.medications.updatedAt',
+          'tasks.tasks.createdAt',
+          'tasks.tasks.dueDate',
+          'device.devices.lastSeen',
+        ],
       },
     }),
 });

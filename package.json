@@ -6,12 +6,13 @@
     "start": "dotenv -e .env -- expo start",
     "android": "dotenv -e .env -- expo start --android",
     "ios": "dotenv -e .env -- expo start --ios",
-    "web": "dotenv -e .env -- expo start --web"
+    "web": "dotenv -e .env -- expo start --web",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
     "@react-native-async-storage/async-storage": "^2.2.0",
-    "@react-native-community/slider": "^5.1.0",
+    "@react-native-community/slider": "^5.0.1",
     "@reduxjs/toolkit": "^2.9.2",
     "expo": "54.0.22",
     "expo-constants": "~18.0.10",
@@ -20,6 +21,7 @@
     "expo-router": "~6.0.14",
     "expo-status-bar": "~3.0.8",
     "firebase": "^12.5.0",
+    "firebase-cli": "^1.2.0",
     "nativewind": "^2.0.11",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -40,8 +42,10 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "babel-plugin-module-resolver": "^5.0.2",
     "babel-preset-expo": "^54.0.6",
     "dotenv-cli": "^11.0.0",
+    "patch-package": "^8.0.1",
     "typescript": "~5.9.2"
   },
   "private": true

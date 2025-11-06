@@ -2,9 +2,16 @@ rules_version='2'
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can only read and write their own documents
+    // Users can read their own documents
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Allow caregivers to query users collection to find their assigned patients
+    match /users {
+      allow list: if request.auth != null &&
+        request.query.role == 'patient' &&
+        request.query.caregiverId == request.auth.uid;
     }
     
     // Medications rules - users can only access their own medications
@@ -15,12 +22,18 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.userId;
     }
     
-    // Tasks rules - users can only access their own tasks
+    // Tasks rules - users can access their own tasks
     match /tasks/{taskId} {
       allow read, write: if request.auth != null &&
         request.auth.uid == resource.data.userId;
       allow create: if request.auth != null &&
         request.auth.uid == request.resource.data.userId;
+    }
+    
+    // Allow caregivers to query tasks collection for tasks assigned to them
+    match /tasks {
+      allow list: if request.auth != null &&
+        request.query.caregiverId == request.auth.uid;
     }
     
     // Devices metadata and access control (query-friendly)

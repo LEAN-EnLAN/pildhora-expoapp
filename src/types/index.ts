@@ -4,7 +4,7 @@ export interface User {
   email: string;
   role: 'patient' | 'caregiver';
   name: string;
-  createdAt: Date;
+  createdAt: Date | string; // Can be Date object or ISO string after Firestore conversion
 }
 
 // Medication types
@@ -16,8 +16,8 @@ export interface Medication {
   times: string[];
   patientId: string;
   caregiverId: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: Date | string; // Can be Date object or ISO string after Firestore conversion
+  updatedAt: Date | string; // Can be Date object or ISO string after Firestore conversion
 }
 
 // Task types
@@ -28,8 +28,8 @@ export interface Task {
   patientId: string;
   caregiverId: string;
   completed: boolean;
-  dueDate: Date;
-  createdAt: Date;
+  dueDate: Date | string; // Can be Date object or ISO string after Firestore conversion
+  createdAt: Date | string; // Can be Date object or ISO string after Firestore conversion
 }
 
 // BLE device types
@@ -38,7 +38,7 @@ export interface PillboxDevice {
   name: string;
   connected: boolean;
   batteryLevel?: number;
-  lastSeen: Date;
+  lastSeen: Date | string; // Can be Date object or ISO string after Firestore conversion
 }
 
 // Medication intake types
@@ -52,10 +52,10 @@ export interface IntakeRecord {
   id: string;
   medicationName: string;
   dosage: string;
-  scheduledTime: Date;
+  scheduledTime: Date | string; // Can be Date object or ISO string after Firestore conversion
   status: IntakeStatus;
   patientId: string;
-  takenAt?: Date;
+  takenAt?: Date | string; // Can be Date object or ISO string after Firestore conversion
 }
 
 // API response types
@@ -72,7 +72,7 @@ export interface Patient {
   email: string;
   deviceId?: string;
   caregiverId: string;
-  createdAt: Date;
+  createdAt: Date | string; // Can be Date object or ISO string after Firestore conversion
   adherence?: number;
   lastTaken?: string;
 }

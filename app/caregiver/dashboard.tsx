@@ -279,13 +279,19 @@ export default function CaregiverDashboard() {
 
   // Fetch patients using SWR pattern
   const patientsQuery = useMemo(() => {
-    if (!user) return null;
-    return query(
+    console.log('[CaregiverDashboard] Creating patients query, user:', user);
+    if (!user) {
+      console.log('[CaregiverDashboard] No user found, skipping patients query');
+      return null;
+    }
+    const q = query(
       collection(db, 'users'),
       where('role', '==', 'patient'),
       where('caregiverId', '==', user.id),
       orderBy('createdAt', 'desc')
     );
+    console.log('[CaregiverDashboard] Patients query created:', q);
+    return q;
   }, [user]);
 
   const {
@@ -299,14 +305,33 @@ export default function CaregiverDashboard() {
     initialData: STATIC_PATIENTS,
   });
 
+  // Log patients query results
+  useEffect(() => {
+    console.log('[CaregiverDashboard] Patients query state:', {
+      isLoading: patientsLoading,
+      error: patientsError,
+      dataCount: patients.length,
+      source: patientsSource
+    });
+    if (patientsError) {
+      console.error('[CaregiverDashboard] Patients query error details:', patientsError);
+    }
+  }, [patientsLoading, patientsError, patients.length, patientsSource]);
+
   // Fetch tasks using SWR pattern
   const tasksQuery = useMemo(() => {
-    if (!user) return null;
-    return query(
+    console.log('[CaregiverDashboard] Creating tasks query, user:', user);
+    if (!user) {
+      console.log('[CaregiverDashboard] No user found, skipping tasks query');
+      return null;
+    }
+    const q = query(
       collection(db, 'tasks'),
       where('caregiverId', '==', user.id),
       orderBy('dueDate', 'asc')
     );
+    console.log('[CaregiverDashboard] Tasks query created:', q);
+    return q;
   }, [user]);
 
   const {
@@ -319,6 +344,19 @@ export default function CaregiverDashboard() {
     query: tasksQuery,
     initialData: STATIC_TASKS,
   });
+
+  // Log tasks query results
+  useEffect(() => {
+    console.log('[CaregiverDashboard] Tasks query state:', {
+      isLoading: tasksLoading,
+      error: tasksError,
+      dataCount: tasks.length,
+      source: tasksSource
+    });
+    if (tasksError) {
+      console.error('[CaregiverDashboard] Tasks query error details:', tasksError);
+    }
+  }, [tasksLoading, tasksError, tasks.length, tasksSource]);
 
   // Combine patients with device states and dose segments
   useEffect(() => {
