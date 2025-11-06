@@ -5,7 +5,13 @@
     "users": {
       "$uid": {
         ".read": "$uid === auth.uid",
-        ".write": "$uid === auth.uid"
+        ".write": "$uid === auth.uid",
+        "devices": {
+          "$deviceID": {
+            ".read": "$uid === auth.uid",
+            ".write": "$uid === auth.uid"
+          }
+        }
       }
     },
     "devices": {

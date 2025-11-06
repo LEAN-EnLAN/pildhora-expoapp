@@ -4,7 +4,7 @@ import Slider from '@react-native-community/slider';
 import { ColorPicker, fromHsv } from 'react-native-color-picker';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../src/store';
-import { linkDeviceToUser, unlinkDeviceFromUser } from '../../src/services/deviceLinking';
+import { linkDeviceToUser, unlinkDeviceFromUser, checkDevelopmentRuleStatus } from '../../src/services/deviceLinking';
 import { rdb, db } from '../../src/services/firebase';
 import { ref, get, set } from 'firebase/database';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -121,24 +121,47 @@ export default function LinkDeviceScreen() {
 
   useEffect(() => {
     refreshLinkedDevices();
+    // Check development rule status on component mount
+    checkDevelopmentRuleStatus().catch(console.error);
   }, [userId]);
 
   const handleLink = async () => {
+    console.log('[DEBUG] handleLink called');
     setError(null);
+    
+    // Log Redux state
+    console.log('[DEBUG] Redux auth state:', {
+      userId,
+      isAuthenticated: !!userId,
+      deviceId: deviceId.trim()
+    });
+    
     if (!userId) {
+      console.error('[DEBUG] No userId in Redux state');
       setError('Debes iniciar sesión para enlazar un dispositivo.');
       return;
     }
     if (!deviceId.trim()) {
+      console.error('[DEBUG] No deviceId provided');
       setError('Ingresa un Device ID válido.');
       return;
     }
+    
     try {
+      console.log('[DEBUG] Starting device linking process...');
       setLoading(true);
       await linkDeviceToUser(userId, deviceId.trim());
+      console.log('[DEBUG] Device linking successful, refreshing device list...');
       setDeviceId('');
       await refreshLinkedDevices();
+      console.log('[DEBUG] Device list refreshed successfully');
     } catch (e: any) {
+      console.error('[DEBUG] Device linking failed:', {
+        error: e,
+        message: e.message,
+        code: e.code,
+        stack: e.stack
+      });
       setError(e.message || 'No se pudo enlazar el dispositivo');
     } finally {
       setLoading(false);
