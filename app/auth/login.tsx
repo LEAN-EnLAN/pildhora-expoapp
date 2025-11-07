@@ -146,26 +146,26 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
 
     try {
       const result = await dispatch(signIn({ email: email.trim(), password })).unwrap();
-      // Navigation will be handled by auth state change
+      // La navegación será manejada por el cambio de estado de autenticación
       if (result.role === 'patient') {
         router.replace('/patient/home');
       } else {
         router.replace('/caregiver/dashboard');
       }
     } catch (error: any) {
-      // Show friendlier messages for common Firebase Auth errors
-      const message = typeof error === 'string' ? error : (error?.message || 'Unknown error');
+      // Mensajes más amigables para errores comunes de Firebase Auth
+      const message = typeof error === 'string' ? error : (error?.message || 'Error desconocido');
       let friendly = message;
-      if (message.includes('auth/wrong-password')) friendly = 'Incorrect password. Please try again.';
-      if (message.includes('auth/user-not-found')) friendly = 'No account found with that email.';
-      if (message.includes('auth/too-many-requests')) friendly = 'Too many attempts. Please wait a moment and try again.';
-      Alert.alert('Login Failed', friendly);
+      if (message.includes('auth/wrong-password')) friendly = 'Contraseña incorrecta. Intenta nuevamente.';
+      if (message.includes('auth/user-not-found')) friendly = 'No existe una cuenta con ese correo.';
+      if (message.includes('auth/too-many-requests')) friendly = 'Demasiados intentos. Espera un momento y vuelve a intentar.';
+      Alert.alert('Error de inicio de sesión', friendly);
     }
   };
 
@@ -174,11 +174,11 @@ export default function LoginScreen() {
   };
 
   const handleLogout = async () => {
-    // Explicitly log out to clear any existing session and persisted auth state
+    // Cerrar sesión para limpiar cualquier sesión existente y estado de autenticación persistido
     await dispatch(logout());
-    // Also ensure Firebase Auth session is cleared
+    // También aseguramos que la sesión de Firebase Auth se cierre
     try { await auth.signOut(); } catch {}
-    Alert.alert('Logged Out', 'You have been signed out. You can now log in with a different account.');
+    Alert.alert('Sesión cerrada', 'Has cerrado sesión. Ahora puedes iniciar con otra cuenta.');
   };
 
   return (
@@ -192,10 +192,10 @@ export default function LoginScreen() {
           {isAuthenticated && user ? (
             <View style={{ backgroundColor: '#FFF3CD', borderColor: '#FFEEBA', borderWidth: 1, padding: 12, borderRadius: 8, marginBottom: 16 }}>
               <Text style={{ color: '#856404' }}>
-                You are currently signed in as {user.email || user.name}. If you want to test logging in as another user, please log out first.
+                Actualmente has iniciado sesión como {user.email || user.name}. Si deseas probar iniciar sesión con otro usuario, cierra sesión primero.
               </Text>
               <TouchableOpacity onPress={handleLogout} style={{ marginTop: 8 }}>
-                <Text style={{ color: '#007AFF', fontWeight: '600' }}>Log Out</Text>
+                <Text style={{ color: '#007AFF', fontWeight: '600' }}>Cerrar sesión</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -204,16 +204,16 @@ export default function LoginScreen() {
             <View style={styles.logo}>
               <Text style={styles.logoText}>P</Text>
             </View>
-            <Text style={styles.welcomeTitle}>Welcome Back</Text>
-            <Text style={styles.welcomeSubtitle}>Sign in to your Pildhora account</Text>
+            <Text style={styles.welcomeTitle}>Bienvenido de nuevo</Text>
+            <Text style={styles.welcomeSubtitle}>Inicia sesión en tu cuenta de Pildhora</Text>
           </View>
 
           {/* Email Input */}
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Email Address</Text>
+            <Text style={styles.inputLabel}>Correo electrónico</Text>
             <TextInput
               style={styles.input}
-              placeholder="Enter your email"
+              placeholder="Ingresa tu correo"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -223,10 +223,10 @@ export default function LoginScreen() {
 
           {/* Password Input */}
           <View style={styles.passwordContainer}>
-            <Text style={styles.inputLabel}>Password</Text>
+            <Text style={styles.inputLabel}>Contraseña</Text>
             <TextInput
               style={styles.input}
-              placeholder="Enter your password"
+              placeholder="Ingresa tu contraseña"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -240,21 +240,21 @@ export default function LoginScreen() {
             disabled={loading}
           >
             <Text style={styles.signInButtonText}>
-              {loading ? 'Signing In...' : 'Sign In'}
+              {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
             </Text>
           </TouchableOpacity>
 
           {/* Sign Up Link */}
           <View style={styles.signUpContainer}>
-            <Text style={styles.signUpText}>Don't have an account? </Text>
+            <Text style={styles.signUpText}>¿No tienes una cuenta? </Text>
             <TouchableOpacity onPress={navigateToSignup}>
-              <Text style={styles.signUpLink}>Sign Up</Text>
+              <Text style={styles.signUpLink}>Regístrate</Text>
             </TouchableOpacity>
           </View>
 
           {/* Back Button */}
           <TouchableOpacity style={styles.backContainer} onPress={() => router.back()}>
-            <Text style={styles.backText}>← Back to Role Selection</Text>
+            <Text style={styles.backText}>← Volver a la selección de rol</Text>
           </TouchableOpacity>
         </View>
       </View>

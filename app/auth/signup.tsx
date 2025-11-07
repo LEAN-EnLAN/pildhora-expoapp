@@ -221,25 +221,25 @@ export default function SignupScreen() {
 
   const handleSignup = async () => {
     if (!name || !email || !password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      Alert.alert('Error', 'Las contraseñas no coinciden');
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
       return;
     }
 
     try {
       const result = await dispatch(signUp({ email, password, name, role })).unwrap();
-      Alert.alert('Success', 'Account created successfully!', [
+      Alert.alert('Éxito', '¡Cuenta creada exitosamente!', [
         {
-          text: 'OK',
+          text: 'Aceptar',
           onPress: () => {
             if (result.role === 'patient') {
               router.replace('/patient/home');
@@ -250,7 +250,7 @@ export default function SignupScreen() {
         },
       ]);
     } catch (error) {
-      Alert.alert('Signup Failed', error as string);
+      Alert.alert('Error de registro', error as string);
     }
   };
 
@@ -270,16 +270,16 @@ export default function SignupScreen() {
             <View style={styles.logo}>
               <Text style={styles.logoText}>P</Text>
             </View>
-            <Text style={styles.welcomeTitle}>Create Account</Text>
-            <Text style={styles.welcomeSubtitle}>Join Pildhora today</Text>
+            <Text style={styles.welcomeTitle}>Crear cuenta</Text>
+            <Text style={styles.welcomeSubtitle}>Únete a Pildhora hoy</Text>
           </View>
 
           {/* Name Input */}
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Full Name</Text>
+            <Text style={styles.inputLabel}>Nombre completo</Text>
             <TextInput
               style={styles.input}
-              placeholder="Enter your full name"
+              placeholder="Ingresa tu nombre completo"
               value={name}
               onChangeText={setName}
             />
@@ -287,10 +287,10 @@ export default function SignupScreen() {
 
           {/* Email Input */}
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Email Address</Text>
+            <Text style={styles.inputLabel}>Correo electrónico</Text>
             <TextInput
               style={styles.input}
-              placeholder="Enter your email"
+              placeholder="Ingresa tu correo"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -300,10 +300,10 @@ export default function SignupScreen() {
 
           {/* Password Input */}
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Password</Text>
+            <Text style={styles.inputLabel}>Contraseña</Text>
             <TextInput
               style={styles.input}
-              placeholder="Enter your password"
+              placeholder="Ingresa tu contraseña"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -312,10 +312,10 @@ export default function SignupScreen() {
 
           {/* Confirm Password Input */}
           <View style={styles.confirmPasswordContainer}>
-            <Text style={styles.inputLabel}>Confirm Password</Text>
+            <Text style={styles.inputLabel}>Confirmar contraseña</Text>
             <TextInput
               style={styles.input}
-              placeholder="Confirm your password"
+              placeholder="Confirma tu contraseña"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry
@@ -324,7 +324,7 @@ export default function SignupScreen() {
 
           {/* Role Selection */}
           <View style={styles.roleContainer}>
-            <Text style={styles.roleLabel}>I am a:</Text>
+            <Text style={styles.roleLabel}>Soy:</Text>
             <View style={styles.roleButtonContainer}>
               <TouchableOpacity
                 style={[
@@ -337,7 +337,7 @@ export default function SignupScreen() {
                   styles.roleButtonText,
                   role === 'patient' && styles.roleButtonTextSelected
                 ]}>
-                  Patient
+                  Paciente
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -351,7 +351,7 @@ export default function SignupScreen() {
                   styles.roleButtonText,
                   role === 'caregiver' && styles.caregiverButtonTextSelected
                 ]}>
-                  Caregiver
+                  Cuidador
                 </Text>
               </TouchableOpacity>
             </View>
@@ -364,21 +364,21 @@ export default function SignupScreen() {
             disabled={loading}
           >
             <Text style={styles.signUpButtonText}>
-              {loading ? 'Creating Account...' : 'Sign Up'}
+              {loading ? 'Creando cuenta...' : 'Registrarse'}
             </Text>
           </TouchableOpacity>
 
           {/* Sign In Link */}
           <View style={styles.signInContainer}>
-            <Text style={styles.signInText}>Already have an account? </Text>
+            <Text style={styles.signInText}>¿Ya tienes una cuenta? </Text>
             <TouchableOpacity onPress={navigateToLogin}>
-              <Text style={styles.signInLink}>Sign In</Text>
+              <Text style={styles.signInLink}>Iniciar sesión</Text>
             </TouchableOpacity>
           </View>
 
           {/* Back Button */}
           <TouchableOpacity style={styles.backContainer} onPress={() => router.back()}>
-            <Text style={styles.backText}>← Back to Role Selection</Text>
+            <Text style={styles.backText}>← Volver a la selección de rol</Text>
           </TouchableOpacity>
         </View>
       </View>

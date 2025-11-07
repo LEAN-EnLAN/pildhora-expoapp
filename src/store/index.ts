@@ -6,6 +6,7 @@ import { combineReducers } from 'redux';
 // Import slices
 import authReducer from './slices/authSlice';
 import medicationsReducer from './slices/medicationsSlice';
+import intakesReducer from './slices/intakesSlice';
 import tasksReducer from './slices/tasksSlice';
 import bleReducer from './slices/bleSlice';
 import deviceReducer from './slices/deviceSlice';
@@ -19,6 +20,7 @@ const persistConfig = {
 const rootReducer = combineReducers({
   auth: authReducer,
   medications: medicationsReducer,
+  intakes: intakesReducer,
   tasks: tasksReducer,
   ble: bleReducer,
   device: deviceReducer,
@@ -37,6 +39,8 @@ export const store = configureStore({
           'auth.user.createdAt',
           'medications.medications.createdAt',
           'medications.medications.updatedAt',
+          'intakes.intakes.scheduledTime',
+          'intakes.intakes.takenAt',
           'tasks.tasks.createdAt',
           'tasks.tasks.dueDate',
           'device.devices.lastSeen',

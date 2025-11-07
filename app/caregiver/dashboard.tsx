@@ -7,10 +7,15 @@ import {
   StyleSheet,
   Alert,
   RefreshControl,
-  ActivityIndicator
+  ActivityIndicator,
+  ScrollView,
+  Modal,
+  Linking
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
+import { Ionicons } from '@expo/vector-icons';
 import { collection, query, where, orderBy } from 'firebase/firestore';
 import { AppDispatch, RootState } from '../../src/store';
 import { logout } from '../../src/store/slices/authSlice';
@@ -90,184 +95,7 @@ const generateMockDoseSegments = (adherence: number): DoseSegment[] => {
   return segments;
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F2F2F7',
-  },
-  header: {
-    padding: 20,
-    backgroundColor: 'white',
-    marginBottom: 16,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#8E8E93',
-    marginTop: 4,
-  },
-  card: {
-    backgroundColor: 'white',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 12,
-    padding: 16,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1C1C1E',
-  },
-  patientItem: {
-    marginBottom: 16,
-    borderRadius: 8,
-    backgroundColor: '#F9F9F9',
-    padding: 12,
-  },
-  patientHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  patientInfo: {
-    flex: 1,
-  },
-  patientName: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#1C1C1E',
-  },
-  patientDetails: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginTop: 2,
-  },
-  adherenceBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  goodAdherence: {
-    backgroundColor: '#34C759',
-  },
-  warningAdherence: {
-    backgroundColor: '#FF9500',
-  },
-  adherenceText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  doseRingContainer: {
-    alignItems: 'center',
-    marginVertical: 12,
-  },
-  deviceStatusContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-  },
-  deviceStatusText: {
-    fontSize: 12,
-    color: '#8E8E93',
-  },
-  onlineStatus: {
-    color: '#34C759',
-    fontWeight: '500',
-  },
-  offlineStatus: {
-    color: '#FF3B30',
-    fontWeight: '500',
-  },
-  taskItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  taskInfo: {
-    flex: 1,
-  },
-  taskTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#1C1C1E',
-  },
-  taskPatient: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginTop: 2,
-  },
-  completedBadge: {
-    backgroundColor: '#34C759',
-  },
-  pendingBadge: {
-    backgroundColor: '#FF9500',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    marginHorizontal: 16,
-    marginBottom: 16,
-  },
-  button: {
-    flex: 1,
-    backgroundColor: '#007AFF',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  leftButton: {
-    marginRight: 8,
-  },
-  rightButton: {
-    marginLeft: 8,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  backButton: {
-    backgroundColor: '#007AFF',
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  errorContainer: {
-    padding: 16,
-    backgroundColor: '#FF3B30',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 8,
-  },
-  errorText: {
-    color: 'white',
-    textAlign: 'center',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});
+
 
 export default function CaregiverDashboard() {
   const router = useRouter();
@@ -276,6 +104,9 @@ export default function CaregiverDashboard() {
   const { state: deviceState, listening } = useSelector((state: RootState) => state.device);
   const [refreshing, setRefreshing] = useState(false);
   const [patientsWithDevices, setPatientsWithDevices] = useState<PatientWithDevice[]>([]);
+  const [modalVisible, setModalVisible] = useState(false);
+
+  const displayName = user?.name || (user?.email ? user.email.split('@')[0] : 'Cuidador');
 
   // Fetch patients using SWR pattern
   const patientsQuery = useMemo(() => {
@@ -394,29 +225,41 @@ export default function CaregiverDashboard() {
     setTimeout(() => setRefreshing(false), 1000);
   };
 
+  const handleEmergency = () => {
+    setModalVisible(true);
+  };
+
+  const callEmergency = (number: string) => {
+    try {
+      Linking.openURL(`tel:${number}`);
+    } catch (e) {
+      // noop; on web this may not work
+    }
+    setModalVisible(false);
+  };
+
   const renderPatientItem = ({ item }: { item: PatientWithDevice }) => (
     <View
-      style={styles.patientItem}
+      className="bg-gray-50 rounded-xl p-4"
       accessible={true}
       accessibilityLabel={`Patient: ${item.name}, Adherence: ${item.adherence}%`}
     >
-      <View style={styles.patientHeader}>
-        <View style={styles.patientInfo}>
-          <Text style={styles.patientName}>{item.name}</Text>
-          <Text style={styles.patientDetails}>
-            Adherence: {item.adherence}% | Last taken: {item.lastTaken}
+      <View className="flex-row items-center justify-between mb-3">
+        <View className="flex-1">
+          <Text className="text-base font-semibold text-gray-900">{item.name}</Text>
+          <Text className="text-sm text-gray-600">
+            Adherencia: {item.adherence}% | Última dosis: {item.lastTaken}
           </Text>
         </View>
-        <View style={[
-          styles.adherenceBadge,
-          (item.adherence || 0) > 80 ? styles.goodAdherence : styles.warningAdherence
-        ]}>
-          <Text style={styles.adherenceText}>{item.adherence}%</Text>
+        <View className={`px-3 py-1 rounded-full ${
+          (item.adherence || 0) > 80 ? 'bg-green-500' : 'bg-orange-500'
+        }`}>
+          <Text className="text-white font-semibold text-sm">{item.adherence}%</Text>
         </View>
       </View>
 
       {/* DoseRing visualization */}
-      <View style={styles.doseRingContainer}>
+      <View className="items-center justify-center my-4">
         <DoseRing
           segments={item.doseSegments || []}
           accessibilityLabel={`Dose adherence visualization for ${item.name}`}
@@ -425,15 +268,14 @@ export default function CaregiverDashboard() {
 
       {/* Device status */}
       {item.deviceState && (
-        <View style={styles.deviceStatusContainer}>
-          <Text style={styles.deviceStatusText}>
-            Battery: {item.deviceState.battery_level}%
+        <View className="flex-row justify-between items-center pt-3 border-t border-gray-200">
+          <Text className="text-xs text-gray-600">
+            Batería: {item.deviceState.battery_level}%
           </Text>
-          <Text style={[
-            styles.deviceStatusText,
-            item.deviceState.is_online ? styles.onlineStatus : styles.offlineStatus
-          ]}>
-            {item.deviceState.is_online ? 'Online' : 'Offline'}
+          <Text className={`text-xs font-medium ${
+            item.deviceState.is_online ? 'text-green-600' : 'text-red-600'
+          }`}>
+            {item.deviceState.is_online ? 'En línea' : 'Desconectado'}
           </Text>
           <DataSourceBadge source={patientsSource} />
         </View>
@@ -443,29 +285,28 @@ export default function CaregiverDashboard() {
 
   const renderTaskItem = ({ item }: { item: Task }) => (
     <View
-      style={styles.taskItem}
+      className="flex-row items-center justify-between py-3 border-b border-gray-200 last:border-b-0"
       accessible={true}
       accessibilityLabel={`Task: ${item.title} for patient ${item.patientId}, Status: ${item.completed ? 'Completed' : 'Pending'}`}
     >
-      <View style={styles.taskInfo}>
-        <Text style={styles.taskTitle}>{item.title}</Text>
-        <Text style={styles.taskPatient}>
-          Patient: {patients.find(p => p.id === item.patientId)?.name || 'Unknown'}
+      <View className="flex-1">
+        <Text className="text-base font-medium text-gray-900">{item.title}</Text>
+        <Text className="text-sm text-gray-600">
+          Paciente: {patients.find(p => p.id === item.patientId)?.name || 'Desconocido'}
         </Text>
       </View>
-      <View style={[
-        styles.adherenceBadge,
-        item.completed ? styles.completedBadge : styles.pendingBadge
-      ]}>
-        <Text style={styles.adherenceText}>
-          {item.completed ? 'Done' : 'Pending'}
+      <View className={`px-3 py-1 rounded-full ${
+        item.completed ? 'bg-green-500' : 'bg-orange-500'
+      }`}>
+        <Text className="text-white font-semibold text-sm">
+          {item.completed ? 'Completado' : 'Pendiente'}
         </Text>
       </View>
     </View>
   );
 
   const renderPatientSkeleton = () => (
-    <View style={styles.patientItem}>
+    <View className="bg-gray-50 rounded-xl p-4 mb-4">
       <SkeletonLoader height={20} width="60%" style={{ marginBottom: 8 }} />
       <SkeletonLoader height={16} width="40%" style={{ marginBottom: 16 }} />
       <SkeletonLoader height={120} width={120} style={{ alignSelf: 'center', marginBottom: 16 }} />
@@ -474,8 +315,11 @@ export default function CaregiverDashboard() {
   );
 
   const renderTaskSkeleton = () => (
-    <View style={styles.taskItem}>
-      <SkeletonLoader height={16} width="70%" />
+    <View className="flex-row items-center justify-between py-3 border-b border-gray-200">
+      <View className="flex-1">
+        <SkeletonLoader height={16} width="70%" style={{ marginBottom: 4 }} />
+        <SkeletonLoader height={14} width="50%" />
+      </View>
       <SkeletonLoader height={20} width={60} />
     </View>
   );
@@ -483,41 +327,99 @@ export default function CaregiverDashboard() {
   // Show error if both patients and tasks failed to load
   if (patientsError && tasksError) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Caregiver Dashboard</Text>
-          <Text style={styles.headerSubtitle}>Monitor your patients</Text>
+      <SafeAreaView className="flex-1 bg-gray-100">
+        <View className="flex-row items-center justify-between bg-white px-4 py-3 border-b border-gray-200">
+          <View>
+            <Text className="text-2xl font-extrabold text-gray-900">PILDHORA</Text>
+            <Text className="text-sm text-gray-500">Hola, {displayName}</Text>
+          </View>
+          <TouchableOpacity className="px-3 py-2 rounded-lg bg-gray-400 items-center justify-center" onPress={async () => {
+            await dispatch(logout());
+            router.replace('/');
+          }}>
+            <Text className="text-white font-bold text-center">Salir</Text>
+          </TouchableOpacity>
         </View>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>
-            Failed to load data. Please check your connection and try again.
-          </Text>
+        <View className="p-4">
+          <View className="bg-red-100 border border-red-200 rounded-2xl p-4">
+            <Text className="text-red-800 text-center font-semibold">
+              Error al cargar datos. Verifica tu conexión e intenta nuevamente.
+            </Text>
+          </View>
         </View>
-        <TouchableOpacity style={styles.backButton} onPress={async () => {
-          await dispatch(logout());
-          router.replace('/');
-        }}>
-          <Text style={styles.buttonText}>Log Out and Return</Text>
-        </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <FlatList
-      style={styles.container}
-      data={[]} // Empty data since we're using ListHeaderComponent for content
-      renderItem={() => null}
-      ListHeaderComponent={
+    <SafeAreaView className="flex-1 bg-gray-100">
+      {/* Header */}
+      <View className="flex-row items-center justify-between bg-white px-4 py-3 border-b border-gray-200">
         <View>
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>Caregiver Dashboard</Text>
-            <Text style={styles.headerSubtitle}>Monitor your patients</Text>
-          </View>
+          <Text className="text-2xl font-extrabold text-gray-900">PILDHORA</Text>
+          <Text className="text-sm text-gray-500">Hola, {displayName}</Text>
+        </View>
+        <View className="flex-row flex-wrap gap-2">
+          {/* Emergency icon-only button */}
+          <TouchableOpacity
+            className="w-10 h-10 rounded-full bg-red-500 items-center justify-center"
+            onPress={handleEmergency}
+            accessibilityLabel="Emergencia"
+            accessibilityHint="Toca para ver opciones de emergencia"
+          >
+            <Ionicons name="ios-alert" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+          <TouchableOpacity className="px-3 py-2 rounded-lg bg-gray-400 items-center justify-center" onPress={async () => {
+            await dispatch(logout());
+            router.replace('/');
+          }}>
+            <Text className="text-white font-bold text-center">Salir</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>Patient Overview</Text>
+      {/* Emergency Modal */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View className="flex-1 bg-black/50 items-center justify-center">
+          <View className="bg-white w-11/12 max-w-md rounded-2xl p-4">
+            <Text className="text-xl font-bold mb-2">Emergencia</Text>
+            <Text className="text-gray-600 mb-4">Selecciona una opción:</Text>
+            <View className="gap-3">
+              <TouchableOpacity
+                className="bg-red-600 rounded-lg px-4 py-3 items-center"
+                onPress={() => callEmergency('911')}
+              >
+                <Text className="text-white font-bold">Llamar 911</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="bg-orange-500 rounded-lg px-4 py-3 items-center"
+                onPress={() => callEmergency('112')}
+              >
+                <Text className="text-white font-bold">Llamar 112</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="bg-gray-200 rounded-lg px-4 py-3 items-center"
+                onPress={() => setModalVisible(false)}
+              >
+                <Text className="text-gray-800 font-semibold">Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Scrollable Content */}
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        {/* Patient Overview */}
+        <View className="p-4">
+          <View className="bg-white rounded-2xl p-4">
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-lg font-bold">Resumen de Pacientes</Text>
               <DataSourceBadge source={patientsSource} />
             </View>
             {patientsLoading ? (
@@ -527,16 +429,19 @@ export default function CaregiverDashboard() {
               </>
             ) : (
               patientsWithDevices.map((patient) => (
-                <View key={patient.id}>
+                <View key={patient.id} className="mb-4 last:mb-0">
                   {renderPatientItem({ item: patient })}
                 </View>
               ))
             )}
           </View>
+        </View>
 
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>Recent Tasks</Text>
+        {/* Recent Tasks */}
+        <View className="px-4">
+          <View className="bg-white rounded-2xl p-4">
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-lg font-bold">Tareas Recientes</Text>
               <DataSourceBadge source={tasksSource} />
             </View>
             {tasksLoading ? (
@@ -546,49 +451,38 @@ export default function CaregiverDashboard() {
               </>
             ) : (
               tasks.map((task) => (
-                <View key={task.id}>
+                <View key={task.id} className="mb-3 last:mb-0">
                   {renderTaskItem({ item: task })}
                 </View>
               ))
             )}
           </View>
+        </View>
 
-          <View style={styles.buttonContainer}>
+        {/* Action Buttons */}
+        <View className="p-4">
+          <View className="flex-row gap-3">
             <TouchableOpacity
-              style={[styles.button, styles.leftButton]}
+              className="flex-1 bg-blue-600 rounded-xl p-4 items-center"
               accessible={true}
-              accessibilityLabel="Add medication"
-              accessibilityHint="Navigate to add medication screen"
+              accessibilityLabel="Añadir medicación"
+              accessibilityHint="Navegar a pantalla de añadir medicación"
             >
-              <Text style={styles.buttonText}>Add Medication</Text>
+              <Ionicons name="add-circle" size={20} color="#FFFFFF" />
+              <Text className="text-white font-bold mt-1">Añadir Medicación</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.button, styles.rightButton]}
+              className="flex-1 bg-green-600 rounded-xl p-4 items-center"
               accessible={true}
-              accessibilityLabel="Generate report"
-              accessibilityHint="Generate adherence report for patients"
+              accessibilityLabel="Generar reporte"
+              accessibilityHint="Generar reporte de adherencia para pacientes"
             >
-              <Text style={styles.buttonText}>Generate Report</Text>
+              <Ionicons name="document-text" size={20} color="#FFFFFF" />
+              <Text className="text-white font-bold mt-1">Generar Reporte</Text>
             </TouchableOpacity>
           </View>
-
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={async () => {
-              await dispatch(logout());
-              router.replace('/');
-            }}
-            accessible={true}
-            accessibilityLabel="Log out and return to home"
-          >
-            <Text style={styles.buttonText}>Log Out and Return</Text>
-          </TouchableOpacity>
         </View>
-      }
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-      }
-      keyExtractor={() => 'dashboard'}
-    />
+      </ScrollView>
+    </SafeAreaView>
   );
 }

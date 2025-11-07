@@ -167,7 +167,7 @@ export default function WelcomeScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity onPress={handleLogin}>
-          <Text style={styles.signInText}>Already have an account? Sign In</Text>
+          <Text style={styles.signInText}>Ya tienes una cuenta? Inicia Sesion!</Text>
         </TouchableOpacity>
       </View>
     </View>

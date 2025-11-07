@@ -5,8 +5,8 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-  "userInterfaceStyle": "light",
-  "scheme": "pildhora",
+    "userInterfaceStyle": "light",
+    "scheme": "pildhora",
     "plugins": [
       "expo-router"
     ],
@@ -29,6 +29,13 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "cd9e689d-375c-4044-b1fe-b5c320f10f0a"
+      }
+    },
+    "owner": "pulpo-code"
   }
 }

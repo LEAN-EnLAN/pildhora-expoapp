@@ -56,6 +56,8 @@ export interface IntakeRecord {
   status: IntakeStatus;
   patientId: string;
   takenAt?: Date | string; // Can be Date object or ISO string after Firestore conversion
+  // Optional linkage to the medication document for enrichment
+  medicationId?: string;
 }
 
 // API response types

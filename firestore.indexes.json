@@ -55,6 +55,15 @@
         { "fieldPath": "status", "mode": "ASCENDING" }
       ]
     }
+    ,
+    {
+      "collectionGroup": "intakeRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "patientId", "mode": "ASCENDING" },
+        { "fieldPath": "scheduledTime", "mode": "DESCENDING" }
+      ]
+    }
   ],
   "fieldOverrides": []
 }
