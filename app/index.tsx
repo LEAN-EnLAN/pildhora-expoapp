@@ -132,7 +132,7 @@ export default function WelcomeScreen() {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading...</Text>
+        <Text style={styles.loadingText}>Cargando...</Text>
       </View>
     );
   }
@@ -145,8 +145,8 @@ export default function WelcomeScreen() {
       </View>
 
       {/* Welcome Text */}
-      <Text style={styles.welcomeTitle}>Welcome to Pildhora</Text>
-      <Text style={styles.welcomeSubtitle}>Smart Pillbox Management System</Text>
+      <Text style={styles.welcomeTitle}>Bienvenido a Pildhora</Text>
+      <Text style={styles.welcomeSubtitle}>Sistema de Pastillero Inteligente</Text>
 
       {/* Role Selection Buttons */}
       <View style={styles.buttonContainer}>
@@ -154,20 +154,20 @@ export default function WelcomeScreen() {
           style={styles.patientButton}
           onPress={() => handleRoleSelect('patient')}
         >
-          <Text style={styles.buttonText}>I'm a Patient</Text>
-          <Text style={styles.buttonSubtext}>Manage my medications</Text>
+          <Text style={styles.buttonText}>Soy un paciente</Text>
+          <Text style={styles.buttonSubtext}>Quiero registrarme como paciente</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.caregiverButton}
           onPress={() => handleRoleSelect('caregiver')}
         >
-          <Text style={styles.buttonText}>I'm a Caregiver</Text>
-          <Text style={styles.buttonSubtext}>Monitor patient medications</Text>
+          <Text style={styles.buttonText}>Soy un cuidador</Text>
+          <Text style={styles.buttonSubtext}>Quiero registrarme como cuidador</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={handleLogin}>
-          <Text style={styles.signInText}>Ya tienes una cuenta? Inicia Sesion!</Text>
+          <Text style={styles.signInText}>Ya tienes una cuenta? Inicia Sesion</Text>
         </TouchableOpacity>
       </View>
     </View>
