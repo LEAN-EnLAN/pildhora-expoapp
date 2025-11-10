@@ -364,23 +364,23 @@ export default function PatientHome() {
       </View>
 
       {/* Today's schedule list */}
-      <View className="p-4">
-        <View className="flex-row justify-between items-center mb-2">
-          <Text className="text-lg font-bold">Hoy</Text>
-          <Link href="/patient/medications" asChild>
-            <TouchableOpacity className="px-3 py-2 rounded-lg bg-blue-500">
-              <Text className="text-white font-semibold">Mis Medicamentos</Text>
-            </TouchableOpacity>
-          </Link>
-        </View>
+      <View className="px-4 mt-2">
+        <Card className="rounded-2xl">
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="text-lg font-bold">Hoy</Text>
+            <Link href="/patient/medications" asChild>
+              <TouchableOpacity className="px-3 py-2 rounded-lg bg-blue-500">
+                <Text className="text-white font-semibold">Mis Medicamentos</Text>
+              </TouchableOpacity>
+            </Link>
+          </View>
 
-        {loading ? (
-          <Text className="text-gray-600">Cargando...</Text>
-        ) : (
-          <View className="gap-3">
-            {medications.filter(isScheduledToday).map((item) => (
-              <View key={item.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-                <View className="flex-row items-center justify-between">
+          {loading ? (
+            <Text className="text-gray-600">Cargando...</Text>
+          ) : (
+            <View className="gap-3">
+              {medications.filter(isScheduledToday).map((item) => (
+                <View key={item.id} className="flex-row items-center justify-between">
                   <View className="flex-1">
                     <Text className="text-base font-semibold text-gray-900 mb-1">{item.name}</Text>
                     <Text className="text-gray-600 mb-1">{item.dosage}</Text>
@@ -397,10 +397,10 @@ export default function PatientHome() {
                     </TouchableOpacity>
                   </Link>
                 </View>
-              </View>
-            ))}
-          </View>
-        )}
+              ))}
+            </View>
+          )}
+        </Card>
       </View>
       </ScrollView>
     </SafeAreaView>
