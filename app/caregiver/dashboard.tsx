@@ -30,7 +30,21 @@ import {
   reinitializeFirebase
 } from '../../src/services/firebase';
 import DoseRing from '../../src/components/DoseRing';
+import { Card, NativeButton } from '../../src/components/ui';
 import { Patient, PatientWithDevice, Task, DoseSegment, IntakeRecord, IntakeStatus } from '../../src/types';
+
+const styles = StyleSheet.create({
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+});
 
 export default function CaregiverDashboard() {
   const router = useRouter();
@@ -314,17 +328,17 @@ export default function CaregiverDashboard() {
             <Text className="text-2xl font-extrabold text-gray-900">PILDHORA</Text>
             <Text className="text-sm text-gray-500">Hola, {displayName}</Text>
           </View>
-          <TouchableOpacity 
-            className="w-10 h-10 rounded-full bg-gray-700 items-center justify-center shadow-sm"
+          <NativeButton
+            icon={<Ionicons name="log-out" size={20} color="#FFFFFF" />}
+            variant="icon"
+            size="small"
             onPress={async () => {
               await dispatch(logout());
               router.replace('/auth/signup');
             }}
             accessibilityLabel="Salir"
             accessibilityHint="Cerrar sesión y volver al registro"
-          >
-            <Ionicons name="log-out" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
+          />
         </View>
         <View className="p-4">
           <View className="bg-orange-100 border border-orange-200 rounded-2xl p-4">
@@ -337,12 +351,14 @@ export default function CaregiverDashboard() {
                 : (patientsError?.message || 'Verifica tu conexión e intenta nuevamente.')
               }
             </Text>
-            <TouchableOpacity
-              className="bg-blue-600 rounded-lg p-3 items-center"
+            <NativeButton
+              title="Reintentar"
+              variant="primary"
+              size="medium"
               onPress={handleRefresh}
-            >
-              <Text className="text-white font-semibold">Reintentar</Text>
-            </TouchableOpacity>
+              accessibilityLabel="Reintentar"
+              accessibilityHint="Intentar cargar datos nuevamente"
+            />
           </View>
         </View>
       </SafeAreaView>
@@ -415,12 +431,14 @@ export default function CaregiverDashboard() {
               ) : (
                 <Text className="text-gray-500">No hay dispositivo vinculado.</Text>
               )}
-              <TouchableOpacity
+              <NativeButton
+                title={`Chatear con ${selectedPatient.name}`}
+                variant="primary"
+                size="medium"
                 onPress={() => router.push({ pathname: '/caregiver/chat', params: { patientId: selectedPatient.id, patientName: selectedPatient.name }})}
-                className="bg-blue-500 p-3 rounded-lg mt-4"
-              >
-                <Text className="text-white text-center font-bold">Chatear con {selectedPatient.name}</Text>
-              </TouchableOpacity>
+                accessibilityLabel={`Chatear con ${selectedPatient.name}`}
+                accessibilityHint={`Abrir chat con ${selectedPatient.name}`}
+              />
             </View>
           </View>
         ) : (
@@ -432,22 +450,27 @@ export default function CaregiverDashboard() {
             <Text className="text-gray-500 text-sm text-center mt-1">
               Usa el botón de abajo para vincular un nuevo dispositivo.
             </Text>
-            <TouchableOpacity
+            <NativeButton
+              title="Vincular Dispositivo"
+              variant="primary"
+              size="medium"
               onPress={() => router.push('/caregiver/add-device')}
-              className="bg-green-500 p-3 rounded-lg mt-6"
-            >
-              <Text className="text-white text-center font-bold">Vincular Dispositivo</Text>
-            </TouchableOpacity>
+              accessibilityLabel="Vincular Dispositivo"
+              accessibilityHint="Agregar nuevo dispositivo para paciente"
+            />
           </View>
         )}
       </ScrollView>
       {/* Add Patient FAB */}
-      <TouchableOpacity
+      <NativeButton
+        icon={<Ionicons name="add-outline" size={32} color="white" />}
+        variant="icon"
+        size="large"
         onPress={() => router.push('/caregiver/add-device')}
-        className="absolute bottom-6 right-6 bg-green-500 w-16 h-16 rounded-full items-center justify-center shadow-lg"
-      >
-        <Ionicons name="add-outline" size={32} color="white" />
-      </TouchableOpacity>
+        style={styles.fab}
+        accessibilityLabel="Agregar paciente"
+        accessibilityHint="Agregar nuevo paciente o dispositivo"
+      />
     </>
   );
 }

@@ -54,6 +54,12 @@ export default function LinkDeviceScreen() {
   async function refreshLinkedDevices() {
     if (!userId) return;
     try {
+      // Check if database is available
+      if (!db) {
+        console.warn('Database not available');
+        return;
+      }
+      
       // Read the user's active device links from Firestore
       const qLinks = query(
         collection(db, 'deviceLinks'),
@@ -63,7 +69,7 @@ export default function LinkDeviceScreen() {
       const linksSnap = await getDocs(qLinks);
       let ids = linksSnap.docs.map((d) => (d.data() as any).deviceId).filter(Boolean);
       // Fallback: if no Firestore links found yet, read from RTDB user links
-      if (!ids.length) {
+      if (!ids.length && rdb) {
         try {
           const snap = await get(ref(rdb, `users/${userId}/devices`));
           const val = snap.val() || {};
@@ -227,6 +233,12 @@ export default function LinkDeviceScreen() {
     try {
       const cfg = deviceStats[id];
       if (!cfg) throw new Error('Sin configuración local');
+      
+      // Check if database is available
+      if (!db) {
+        throw new Error('Database not available');
+      }
+      
       // Persist minimal config to Firestore desiredConfig; Cloud Function will mirror to RTDB
       const payload = {
         led_intensity: cfg.ledIntensity,

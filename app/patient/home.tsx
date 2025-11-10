@@ -8,9 +8,10 @@ import { RootState, AppDispatch } from '../../src/store';
 import { logout } from '../../src/store/slices/authSlice';
 import { fetchMedications } from '../../src/store/slices/medicationsSlice';
 import DoseRing from '../../src/components/DoseRing';
+import { Card, NativeButton } from '../../src/components/ui';
 import { Medication, DoseSegment, IntakeStatus } from '../../src/types';
 import { getDbInstance } from '../../src/services/firebase';
-import { addDoc, collection } from 'firebase/firestore';
+import { addDoc, collection, Timestamp } from 'firebase/firestore';
 
 // Helpers to align with medications folder style (mobile-first, simple data transforms)
 const DAY_ABBREVS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -190,7 +191,7 @@ export default function PatientHome() {
           scheduledTime: scheduledDate,
           status: IntakeStatus.TAKEN,
           patientId,
-          takenAt: new Date(),
+          takenAt: Timestamp.now(),
           // Optional linkage for future queries
           medicationId: upcoming.med.id,
         });
@@ -217,21 +218,21 @@ export default function PatientHome() {
           />
           <View className="absolute right-4 top-16 bg-white rounded-2xl shadow-xl border border-gray-200 min-w-56 z-50 overflow-hidden">
             <TouchableOpacity
-              className="px-4 py-4 border-b border-gray-100 flex-row items-center active:bg-gray-50"
+              className="px-4 py-4 border-b border-gray-100 flex-row items-center"
               onPress={handleLogout}
             >
               <Ionicons name="log-out-outline" size={20} color="#374151" />
               <Text className="ml-3 text-gray-700 font-medium text-base">Salir de sesión</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              className="px-4 py-4 border-b border-gray-100 flex-row items-center active:bg-gray-50"
+              className="px-4 py-4 border-b border-gray-100 flex-row items-center"
               onPress={handleConfiguraciones}
             >
               <Ionicons name="settings-outline" size={20} color="#374151" />
               <Text className="ml-3 text-gray-700 font-medium text-base">Configuraciones</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              className="px-4 py-4 flex-row items-center active:bg-gray-50"
+              className="px-4 py-4 flex-row items-center"
               onPress={handleMiDispositivo}
             >
               <Ionicons name="hardware-chip-outline" size={20} color="#374151" />
@@ -248,24 +249,24 @@ export default function PatientHome() {
         </View>
         <View className="flex-row items-center gap-3">
           {/* Emergency icon-only button */}
-          <TouchableOpacity
-            className="w-10 h-10 rounded-full bg-red-500 items-center justify-center shadow-sm"
+          <NativeButton
+            icon={<Ionicons name="alert" size={20} color="#FFFFFF" />}
+            variant="destructive"
+            size="small"
             onPress={handleEmergency}
             accessibilityLabel="Emergencia"
             accessibilityHint="Toca para ver opciones de emergencia"
-          >
-            <Ionicons name="alert" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
+          />
           
           {/* Account button with action sheet */}
-          <TouchableOpacity 
-            className="w-10 h-10 rounded-full bg-gray-700 items-center justify-center shadow-sm"
+          <NativeButton
+            icon={<Ionicons name="person" size={20} color="#FFFFFF" />}
+            variant="secondary"
+            size="small"
             onPress={handleAccountMenu}
             accessibilityLabel="Cuenta"
             accessibilityHint="Toca para ver opciones de cuenta"
-          >
-            <Ionicons name="person" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
+          />
         </View>
       </View>
 
@@ -283,24 +284,30 @@ export default function PatientHome() {
                 <Text className="text-2xl font-bold text-gray-900 mb-2">Emergencia</Text>
                 <Text className="text-gray-600 mb-6 text-center">Selecciona una opción:</Text>
                 <View className="gap-3">
-                  <TouchableOpacity
-                    className="bg-red-600 rounded-xl px-4 py-4 items-center shadow-sm active:bg-red-700"
+                  <NativeButton
+                    title="Llamar 911"
+                    variant="destructive"
+                    size="large"
                     onPress={() => callEmergency('911')}
-                  >
-                    <Text className="text-white font-bold text-lg">Llamar 911</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    className="bg-orange-500 rounded-xl px-4 py-4 items-center shadow-sm active:bg-orange-600"
+                    accessibilityLabel="Llamar al 911"
+                    accessibilityHint="Marcar número de emergencia 911"
+                  />
+                  <NativeButton
+                    title="Llamar 112"
+                    variant="secondary"
+                    size="large"
                     onPress={() => callEmergency('112')}
-                  >
-                    <Text className="text-white font-bold text-lg">Llamar 112</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    className="bg-gray-100 rounded-xl px-4 py-4 items-center active:bg-gray-200"
+                    accessibilityLabel="Llamar al 112"
+                    accessibilityHint="Marcar número de emergencia 112"
+                  />
+                  <NativeButton
+                    title="Cancelar"
+                    variant="text"
+                    size="large"
                     onPress={() => setModalVisible(false)}
-                  >
-                    <Text className="text-gray-800 font-semibold text-lg">Cancelar</Text>
-                  </TouchableOpacity>
+                    accessibilityLabel="Cancelar"
+                    accessibilityHint="Cerrar menú de emergencia"
+                  />
                 </View>
               </View>
             </View>
@@ -331,13 +338,16 @@ export default function PatientHome() {
                 <Text className="text-gray-600">{upcoming.med.dosage}</Text>
                 <Text className="text-gray-600">{formatHourDecimal(upcoming.next)}</Text>
               </View>
-              <TouchableOpacity
-                className={`px-4 py-2 rounded-lg ${takingLoading ? 'bg-green-400' : 'bg-green-600'} items-center justify-center`}
+              <NativeButton
+                title="Tomar medicación"
+                variant="primary"
+                size="medium"
                 onPress={handleTakeUpcomingMedication}
                 disabled={takingLoading}
-              >
-                <Text className="text-white font-bold">Tomar medicación</Text>
-              </TouchableOpacity>
+                loading={takingLoading}
+                accessibilityLabel="Tomar medicación"
+                accessibilityHint="Registrar toma de medicación próxima"
+              />
             </View>
           ) : (
             <Text className="text-gray-500">No hay dosis próximas para hoy.</Text>
@@ -356,9 +366,14 @@ export default function PatientHome() {
                 <Text className="text-gray-600">Dosis y eventos anteriores</Text>
               </View>
             </View>
-            <TouchableOpacity className="px-3 py-2 rounded-lg bg-blue-500" onPress={handleHistory}>
-              <Text className="text-white font-semibold">Abrir</Text>
-            </TouchableOpacity>
+            <NativeButton
+              title="Abrir"
+              variant="primary"
+              size="small"
+              onPress={handleHistory}
+              accessibilityLabel="Abrir historial"
+              accessibilityHint="Ver historial de dosis y eventos"
+            />
           </View>
         </View>
       </View>
@@ -369,9 +384,13 @@ export default function PatientHome() {
           <View className="flex-row justify-between items-center mb-4">
             <Text className="text-lg font-bold">Hoy</Text>
             <Link href="/patient/medications" asChild>
-              <TouchableOpacity className="px-3 py-2 rounded-lg bg-blue-500">
-                <Text className="text-white font-semibold">Mis Medicamentos</Text>
-              </TouchableOpacity>
+              <NativeButton 
+                title="Mis Medicamentos" 
+                variant="primary"
+                size="medium"
+                accessibilityLabel="Mis Medicamentos"
+                accessibilityHint="Ver todos mis medicamentos"
+              />
             </Link>
           </View>
 
@@ -392,9 +411,13 @@ export default function PatientHome() {
                     })()}
                   </View>
                   <Link href={`/patient/medications/${item.id}`} asChild>
-                    <TouchableOpacity className="px-4 py-2 rounded-lg bg-gray-800 shadow-sm">
-                      <Text className="text-white font-semibold">Abrir</Text>
-                    </TouchableOpacity>
+                    <NativeButton 
+                      title="Abrir" 
+                      variant="secondary"
+                      size="small"
+                      accessibilityLabel="Abrir medicamento"
+                      accessibilityHint={`Abrir detalles de ${item.name}`}
+                    />
                   </Link>
                 </View>
               ))}

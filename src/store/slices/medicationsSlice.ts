@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Medication, ApiResponse, User } from '../../types';
 import { getDbInstance, waitForFirebaseInitialization } from '../../services/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, orderBy, getDoc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, orderBy, getDoc, Timestamp } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import {
   migrateDosageFormat,
@@ -226,16 +226,16 @@ export const addMedication = createAsyncThunk(
         
         const docRef = await addDoc(collection(db, 'medications'), {
           ...normalizedMedication,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
         });
         
         // Return the medication with all fields (both new and legacy)
         const savedMedication = {
           id: docRef.id,
           ...normalizedMedication,
-          createdAt: new Date(),
-          updatedAt: new Date()
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now()
         };
         
         // Ensure the response has the new structure
@@ -247,16 +247,16 @@ export const addMedication = createAsyncThunk(
       
       const docRef = await addDoc(collection(db, 'medications'), {
         ...normalizedMedication,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
       });
       
       // Return the medication with all fields (both new and legacy)
       const savedMedication = {
         id: docRef.id,
         ...normalizedMedication,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
       };
       
       // Ensure the response has the new structure
@@ -328,7 +328,7 @@ export const updateMedication = createAsyncThunk(
         
         await updateDoc(doc(db, 'medications', id), {
           ...normalizedUpdates,
-          updatedAt: new Date(),
+          updatedAt: Timestamp.now(),
         });
         
         // Return the updates with both new and legacy fields
@@ -340,7 +340,7 @@ export const updateMedication = createAsyncThunk(
       
       await updateDoc(doc(db, 'medications', id), {
         ...normalizedUpdates,
-        updatedAt: new Date(),
+        updatedAt: Timestamp.now(),
       });
       
       // Return the updates with both new and legacy fields

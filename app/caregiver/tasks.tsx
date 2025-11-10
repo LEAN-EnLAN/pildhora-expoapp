@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Text, View, FlatList, TextInput, TouchableOpacity, Modal, Alert } from 'react-native';
+import { Text, View, FlatList, TextInput, Modal, Alert, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../src/store';
 import { useCollectionSWR } from '../../src/hooks/useCollectionSWR';
 import { getTasksQuery, addTask, updateTask, deleteTask } from '../../src/services/firebase/tasks';
 import { Task } from '../../src/types';
+import { NativeButton } from '../../src/components/ui';
 
 export default function TasksScreen() {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -19,12 +20,15 @@ export default function TasksScreen() {
     }
   }, [user]);
 
-  const { data: tasks = [], mutate } = useCollectionSWR<Task>(tasksQuery);
+  const { data: tasks = [], source, isLoading, error } = useCollectionSWR<Task>(tasksQuery);
 
   const toggleCompletion = async (task: Task) => {
     try {
       await updateTask(task.id, { completed: !task.completed });
-      mutate(); // Re-fetch tasks
+      // Re-fetch tasks by updating the query
+      if (user) {
+        getTasksQuery(user.id).then(setTasksQuery);
+      }
     } catch (error) {
       console.error("Error updating task:", error);
       Alert.alert("Error", "No se pudo actualizar la tarea.");
@@ -44,7 +48,9 @@ export default function TasksScreen() {
           patientId: '', // Placeholder
           dueDate: new Date(), // Placeholder
         });
-        mutate(); // Re-fetch tasks
+        if (user) {
+          getTasksQuery(user.id).then(setTasksQuery);
+        }
         setNewTaskText('');
         setModalVisible(false);
       } catch (error) {
@@ -66,7 +72,9 @@ export default function TasksScreen() {
           onPress: async () => {
             try {
               await deleteTask(taskId);
-              mutate(); // Re-fetch tasks
+              if (user) {
+                getTasksQuery(user.id).then(setTasksQuery);
+              }
             } catch (error) {
               console.error("Error deleting task:", error);
               Alert.alert("Error", "No se pudo eliminar la tarea.");
@@ -81,9 +89,14 @@ export default function TasksScreen() {
     <View className="flex-1 bg-gray-100">
       <View className="p-4 flex-row justify-between items-center">
         <Text className="text-2xl font-bold">Tareas</Text>
-        <TouchableOpacity onPress={() => setModalVisible(true)} className="bg-blue-500 p-2 rounded-full">
-          <Ionicons name="add" size={24} color="white" />
-        </TouchableOpacity>
+        <NativeButton
+          icon={<Ionicons name="add" size={24} color="white" />}
+          variant="icon"
+          size="small"
+          onPress={() => setModalVisible(true)}
+          accessibilityLabel="Agregar tarea"
+          accessibilityHint="Abrir formulario para agregar nueva tarea"
+        />
       </View>
       <FlatList
         data={tasks}
@@ -94,9 +107,14 @@ export default function TasksScreen() {
               <Ionicons name={item.completed ? 'checkbox' : 'square-outline'} size={24} color={item.completed ? 'green' : 'gray'} />
               <Text className={`ml-4 flex-1 ${item.completed ? 'line-through text-gray-500' : 'text-black'}`}>{item.title}</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleDeleteTask(item.id)} className="p-2">
-              <Ionicons name="trash-outline" size={22} color="red" />
-            </TouchableOpacity>
+            <NativeButton
+              icon={<Ionicons name="trash-outline" size={22} color="red" />}
+              variant="text"
+              size="small"
+              onPress={() => handleDeleteTask(item.id)}
+              accessibilityLabel="Eliminar tarea"
+              accessibilityHint={`Eliminar tarea: ${item.title}`}
+            />
           </View>
         )}
       />
@@ -115,12 +133,22 @@ export default function TasksScreen() {
               onChangeText={setNewTaskText}
               className="bg-gray-200 p-3 rounded-lg mb-4"
             />
-            <TouchableOpacity onPress={handleAddTask} className="bg-blue-500 p-3 rounded-lg">
-              <Text className="text-white text-center font-bold">Agregar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setModalVisible(false)} className="mt-2">
-              <Text className="text-red-500 text-center">Cancelar</Text>
-            </TouchableOpacity>
+            <NativeButton
+              title="Agregar"
+              variant="primary"
+              size="medium"
+              onPress={handleAddTask}
+              accessibilityLabel="Agregar tarea"
+              accessibilityHint="Agregar nueva tarea a la lista"
+            />
+            <NativeButton
+              title="Cancelar"
+              variant="text"
+              size="medium"
+              onPress={() => setModalVisible(false)}
+              accessibilityLabel="Cancelar"
+              accessibilityHint="Cerrar formulario de nueva tarea"
+            />
           </View>
         </View>
       </Modal>
