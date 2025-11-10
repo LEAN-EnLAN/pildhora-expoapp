@@ -11,6 +11,8 @@ module.exports = function (api) {
         {
           root: ['./src'],
           alias: {
+            // Alias @ to src directory
+            '@': './src',
             // Alias react-native Slider to @react-native-community/slider
             'react-native/Libraries/Components/Slider/Slider': '@react-native-community/slider',
           },
