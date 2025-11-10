@@ -19,17 +19,15 @@
 3. Enable "Email/Password" provider
 4. (Optional) Enable Google, Apple, or other providers
 
-## Step 3: Set up Firestore Database
+## Step 3: Set up Firestore and Realtime Database
 1. Go to "Firestore Database" → "Create database"
 2. Choose "Start in test mode" (for development)
 3. Select a location (choose one close to your users)
 4. Click "Done"
+5. Go to "Realtime Database" -> "Create database"
+6. Choose a location and "Start in test mode"
 
-## Step 4: Enable Cloud Functions (Optional - for AI reports)
-1. Go to "Functions" → "Get started"
-2. This will enable Cloud Functions for AI processing
-
-## Step 5: Get Firebase Configuration
+## Step 4: Get Firebase Configuration
 1. Go to Project settings (gear icon) → "General" tab
 2. Scroll down to "Your apps" section
 3. Click "Add app" → Web app (</>) icon
@@ -38,7 +36,7 @@
 6. Click "Register app"
 7. Copy the config object - you'll need these values
 
-## Step 6: Configure Environment Variables
+## Step 5: Configure Environment Variables
 1. Open `.env` file in the project root
 2. Replace the placeholder values with your Firebase config:
 
@@ -51,64 +49,19 @@ EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
 EXPO_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abcdef123456
 ```
 
-## Step 7: Set up Firestore Security Rules (Important!)
-1. Go to "Firestore Database" → "Rules" tab
-2. Replace the default rules with:
+## Step 6: Set up Security Rules
+The security rules for Firestore and the Realtime Database are critical for securing your application's data. For a detailed explanation of the data models and security rules, please refer to the following documents:
 
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Users can read/write their own data
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
+- **`docs/SYSTEM_ARCHITECTURE.md`**: Provides a high-level overview of the system architecture, including the "Digital Shadow" paradigm.
+- **`docs/DATABASE_SCHEMA.md`**: Provides a detailed description of the Firestore and Realtime Database schemas.
 
-    // Medications: patients can read their own, caregivers can read/write for their patients
-    match /medications/{medicationId} {
-      allow read: if request.auth != null &&
-        (resource.data.patientId == request.auth.uid ||
-         resource.data.caregiverId == request.auth.uid);
-      allow create: if request.auth != null &&
-        request.auth.uid == resource.data.caregiverId;
-      allow update, delete: if request.auth != null &&
-        resource.data.caregiverId == request.auth.uid;
-    }
-
-    // Tasks: only caregivers can manage their tasks
-    match /tasks/{taskId} {
-      allow read, write: if request.auth != null &&
-        resource.data.caregiverId == request.auth.uid;
-    }
-
-    // Devices: users can read/write their associated devices
-    match /devices/{deviceId} {
-      allow read, write: if request.auth != null;
-    }
-
-    // Reports: users can read their own reports
-    match /reports/{reportId} {
-      allow read: if request.auth != null &&
-        (resource.data.patientId == request.auth.uid ||
-         resource.data.caregiverId == request.auth.uid);
-      allow create: if request.auth != null;
-    }
-  }
-}
+To deploy the rules, you can use the Firebase CLI:
+```bash
+firebase deploy --only firestore:rules
+firebase deploy --only database:rules
 ```
 
-## Step 8: Test the Setup
+## Step 7: Test the Setup
 1. Run the app: `npm start`
 2. Try creating an account and logging in
-3. Check Firebase Console to see if data is being stored
-
-## Troubleshooting
-- **Auth errors**: Check if Authentication is enabled and rules are correct
-- **Firestore errors**: Verify security rules and data structure
-- **Config errors**: Ensure all environment variables are set correctly
-
-## Next Steps After Setup
-- Implement BLE connectivity
-- Add medication management screens
-- Set up push notifications
-- Configure Google AI for reports
+3. Check Firebase Console to see if data is being stored in both Firestore and the Realtime Database.
