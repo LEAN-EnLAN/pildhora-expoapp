@@ -1,23 +1,21 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Text,
   View,
   TouchableOpacity,
-  FlatList,
   StyleSheet,
   Alert,
-  RefreshControl,
-  ActivityIndicator,
   ScrollView,
   Modal,
   Linking,
-  Platform
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, query, where, orderBy, doc, getDoc } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { AppDispatch, RootState } from '../../src/store';
 import { logout } from '../../src/store/slices/authSlice';
 import { startDeviceListener, stopDeviceListener } from '../../src/store/slices/deviceSlice';
@@ -51,11 +49,18 @@ export default function CaregiverDashboard() {
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
   const { state: deviceState, listening } = useSelector((state: RootState) => state.device);
-  const [refreshing, setRefreshing] = useState(false);
   const [patientsWithDevices, setPatientsWithDevices] = useState<PatientWithDevice[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<PatientWithDevice | null>(null);
+
+  // State for patient-specific data
   const [patientIntakes, setPatientIntakes] = useState<IntakeRecord[]>([]);
+  const [patientIntakesLoading, setPatientIntakesLoading] = useState(false);
+  const [patientIntakesError, setPatientIntakesError] = useState<Error | null>(null);
+
+  const [adherence, setAdherence] = useState<{ adherence: number; doseSegments: DoseSegment[] } | null>(null);
+  const [adherenceLoading, setAdherenceLoading] = useState(false);
+  const [adherenceError, setAdherenceError] = useState<Error | null>(null);
 
   const displayName = user?.name || (user?.email ? user.email.split('@')[0] : 'Cuidador');
 
@@ -127,14 +132,15 @@ export default function CaregiverDashboard() {
     }
   };
 
+  const cacheKey = user?.id ? `patients:${user.id}` : null;
   const {
     data: patients = [],
     source: patientsSource,
     isLoading: patientsLoading,
     error: patientsError
   } = useCollectionSWR<Patient>({
-    cacheKey: `patients:${user?.id}`,
-    query: isInitialized && !initializationError ? patientsQuery : null,
+    cacheKey,
+    query: isInitialized && !initializationError && cacheKey ? patientsQuery : null,
   });
 
   // Log patients query results
@@ -154,70 +160,70 @@ export default function CaregiverDashboard() {
 
 
 
-  // Fetch patient intakes when a patient is selected
+  // Fetch patient intakes and adherence when a patient is selected
   useEffect(() => {
     if (selectedPatient && isInitialized) {
+      const functions = getFunctions();
+
+      // Fetch Intakes
       const fetchPatientIntakes = async () => {
+        setPatientIntakesLoading(true);
+        setPatientIntakesError(null);
         try {
-          const db = await getDbInstance();
-          const intakesQuery = query(
-            collection(db, 'intakeRecords'),
-            where('patientId', '==', selectedPatient.id),
-            orderBy('scheduledTime', 'desc'),
-            orderBy('scheduledTime', 'desc')
-          );
-          
-          // For now, use mock data for intakes
-          const mockIntakes: IntakeRecord[] = [
-            {
-              id: 'intake-1',
-              medicationName: 'Aspirin',
-              dosage: '100mg',
-              scheduledTime: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-              status: IntakeStatus.TAKEN,
-              patientId: selectedPatient.id,
-              takenAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-            },
-            {
-              id: 'intake-2', 
-              medicationName: 'Vitamin D',
-              dosage: '1000IU',
-              scheduledTime: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
-              status: IntakeStatus.TAKEN,
-              patientId: selectedPatient.id,
-              takenAt: new Date(Date.now() - 6 * 60 * 60 * 1000),
-            }
-          ];
-          setPatientIntakes(mockIntakes);
-        } catch (error) {
+          const getPatientIntakeRecords = httpsCallable(functions, 'getPatientIntakeRecords');
+          const result = await getPatientIntakeRecords({ patientId: selectedPatient.id });
+          const data = result.data as { intakes: IntakeRecord[] };
+          // Convert ISO strings back to Date objects
+          const intakesWithDates = data.intakes.map(intake => ({
+            ...intake,
+            scheduledTime: new Date(intake.scheduledTime),
+            takenAt: intake.takenAt ? new Date(intake.takenAt) : null,
+          }));
+          setPatientIntakes(intakesWithDates);
+        } catch (error: any) {
           console.error('Error fetching patient intakes:', error);
+          setPatientIntakesError(error);
+        } finally {
+          setPatientIntakesLoading(false);
+        }
+      };
+
+      // Fetch Adherence
+      const fetchAdherence = async () => {
+        setAdherenceLoading(true);
+        setAdherenceError(null);
+        try {
+          const getPatientAdherence = httpsCallable(functions, 'getPatientAdherence');
+          const result = await getPatientAdherence({ patientId: selectedPatient.id });
+          const data = result.data as { adherence: number, doseSegments: DoseSegment[] };
+          setAdherence(data);
+        } catch (error: any) {
+          console.error('Error fetching adherence:', error);
+          setAdherenceError(error);
+        } finally {
+          setAdherenceLoading(false);
         }
       };
 
       fetchPatientIntakes();
+      fetchAdherence();
     }
   }, [selectedPatient, isInitialized]);
 
   // Combine patients with device states and dose segments
   useEffect(() => {
-    const enhancedPatients = patients.map((patient: Patient) => {
-      // Generate mock dose segments based on adherence
-      const doseSegments = generateMockDoseSegments(patient.adherence || 0);
-
-      return {
-        ...patient,
-        deviceState: patient.deviceId ? deviceState : undefined,
-        doseSegments,
-      } as PatientWithDevice;
-    });
-
+    const enhancedPatients = patients.map((patient: Patient) => ({
+      ...patient,
+      deviceState: patient.deviceId ? deviceState : undefined,
+      doseSegments: adherence?.doseSegments || [], // Use real or empty segments
+    } as PatientWithDevice));
     setPatientsWithDevices(enhancedPatients);
     
     // Auto-select first patient if none selected
     if (enhancedPatients.length > 0 && !selectedPatient) {
       setSelectedPatient(enhancedPatients[0]);
     }
-  }, [patients, deviceState]);
+  }, [patients, deviceState, adherence]);
 
   // Start device listener for the first patient with a device
   useEffect(() => {
@@ -232,18 +238,6 @@ export default function CaregiverDashboard() {
       }
     };
   }, [patients, dispatch, listening]);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    
-    // If there's an initialization error, retry initialization
-    if (initializationError) {
-      await handleRetryInitialization();
-    }
-    
-    // The SWR hook will automatically refresh on remount or query change
-    setTimeout(() => setRefreshing(false), 1000);
-  };
 
   const handleEmergency = () => {
     setModalVisible(true);
@@ -355,7 +349,7 @@ export default function CaregiverDashboard() {
               title="Reintentar"
               variant="primary"
               size="medium"
-              onPress={handleRefresh}
+              onPress={handleRetryInitialization}
               accessibilityLabel="Reintentar"
               accessibilityHint="Intentar cargar datos nuevamente"
             />
@@ -368,6 +362,11 @@ export default function CaregiverDashboard() {
   return (
     <>
       {/* Patient Selector */}
+      {patientsLoading && (
+        <View className="p-4 items-center">
+          <ActivityIndicator size="small" color="#3B82F6" />
+        </View>
+      )}
       {patientsWithDevices.length > 0 && (
         <View className="px-4 py-3 bg-white border-b border-gray-200">
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row gap-3">
@@ -395,16 +394,25 @@ export default function CaregiverDashboard() {
       )}
 
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 20 }}>
-        {selectedPatient ? (
+        {patientsLoading ? (
+          <View className="flex-1 justify-center items-center py-20">
+            <ActivityIndicator size="large" color="#3B82F6" />
+            <Text className="text-gray-600 mt-4">Cargando pacientes...</Text>
+          </View>
+        ) : selectedPatient ? (
           <View className="p-4">
             <View className="bg-white rounded-2xl p-4 items-center">
               <Text className="text-2xl font-bold mb-4">Adherencia Diaria</Text>
-              <DoseRing
-                size={250}
-                strokeWidth={20}
-                segments={selectedPatient.doseSegments || []}
-                accessibilityLabel={`Anillo de dosis de ${selectedPatient.name}`}
-              />
+              {adherenceLoading ? (
+                <ActivityIndicator size="large" color="#3B82F6" />
+              ) : (
+                <DoseRing
+                  size={250}
+                  strokeWidth={20}
+                  segments={adherence?.doseSegments || []}
+                  accessibilityLabel={`Anillo de dosis de ${selectedPatient.name}`}
+                />
+              )}
             </View>
 
             <View className="bg-white rounded-2xl p-4 mt-4">
