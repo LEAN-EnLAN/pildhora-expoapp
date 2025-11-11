@@ -6,11 +6,9 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
-  Modal,
   Linking,
   ActivityIndicator
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,21 +26,8 @@ import {
   reinitializeFirebase
 } from '../../src/services/firebase';
 import DoseRing from '../../src/components/DoseRing';
-import { Card, NativeButton } from '../../src/components/ui';
+import { Card, Button, Container } from '../../src/components/ui';
 import { Patient, PatientWithDevice, Task, DoseSegment, IntakeRecord, IntakeStatus } from '../../src/types';
-
-const styles = StyleSheet.create({
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
-});
 
 export default function CaregiverDashboard() {
   const router = useRouter();
@@ -64,6 +49,16 @@ export default function CaregiverDashboard() {
 
   const displayName = user?.name || (user?.email ? user.email.split('@')[0] : 'Cuidador');
 
+  const generateMockDoseSegments = (adherence: number): DoseSegment[] => {
+    // This is a mock implementation. In a real app, you'd generate
+    // segments based on actual medication schedules and intake records.
+    return [
+      { startHour: 8, endHour: 9, status: adherence > 25 ? 'DOSE_TAKEN' : 'PENDING' },
+      { startHour: 13, endHour: 14, status: adherence > 50 ? 'DOSE_TAKEN' : 'PENDING' },
+      { startHour: 20, endHour: 21, status: adherence > 75 ? 'DOSE_TAKEN' : 'PENDING' },
+    ];
+  };
+
   // State for queries and initialization
   const [patientsQuery, setPatientsQuery] = useState<any>(null);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -76,24 +71,24 @@ export default function CaregiverDashboard() {
       try {
         console.log('[CaregiverDashboard] Starting Firebase initialization...');
         setInitializationError(null);
-        
+
         // Wait for Firebase initialization with timeout
         const initPromise = waitForFirebaseInitialization();
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Firebase initialization timeout')), 10000)
         );
-        
+
         await Promise.race([initPromise, timeoutPromise]);
         console.log('[CaregiverDashboard] Firebase initialized successfully');
-        
+
         const db = await getDbInstance();
         if (!db) {
           throw new Error('Database instance not available after initialization');
         }
-        
+
         if (user) {
           console.log('[CaregiverDashboard] Creating queries for user:', user.id);
-          
+
           // Use user's Firebase UID for queries
           const patientsQ = query(
             collection(db, 'users'),
@@ -106,7 +101,7 @@ export default function CaregiverDashboard() {
         } else {
           console.warn('[CaregiverDashboard] No user available for query creation');
         }
-        
+
         setIsInitialized(true);
       } catch (error: any) {
         console.error('[CaregiverDashboard] Error initializing queries:', error);
@@ -124,7 +119,7 @@ export default function CaregiverDashboard() {
     setRetryCount(prev => prev + 1);
     setIsInitialized(false);
     setInitializationError(null);
-    
+
     try {
       await reinitializeFirebase();
     } catch (error) {
@@ -218,7 +213,7 @@ export default function CaregiverDashboard() {
       doseSegments: adherence?.doseSegments || [], // Use real or empty segments
     } as PatientWithDevice));
     setPatientsWithDevices(enhancedPatients);
-    
+
     // Auto-select first patient if none selected
     if (enhancedPatients.length > 0 && !selectedPatient) {
       setSelectedPatient(enhancedPatients[0]);
@@ -278,89 +273,89 @@ export default function CaregiverDashboard() {
   // Show initialization error with retry option
   if (initializationError) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-100">
+      <Container className="flex-1 bg-gray-100">
         <View className="flex-row items-center justify-between bg-white px-4 py-3 border-b border-gray-200">
           <View>
             <Text className="text-2xl font-extrabold text-gray-900">PILDHORA</Text>
             <Text className="text-sm text-gray-500">Hola, {displayName}</Text>
           </View>
-          <TouchableOpacity className="px-3 py-2 rounded-lg bg-gray-400 items-center justify-center" onPress={async () => {
-            await dispatch(logout());
-            router.replace('/');
-          }}>
-            <Text className="text-white font-bold text-center">Salir</Text>
-          </TouchableOpacity>
+          <Button
+            variant="secondary"
+            onPress={async () => {
+              await dispatch(logout());
+              router.replace('/');
+            }}
+          >
+            Salir
+          </Button>
         </View>
         <View className="p-4">
-          <View className="bg-red-100 border border-red-200 rounded-2xl p-4">
+          <Card className="bg-red-100 border border-red-200 rounded-2xl p-4">
             <Text className="text-red-800 text-center font-semibold mb-2">
               Error de inicialización de Firebase
             </Text>
             <Text className="text-red-700 text-center text-sm mb-4">
               {initializationError.message || 'No se pudo conectar con los servicios de Firebase'}
             </Text>
-            <TouchableOpacity
-              className="bg-blue-600 rounded-lg p-3 items-center"
+            <Button
+              variant="primary"
               onPress={handleRetryInitialization}
             >
-              <Text className="text-white font-semibold">Reintentar</Text>
-            </TouchableOpacity>
-          </View>
+              Reintentar
+            </Button>
+          </Card>
         </View>
-      </SafeAreaView>
+      </Container>
     );
   }
 
   // Show error if patients failed to load
   if (patientsError) {
     const isIndexError = patientsError?.message?.includes('requires an index');
-    
+
     return (
-      <SafeAreaView className="flex-1 bg-gray-100">
+      <Container className="flex-1 bg-gray-100">
         <View className="flex-row items-center justify-between bg-white px-4 py-3 border-b border-gray-200">
           <View>
             <Text className="text-2xl font-extrabold text-gray-900">PILDHORA</Text>
             <Text className="text-sm text-gray-500">Hola, {displayName}</Text>
           </View>
-          <NativeButton
-            icon={<Ionicons name="log-out" size={20} color="#FFFFFF" />}
-            variant="icon"
-            size="small"
+          <Button
+            variant="secondary"
             onPress={async () => {
               await dispatch(logout());
               router.replace('/auth/signup');
             }}
-            accessibilityLabel="Salir"
-            accessibilityHint="Cerrar sesión y volver al registro"
-          />
+          >
+            <Ionicons name="log-out" size={20} color="#374151" />
+          </Button>
         </View>
         <View className="p-4">
-          <View className="bg-orange-100 border border-orange-200 rounded-2xl p-4">
+          <Card className="bg-orange-100 border border-orange-200 rounded-2xl p-4">
             <Text className="text-orange-800 text-center font-semibold mb-2">
               {isIndexError ? 'Configuración en progreso' : 'Error al cargar datos'}
             </Text>
             <Text className="text-orange-700 text-center text-sm mb-4">
-              {isIndexError 
+              {isIndexError
                 ? 'Los índices de la base de datos se están configurando. Esto puede tardar unos minutos. Por favor, intenta nuevamente en breve.'
                 : (patientsError?.message || 'Verifica tu conexión e intenta nuevamente.')
               }
             </Text>
-            <NativeButton
-              title="Reintentar"
+            <Button
               variant="primary"
               size="medium"
               onPress={handleRetryInitialization}
               accessibilityLabel="Reintentar"
               accessibilityHint="Intentar cargar datos nuevamente"
             />
-          </View>
         </View>
-      </SafeAreaView>
+      </View>
+      </Container >
     );
   }
 
   return (
-    <>
+    <Container className="flex-1">
       {/* Patient Selector */}
       {patientsLoading && (
         <View className="p-4 items-center">
@@ -371,23 +366,13 @@ export default function CaregiverDashboard() {
         <View className="px-4 py-3 bg-white border-b border-gray-200">
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row gap-3">
             {patientsWithDevices.map((patient) => (
-              <TouchableOpacity
+              <Button
                 key={patient.id}
-                className={`px-4 py-2 rounded-full ${
-                  selectedPatient?.id === patient.id
-                    ? 'bg-blue-600'
-                    : 'bg-gray-200 border border-gray-300'
-                }`}
+                variant={selectedPatient?.id === patient.id ? 'primary' : 'secondary'}
                 onPress={() => handlePatientSelect(patient)}
               >
-                <Text
-                  className={`font-semibold ${
-                    selectedPatient?.id === patient.id ? 'text-white' : 'text-gray-700'
-                  }`}
-                >
-                  {patient.name}
-                </Text>
-              </TouchableOpacity>
+                {patient.name}
+              </Button>
             ))}
           </ScrollView>
         </View>
@@ -401,7 +386,7 @@ export default function CaregiverDashboard() {
           </View>
         ) : selectedPatient ? (
           <View className="p-4">
-            <View className="bg-white rounded-2xl p-4 items-center">
+            <Card className="bg-white rounded-2xl p-4 items-center">
               <Text className="text-2xl font-bold mb-4">Adherencia Diaria</Text>
               {adherenceLoading ? (
                 <ActivityIndicator size="large" color="#3B82F6" />
@@ -415,7 +400,7 @@ export default function CaregiverDashboard() {
               )}
             </View>
 
-            <View className="bg-white rounded-2xl p-4 mt-4">
+            <Card className="bg-white rounded-2xl p-4 mt-4">
               <Text className="text-xl font-bold mb-4">Dispositivo</Text>
               {selectedPatient.deviceState ? (
                 <>
@@ -439,46 +424,40 @@ export default function CaregiverDashboard() {
               ) : (
                 <Text className="text-gray-500">No hay dispositivo vinculado.</Text>
               )}
-              <NativeButton
-                title={`Chatear con ${selectedPatient.name}`}
+              <Button
                 variant="primary"
-                size="medium"
                 onPress={() => router.push({ pathname: '/caregiver/chat', params: { patientId: selectedPatient.id, patientName: selectedPatient.name }})}
-                accessibilityLabel={`Chatear con ${selectedPatient.name}`}
-                accessibilityHint={`Abrir chat con ${selectedPatient.name}`}
-              />
-            </View>
+              >
+                Chatear con {selectedPatient.name}
+              </Button>
+            </Card>
           </View>
-        ) : (
-          <View className="flex-1 justify-center items-center py-20">
-            <Ionicons name="people-outline" size={48} color="#9CA3AF" />
-            <Text className="text-gray-600 mt-4 text-center">
-              No hay pacientes asignados a tu cuenta
-            </Text>
-            <Text className="text-gray-500 text-sm text-center mt-1">
-              Usa el botón de abajo para vincular un nuevo dispositivo.
-            </Text>
-            <NativeButton
-              title="Vincular Dispositivo"
-              variant="primary"
-              size="medium"
-              onPress={() => router.push('/caregiver/add-device')}
-              accessibilityLabel="Vincular Dispositivo"
-              accessibilityHint="Agregar nuevo dispositivo para paciente"
-            />
-          </View>
+      ) : (
+      <View className="flex-1 justify-center items-center py-20">
+        <Ionicons name="people-outline" size={48} color="#9CA3AF" />
+        <Text className="text-gray-600 mt-4 text-center">
+          No hay pacientes asignados a tu cuenta
+        </Text>
+        <Text className="text-gray-500 text-sm text-center mt-1">
+          Usa el botón de abajo para vincular un nuevo dispositivo.
+        </Text>
+        <Button
+          variant="primary"
+          onPress={() => router.push('/caregiver/add-device')}
+        >
+          Vincular Dispositivo
+        </Button>
+      </View>
         )}
-      </ScrollView>
-      {/* Add Patient FAB */}
-      <NativeButton
-        icon={<Ionicons name="add-outline" size={32} color="white" />}
-        variant="icon"
-        size="large"
-        onPress={() => router.push('/caregiver/add-device')}
-        style={styles.fab}
-        accessibilityLabel="Agregar paciente"
-        accessibilityHint="Agregar nuevo paciente o dispositivo"
-      />
-    </>
+    </ScrollView>
+      {/* Add Patient FAB */ }
+  <Button
+    variant="primary"
+    className="absolute bottom-6 right-6 rounded-full w-16 h-16 justify-center items-center"
+    onPress={() => router.push('/caregiver/add-device')}
+  >
+    <Ionicons name="add-outline" size={32} color="white" />
+  </Button>
+    </Container >
   );
 }

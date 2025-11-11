@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, Platform } from 'react-native';
+import { View, Text, Modal, Platform, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { Button } from '../../ui/Button';
+import { Card } from '../../ui/Card';
 
 interface Props {
   times: string[];
@@ -10,264 +12,134 @@ interface Props {
 }
 
 export default function ReminderTimePicker({ times, onTimesChange, error }: Props) {
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [isPickerVisible, setPickerVisible] = useState(false);
   const [tempDate, setTempDate] = useState(new Date());
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
-  const handleAddTime = () => {
-    setEditingIndex(null);
-    setTempDate(new Date());
-    setShowTimePicker(true);
-  };
-
-  const handleEditTime = (index: number) => {
+  const showTimePicker = (index: number | null = null) => {
     setEditingIndex(index);
-    // Parse the time string to set the date
-    const [hours, minutes] = times[index].split(':');
-    const date = new Date();
-    date.setHours(parseInt(hours));
-    date.setMinutes(parseInt(minutes));
-    setTempDate(date);
-    setShowTimePicker(true);
+    if (index !== null) {
+      const [hours, minutes] = times[index].split(':');
+      const date = new Date();
+      date.setHours(parseInt(hours, 10));
+      date.setMinutes(parseInt(minutes, 10));
+      setTempDate(date);
+    } else {
+      setTempDate(new Date());
+    }
+    setPickerVisible(true);
   };
 
-  const handleTimeChange = (event: any, selectedDate?: Date) => {
-    setShowTimePicker(false);
-    
-    if (event.type === 'dismissed') {
-      return;
+  const handleTimeChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setPickerVisible(false);
     }
 
-    if (selectedDate) {
-      const hours = selectedDate.getHours().toString().padStart(2, '0');
-      const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
-      const timeString = `${hours}:${minutes}`;
+    if (event.type === 'set' && selectedDate) {
+      const timeString = selectedDate.toTimeString().slice(0, 5);
       
       if (editingIndex !== null) {
-        // Edit existing time
         const newTimes = [...times];
         newTimes[editingIndex] = timeString;
         onTimesChange(newTimes);
       } else {
-        // Add new time
         onTimesChange([...times, timeString]);
+      }
+
+      // For iOS, user must confirm, so we only update the temp date here
+      if (Platform.OS === 'ios') {
+        setTempDate(selectedDate);
       }
     }
   };
 
-  const handleRemoveTime = (index: number) => {
-    const newTimes = times.filter((_, i) => i !== index);
-    onTimesChange(newTimes);
+  const handleConfirmIOSTime = () => {
+    const timeString = tempDate.toTimeString().slice(0, 5);
+    if (editingIndex !== null) {
+      const newTimes = [...times];
+      newTimes[editingIndex] = timeString;
+      onTimesChange(newTimes);
+    } else {
+      onTimesChange([...times, timeString]);
+    }
+    setPickerVisible(false);
   };
 
-  const displayTime = (timeString: string): string => {
-    const [hours, minutes] = timeString.split(':');
-    const hour = parseInt(hours);
+  const handleRemoveTime = (index: number) => {
+    onTimesChange(times.filter((_, i) => i !== index));
+  };
+
+  const displayTime = (time: string) => {
+    const [h, m] = time.split(':');
+    const hour = parseInt(h, 10);
     const ampm = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
+    return `${displayHour}:${m} ${ampm}`;
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>Horas de Recordatorio</Text>
-      
-      {/* Times Display */}
-      <View style={styles.timesContainer}>
+    <View className="mb-4">
+      <Text className="text-lg font-bold mb-2 text-gray-800">Horas de Recordatorio</Text>
+      <View className="min-h-[48px]">
         {times.length === 0 ? (
-          <TouchableOpacity
-            style={styles.addTimeButton}
-            onPress={handleAddTime}
-          >
-            <Text style={styles.addTimeButtonText}>Añadir hora</Text>
-            <Ionicons name="time-outline" size={20} color="#3B82F6" />
-          </TouchableOpacity>
+          <Button onPress={() => showTimePicker()} variant="secondary" className="justify-center">
+            <View className="flex-row items-center gap-2">
+              <Text className="text-blue-500 font-semibold">Añadir hora</Text>
+              <Ionicons name="time-outline" size={20} color="#3B82F6" />
+            </View>
+          </Button>
         ) : (
-          <View style={styles.timesList}>
+          <View className="flex-row flex-wrap gap-2 items-center">
             {times.map((time, index) => (
-              <View key={index} style={styles.timeBadge}>
-                <Text style={styles.timeText}>{displayTime(time)}</Text>
-                <View style={styles.timeActions}>
-                  <TouchableOpacity
-                    style={styles.editButton}
-                    onPress={() => handleEditTime(index)}
-                    accessibilityLabel={`Edit ${time}`}
-                  >
-                    <Ionicons name="create-outline" size={16} color="#3B82F6" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handleRemoveTime(index)}
-                    accessibilityLabel={`Remove ${time}`}
-                  >
-                    <Ionicons name="close-circle" size={16} color="#EF4444" />
-                  </TouchableOpacity>
-                </View>
+              <View key={index} className="flex-row items-center bg-gray-100 rounded-full px-3 py-1.5 gap-2">
+                <Text className="text-sm text-gray-800 font-medium">{displayTime(time)}</Text>
+                <TouchableOpacity onPress={() => showTimePicker(index)}>
+                  <Ionicons name="create-outline" size={16} color="#3B82F6" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleRemoveTime(index)}>
+                  <Ionicons name="close-circle" size={16} color="#EF4444" />
+                </TouchableOpacity>
               </View>
             ))}
-            <TouchableOpacity
-              style={styles.addMoreButton}
-              onPress={handleAddTime}
-            >
+            <Button onPress={() => showTimePicker()} variant="secondary" className="p-1 rounded-full h-8 w-8">
               <Ionicons name="add" size={16} color="#3B82F6" />
-            </TouchableOpacity>
+            </Button>
           </View>
         )}
       </View>
-      
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && <Text className="text-red-500 mt-1">{error}</Text>}
 
-      {/* Time Picker */}
-      {showTimePicker && (
+      {Platform.OS === 'android' && isPickerVisible && (
         <DateTimePicker
           value={tempDate}
           mode="time"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          display="default"
           onChange={handleTimeChange}
         />
+      )}
+
+      {Platform.OS === 'ios' && (
+        <Modal visible={isPickerVisible} transparent={true} animationType="slide">
+          <View className="flex-1 bg-black/50 justify-end">
+            <Card className="rounded-b-none">
+              <DateTimePicker
+                value={tempDate}
+                mode="time"
+                display="spinner"
+                onChange={handleTimeChange}
+              />
+              <View className="flex-row justify-between gap-4 mt-4">
+                <Button onPress={() => setPickerVisible(false)} variant="secondary" className="flex-1">
+                  Cancelar
+                </Button>
+                <Button onPress={handleConfirmIOSTime} variant="primary" className="flex-1">
+                  Confirmar
+                </Button>
+              </View>
+            </Card>
+          </View>
+        </Modal>
       )}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#1F2937',
-  },
-  timesContainer: {
-    minHeight: 48,
-  },
-  addTimeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: '#FFFFFF',
-    gap: 8,
-  },
-  addTimeButtonText: {
-    fontSize: 16,
-    color: '#3B82F6',
-    fontWeight: '500',
-  },
-  timesList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  timeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    gap: 6,
-  },
-  timeText: {
-    fontSize: 14,
-    color: '#374151',
-    fontWeight: '500',
-  },
-  timeActions: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  editButton: {
-    padding: 2,
-  },
-  deleteButton: {
-    padding: 2,
-  },
-  addMoreButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderStyle: 'dashed',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#FFFFFF',
-  },
-  errorText: {
-    color: '#EF4444',
-    fontSize: 14,
-    marginTop: 4,
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
-    width: '90%',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  inputLabel: {
-    fontSize: 16,
-    marginBottom: 8,
-    color: '#374151',
-  },
-  timeInput: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#F3F4F6',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  saveButton: {
-    flex: 1,
-    backgroundColor: '#3B82F6',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  disabledButton: {
-    backgroundColor: '#9CA3AF',
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-});

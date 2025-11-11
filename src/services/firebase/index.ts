@@ -121,6 +121,8 @@ initializeFirebaseApp().catch(error => {
   console.error('[Firebase] Initialization failed:', error);
 });
 
+import { getReactNativePersistence } from 'firebase/auth';
+
 // Initialize Firebase Auth only after Firebase app is ready
 let authInstance: Auth | null = null;
 let dbInstance: Firestore | null = null;
@@ -131,15 +133,9 @@ const initializeFirebaseServices = async () => {
   await waitForFirebaseInitialization();
   
   if (!authInstance) {
-    authInstance = getAuth(app!);
-    // Ensure web persistence across reloads/tabs
-    if (Platform.OS === 'web') {
-      try {
-        await setPersistence(authInstance, browserLocalPersistence);
-      } catch (e) {
-        console.warn('[Firebase] Failed to set web auth persistence', e);
-      }
-    }
+    authInstance = getAuth(app!, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
   }
   
   if (!dbInstance) {

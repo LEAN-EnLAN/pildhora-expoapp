@@ -1,10 +1,10 @@
 import React, { useState, ReactNode } from 'react';
-import { 
-  TouchableOpacity, 
-  Text, 
-  StyleSheet, 
-  Platform, 
-  ViewStyle, 
+import {
+  TouchableOpacity,
+  Text,
+  StyleSheet,
+  Platform,
+  ViewStyle,
   TextStyle,
   ActivityIndicator,
   AccessibilityProps,
@@ -25,7 +25,7 @@ interface NativeButtonProps extends AccessibilityProps {
 
 /**
  * NativeButton - Platform-appropriate button component following native design guidelines
- * 
+ *
  * Features:
  * - iOS: SF Pro font, system colors, appropriate touch targets
  * - Android: Material Design elevation, ripple effects, proper typography
@@ -166,15 +166,15 @@ export const NativeButton: React.FC<NativeButtonProps> = ({
 
   const getTextStyles = (): TextStyle => {
     const baseSize = size === 'small' ? 14 : size === 'large' ? 18 : 16;
-    
+
     if (Platform.OS === 'ios') {
       return {
         fontSize: baseSize,
         fontFamily: 'System',
         fontWeight: 600,
-        color: variant === 'secondary' && !disabled ? '#007AFF' : 
-               variant === 'text' && !disabled ? '#007AFF' : 
-               variant === 'destructive' && !disabled ? 'white' : 
+        color: variant === 'secondary' && !disabled ? '#007AFF' :
+               variant === 'text' && !disabled ? '#007AFF' :
+               variant === 'destructive' && !disabled ? 'white' :
                'white',
         textAlign: 'center',
       };
@@ -183,9 +183,9 @@ export const NativeButton: React.FC<NativeButtonProps> = ({
         fontSize: baseSize,
         fontFamily: 'Roboto-Medium',
         fontWeight: 500,
-        color: variant === 'secondary' && !disabled ? '#1976D2' : 
-               variant === 'text' && !disabled ? '#1976D2' : 
-               variant === 'destructive' && !disabled ? 'white' : 
+        color: variant === 'secondary' && !disabled ? '#1976D2' :
+               variant === 'text' && !disabled ? '#1976D2' :
+               variant === 'destructive' && !disabled ? 'white' :
                'white',
         textAlign: 'center',
         letterSpacing: variant === 'text' ? 0 : 0.5,
@@ -198,7 +198,7 @@ export const NativeButton: React.FC<NativeButtonProps> = ({
     if (variant === 'icon') {
       return {} as ViewStyle; // Icon variant handles sizing in getVariantStyles
     }
-    
+
     switch (size) {
       case 'small':
         return {
@@ -253,8 +253,8 @@ export const NativeButton: React.FC<NativeButtonProps> = ({
       {...rest}
     >
       {loading ? (
-        <ActivityIndicator 
-          size="small" 
+        <ActivityIndicator
+          size="small"
           color={variant === 'secondary' || variant === 'text' ? '#007AFF' : 'white'}
         />
       ) : (

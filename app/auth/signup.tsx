@@ -1,205 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Text, View, TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { Text, View, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { signUp } from '../../src/store/slices/authSlice';
 import { RootState, AppDispatch } from '../../src/store';
-
-// Disable shadow styles on web to avoid RN Web generating boxShadow CSS
-const commonShadow = Platform.select({
-  web: {},
-  default: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-});
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F2F2F7',
-  },
-  innerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  formContainer: {
-    width: '100%',
-    maxWidth: 384,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  logo: {
-    width: 96,
-    height: 96,
-    backgroundColor: '#007AFF',
-    borderRadius: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    ...commonShadow,
-  },
-  logoText: {
-    color: 'white',
-    fontSize: 36,
-    fontWeight: 'bold',
-  },
-  welcomeTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  welcomeSubtitle: {
-    fontSize: 16,
-    color: '#8E8E93',
-    textAlign: 'center',
-    marginBottom: 32,
-  },
-  inputContainer: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1C1C1E',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 12,
-    padding: 16,
-    backgroundColor: 'white',
-    fontSize: 16,
-    ...Platform.select({
-      web: {},
-      default: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        elevation: 2,
-      },
-    }),
-  },
-  confirmPasswordContainer: {
-    marginBottom: 24,
-  },
-  roleContainer: {
-    marginBottom: 24,
-  },
-  roleLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1C1C1E',
-    marginBottom: 12,
-  },
-  roleButtonContainer: {
-    flexDirection: 'row',
-  },
-  roleButton: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
-    backgroundColor: 'white',
-    marginRight: 8,
-    alignItems: 'center',
-    ...Platform.select({
-      web: {},
-      default: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        elevation: 2,
-      },
-    }),
-  },
-  roleButtonSelected: {
-    borderColor: '#34C759',
-    backgroundColor: 'rgba(52, 199, 89, 0.1)',
-  },
-  caregiverButton: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
-    backgroundColor: 'white',
-    marginLeft: 8,
-    alignItems: 'center',
-    ...Platform.select({
-      web: {},
-      default: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        elevation: 2,
-      },
-    }),
-  },
-  caregiverButtonSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
-  },
-  roleButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1C1C1E',
-  },
-  roleButtonTextSelected: {
-    color: '#34C759',
-  },
-  caregiverButtonTextSelected: {
-    color: '#007AFF',
-  },
-  signUpButton: {
-    backgroundColor: '#007AFF',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 16,
-    ...commonShadow,
-  },
-  signUpButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  signInContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  signInText: {
-    color: '#8E8E93',
-    fontSize: 16,
-  },
-  signInLink: {
-    color: '#007AFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  backContainer: {
-    alignItems: 'center',
-  },
-  backText: {
-    color: '#8E8E93',
-    fontSize: 16,
-  },
-});
+import { Button, Card, Container } from '../../src/components/ui';
 
 export default function SignupScreen() {
   const [name, setName] = useState('');
@@ -209,20 +14,17 @@ export default function SignupScreen() {
   const [role, setRole] = useState<'patient' | 'caregiver'>('patient');
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
-  const { loading, error, isAuthenticated, user, initializing } = useSelector((state: RootState) => state.auth);
+  const { loading, isAuthenticated, user, initializing } = useSelector((state: RootState) => state.auth);
   const params = useLocalSearchParams();
 
   useEffect(() => {
-    // Set role from URL parameter if provided
     if (params.role && (params.role === 'patient' || params.role === 'caregiver')) {
       setRole(params.role as 'patient' | 'caregiver');
     }
   }, [params.role]);
 
-  // Check if user is already authenticated and redirect if needed
   useEffect(() => {
     if (!initializing && isAuthenticated && user) {
-      console.log('[Signup] User already authenticated, redirecting to appropriate page');
       if (user.role === 'patient') {
         router.replace('/patient/home');
       } else {
@@ -236,26 +38,16 @@ export default function SignupScreen() {
       Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
-
     if (password !== confirmPassword) {
       Alert.alert('Error', 'Las contraseñas no coinciden');
       return;
     }
-
     if (password.length < 6) {
       Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
       return;
     }
-
-    // Prevent duplicate signup attempts
-    if (loading) {
-      console.log('[Signup] Signup already in progress, ignoring duplicate request');
-      return;
-    }
-
-    // Check if user is already authenticated
+    if (loading) return;
     if (isAuthenticated && user) {
-      console.log('[Signup] User already authenticated, redirecting to appropriate page');
       if (user.role === 'patient') {
         router.replace('/patient/home');
       } else {
@@ -263,7 +55,6 @@ export default function SignupScreen() {
       }
       return;
     }
-
     try {
       const result = await dispatch(signUp({ email, password, name, role })).unwrap();
       Alert.alert('Éxito', '¡Cuenta creada exitosamente!', [
@@ -288,37 +79,34 @@ export default function SignupScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <View style={styles.innerContainer}>
-        <View style={styles.formContainer}>
-          {/* Logo/Icon */}
-          <View style={styles.logoContainer}>
-            <View style={styles.logo}>
-              <Text style={styles.logoText}>P</Text>
+    <Container className="flex-1">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1 justify-center items-center p-4"
+      >
+        <Card className="w-full max-w-sm p-6">
+          <View className="items-center mb-8">
+            <View className="w-24 h-24 bg-blue-500 rounded-full justify-center items-center mb-4 shadow-lg">
+              <Text className="text-white text-5xl font-bold">P</Text>
             </View>
-            <Text style={styles.welcomeTitle}>Crear cuenta</Text>
-            <Text style={styles.welcomeSubtitle}>Únete a Pildhora hoy</Text>
+            <Text className="text-3xl font-bold text-gray-800">Crear cuenta</Text>
+            <Text className="text-gray-500 mt-1">Únete a Pildhora hoy</Text>
           </View>
 
-          {/* Name Input */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Nombre completo</Text>
+          <View className="mb-4">
+            <Text className="text-sm font-medium text-gray-700 mb-2">Nombre completo</Text>
             <TextInput
-              style={styles.input}
+              className="border border-gray-300 rounded-xl p-4 bg-white text-base shadow-sm"
               placeholder="Ingresa tu nombre completo"
               value={name}
               onChangeText={setName}
             />
           </View>
 
-          {/* Email Input */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Correo electrónico</Text>
+          <View className="mb-4">
+            <Text className="text-sm font-medium text-gray-700 mb-2">Correo electrónico</Text>
             <TextInput
-              style={styles.input}
+              className="border border-gray-300 rounded-xl p-4 bg-white text-base shadow-sm"
               placeholder="Ingresa tu correo"
               value={email}
               onChangeText={setEmail}
@@ -327,11 +115,10 @@ export default function SignupScreen() {
             />
           </View>
 
-          {/* Password Input */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Contraseña</Text>
+          <View className="mb-4">
+            <Text className="text-sm font-medium text-gray-700 mb-2">Contraseña</Text>
             <TextInput
-              style={styles.input}
+              className="border border-gray-300 rounded-xl p-4 bg-white text-base shadow-sm"
               placeholder="Ingresa tu contraseña"
               value={password}
               onChangeText={setPassword}
@@ -339,11 +126,10 @@ export default function SignupScreen() {
             />
           </View>
 
-          {/* Confirm Password Input */}
-          <View style={styles.confirmPasswordContainer}>
-            <Text style={styles.inputLabel}>Confirmar contraseña</Text>
+          <View className="mb-6">
+            <Text className="text-sm font-medium text-gray-700 mb-2">Confirmar contraseña</Text>
             <TextInput
-              style={styles.input}
+              className="border border-gray-300 rounded-xl p-4 bg-white text-base shadow-sm"
               placeholder="Confirma tu contraseña"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
@@ -351,66 +137,50 @@ export default function SignupScreen() {
             />
           </View>
 
-          {/* Role Selection */}
-          <View style={styles.roleContainer}>
-            <Text style={styles.roleLabel}>Soy:</Text>
-            <View style={styles.roleButtonContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.roleButton,
-                  role === 'patient' && styles.roleButtonSelected
-                ]}
+          <View className="mb-6">
+            <Text className="text-sm font-medium text-gray-700 mb-3">Soy:</Text>
+            <View className="flex-row">
+              <Button
                 onPress={() => setRole('patient')}
+                className={`flex-1 mr-2 ${role === 'patient' ? 'bg-green-100 border-green-500' : 'bg-white border-gray-300'}`}
+                variant={role === 'patient' ? 'primary' : 'secondary'}
               >
-                <Text style={[
-                  styles.roleButtonText,
-                  role === 'patient' && styles.roleButtonTextSelected
-                ]}>
-                  Paciente
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.caregiverButton,
-                  role === 'caregiver' && styles.caregiverButtonSelected
-                ]}
+                Paciente
+              </Button>
+              <Button
                 onPress={() => setRole('caregiver')}
+                className={`flex-1 ml-2 ${role === 'caregiver' ? 'bg-blue-100 border-blue-500' : 'bg-white border-gray-300'}`}
+                variant={role === 'caregiver' ? 'primary' : 'secondary'}
               >
-                <Text style={[
-                  styles.roleButtonText,
-                  role === 'caregiver' && styles.caregiverButtonTextSelected
-                ]}>
-                  Cuidador
-                </Text>
-              </TouchableOpacity>
+                Cuidador
+              </Button>
             </View>
           </View>
 
-          {/* Sign Up Button */}
-          <TouchableOpacity
-            style={[styles.signUpButton, { opacity: loading ? 0.7 : 1 }]}
+          <Button
             onPress={handleSignup}
             disabled={loading}
+            variant="primary"
+            size="lg"
+            className="w-full"
           >
-            <Text style={styles.signUpButtonText}>
-              {loading ? 'Creando cuenta...' : 'Registrarse'}
-            </Text>
-          </TouchableOpacity>
+            {loading ? 'Creando cuenta...' : 'Registrarse'}
+          </Button>
 
-          {/* Sign In Link */}
-          <View style={styles.signInContainer}>
-            <Text style={styles.signInText}>¿Ya tienes una cuenta? </Text>
-            <TouchableOpacity onPress={navigateToLogin}>
-              <Text style={styles.signInLink}>Iniciar sesión</Text>
-            </TouchableOpacity>
+          <View className="flex-row justify-center mt-4">
+            <Text className="text-gray-500">¿Ya tienes una cuenta? </Text>
+            <Button onPress={navigateToLogin} className="p-0">
+              Iniciar sesión
+            </Button>
           </View>
 
-          {/* Back Button */}
-          <TouchableOpacity style={styles.backContainer} onPress={() => router.back()}>
-            <Text style={styles.backText}>← Volver a la selección de rol</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </KeyboardAvoidingView>
+          <View className="mt-4">
+            <Button onPress={() => router.back()} className="p-0">
+              ← Volver a la selección de rol
+            </Button>
+          </View>
+        </Card>
+      </KeyboardAvoidingView>
+    </Container>
   );
 }
