@@ -172,7 +172,7 @@ export default function CaregiverDashboard() {
           const intakesWithDates = data.intakes.map(intake => ({
             ...intake,
             scheduledTime: new Date(intake.scheduledTime),
-            takenAt: intake.takenAt ? new Date(intake.takenAt) : null,
+            takenAt: intake.takenAt ? new Date(intake.takenAt) : undefined,
           }));
           setPatientIntakes(intakesWithDates);
         } catch (error: any) {
@@ -343,14 +343,14 @@ export default function CaregiverDashboard() {
             </Text>
             <Button
               variant="primary"
-              size="medium"
+              size="md"
               onPress={handleRetryInitialization}
-              accessibilityLabel="Reintentar"
-              accessibilityHint="Intentar cargar datos nuevamente"
-            />
+            >
+              Reintentar
+            </Button>
+          </Card>
         </View>
-      </View>
-      </Container >
+      </Container>
     );
   }
 
@@ -398,7 +398,7 @@ export default function CaregiverDashboard() {
                   accessibilityLabel={`Anillo de dosis de ${selectedPatient.name}`}
                 />
               )}
-            </View>
+            </Card>
 
             <Card className="bg-white rounded-2xl p-4 mt-4">
               <Text className="text-xl font-bold mb-4">Dispositivo</Text>
@@ -426,38 +426,38 @@ export default function CaregiverDashboard() {
               )}
               <Button
                 variant="primary"
-                onPress={() => router.push({ pathname: '/caregiver/chat', params: { patientId: selectedPatient.id, patientName: selectedPatient.name }})}
+                onPress={() => router.push({ pathname: '/caregiver/chat', params: { patientId: selectedPatient.id, patientName: selectedPatient.name } })}
               >
                 Chatear con {selectedPatient.name}
               </Button>
             </Card>
           </View>
-      ) : (
-      <View className="flex-1 justify-center items-center py-20">
-        <Ionicons name="people-outline" size={48} color="#9CA3AF" />
-        <Text className="text-gray-600 mt-4 text-center">
-          No hay pacientes asignados a tu cuenta
-        </Text>
-        <Text className="text-gray-500 text-sm text-center mt-1">
-          Usa el botón de abajo para vincular un nuevo dispositivo.
-        </Text>
-        <Button
-          variant="primary"
-          onPress={() => router.push('/caregiver/add-device')}
-        >
-          Vincular Dispositivo
-        </Button>
-      </View>
+        ) : (
+          <View className="flex-1 justify-center items-center py-20">
+            <Ionicons name="people-outline" size={48} color="#9CA3AF" />
+            <Text className="text-gray-600 mt-4 text-center">
+              No hay pacientes asignados a tu cuenta
+            </Text>
+            <Text className="text-gray-500 text-sm text-center mt-1">
+              Usa el botón de abajo para vincular un nuevo dispositivo.
+            </Text>
+            <Button
+              variant="primary"
+              onPress={() => router.push('/caregiver/add-device')}
+            >
+              Vincular Dispositivo
+            </Button>
+          </View>
         )}
-    </ScrollView>
-      {/* Add Patient FAB */ }
-  <Button
-    variant="primary"
-    className="absolute bottom-6 right-6 rounded-full w-16 h-16 justify-center items-center"
-    onPress={() => router.push('/caregiver/add-device')}
-  >
-    <Ionicons name="add-outline" size={32} color="white" />
-  </Button>
+      </ScrollView>
+      {/* Add Patient FAB */}
+      <Button
+        variant="primary"
+        className="absolute bottom-6 right-6 rounded-full w-16 h-16 justify-center items-center"
+        onPress={() => router.push('/caregiver/add-device')}
+      >
+        <Ionicons name="add-outline" size={32} color="white" />
+      </Button>
     </Container >
   );
 }

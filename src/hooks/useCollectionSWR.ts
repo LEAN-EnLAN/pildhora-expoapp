@@ -8,15 +8,15 @@ export function useCollectionSWR<T>({
   cacheKey,
   query,
   initialData,
-}: { cacheKey: string; query: Query | null; initialData?: T[] }) {
+}: { cacheKey: string | null; query: Query | null; initialData?: T[] }) {
   const [data, setData] = useState<T[]>(initialData ?? []);
   const [source, setSource] = useState<Source>(initialData ? 'static' : 'cache');
   const [isLoading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    // If query is null, don't fetch data
-    if (!query) {
+    // If query is null or cacheKey is null, don't fetch data
+    if (!query || !cacheKey) {
       setLoading(false);
       return;
     }
