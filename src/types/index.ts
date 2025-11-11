@@ -64,6 +64,26 @@ export interface Task {
   createdAt: Date | string; // Can be Date object or ISO string after Firestore conversion
 }
 
+// Report types
+export interface Report {
+  id: string;
+  name: string;
+  fileUrl: string;
+  fileType: string; // e.g., 'pdf', 'image/jpeg'
+  patientId: string;
+  caregiverId: string;
+  createdAt: Date | string;
+}
+
+// Audit Log types
+export interface AuditLog {
+  id: string;
+  action: string; // e.g., "Medication 'Aspirin' taken by John"
+  timestamp: Date | string;
+  userId: string; // ID of the user who performed the action (patient or caregiver)
+  caregiverId: string; // To scope the logs to the caregiver
+}
+
 // BLE device types
 export interface PillboxDevice {
   id: string;

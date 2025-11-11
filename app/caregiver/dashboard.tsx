@@ -135,7 +135,6 @@ export default function CaregiverDashboard() {
   } = useCollectionSWR<Patient>({
     cacheKey: `patients:${user?.id}`,
     query: isInitialized && !initializationError ? patientsQuery : null,
-    initialData: STATIC_PATIENTS,
   });
 
   // Log patients query results
@@ -449,7 +448,7 @@ export default function CaregiverDashboard() {
               No hay pacientes asignados a tu cuenta
             </Text>
             <Text className="text-gray-500 text-sm text-center mt-1">
-              Los pacientes aparecerán aquí cuando se te asignen
+              Usa el botón de abajo para vincular un nuevo dispositivo.
             </Text>
             <NativeButton
               title="Vincular Dispositivo"
