@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Alert, StyleSheet } from 'react-native';
+import { ScrollView, Text, Alert, StyleSheet } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../store';
 import { addMedication, updateMedication } from '../../store/slices/medicationsSlice';
@@ -49,7 +49,7 @@ export default function MedicationForm({ mode, medication }: Props) {
     doseUnit: '',
     quantityTypes: [],
     reminderTimes: ['08:00'],
-    reminderDays: ['Mon','Tue','Wed','Thu','Fri'],
+    reminderDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
@@ -64,29 +64,29 @@ export default function MedicationForm({ mode, medication }: Props) {
         doseUnit: medication.doseUnit || '',
         quantityTypes: medication.quantityType ? [medication.quantityType] : [],
         reminderTimes: medication.times || ['08:00'],
-        reminderDays: medication.frequency ? medication.frequency.split(',').map((s: string) => s.trim()) : ['Mon','Tue','Wed','Thu','Fri'],
+        reminderDays: medication.frequency ? medication.frequency.split(',').map((s: string) => s.trim()) : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
       };
     }
-    
+
     // Parse legacy dosage format
     if (medication.dosage && medication.dosage.includes(',')) {
       const [dosePart, quantityPart] = medication.dosage.split(',').map((s: string) => s.trim());
-      
+
       // Extract dose value and unit
       const doseMatch = dosePart.match(/^([\d.]+)\s*([a-zA-Z%]+)?$/);
       const doseValue = doseMatch?.[1] || dosePart;
       const doseUnit = doseMatch?.[2] || 'mg';
-      
+
       return {
         name: medication.name || '',
         doseValue,
         doseUnit,
         quantityTypes: [quantityPart || 'Tablets'],
         reminderTimes: medication.times || ['08:00'],
-        reminderDays: medication.frequency ? medication.frequency.split(',').map((s: string) => s.trim()) : ['Mon','Tue','Wed','Thu','Fri'],
+        reminderDays: medication.frequency ? medication.frequency.split(',').map((s: string) => s.trim()) : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
       };
     }
-    
+
     // Fallback for unknown formats
     return {
       name: medication.name || '',
@@ -94,7 +94,7 @@ export default function MedicationForm({ mode, medication }: Props) {
       doseUnit: 'mg',
       quantityTypes: ['Tablets'],
       reminderTimes: medication.times || ['08:00'],
-      reminderDays: medication.frequency ? medication.frequency.split(',').map((s: string) => s.trim()) : ['Mon','Tue','Wed','Thu','Fri'],
+      reminderDays: medication.frequency ? medication.frequency.split(',').map((s: string) => s.trim()) : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
     };
   };
 
@@ -108,41 +108,41 @@ export default function MedicationForm({ mode, medication }: Props) {
   // Validation function
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
-    
+
     // Name validation
     if (!form.name.trim()) {
       newErrors.name = 'El nombre del medicamento es requerido';
     } else if (form.name.length < 2) {
       newErrors.name = 'El nombre debe tener al menos 2 caracteres';
     }
-    
+
     // Dose validation
     if (!form.doseValue.trim()) {
       newErrors.doseValue = 'El valor de la dosis es requerido';
     } else if (!/^\d*\.?\d{0,2}$/.test(form.doseValue)) {
       newErrors.doseValue = 'Por favor ingrese un valor de dosis válido';
     }
-    
+
     // Unit validation
     if (!form.doseUnit) {
       newErrors.doseUnit = 'Por favor seleccione una unidad de dosis';
     }
-    
+
     // Quantity type validation
     if (form.quantityTypes.length === 0) {
       newErrors.quantityTypes = 'Por favor seleccione un tipo de medicamento';
     }
-    
+
     // Time validation
     if (form.reminderTimes.length === 0) {
       newErrors.reminderTimes = 'Por favor seleccione al menos una hora de recordatorio';
     }
-    
+
     // Days validation
     if (form.reminderDays.length === 0) {
       newErrors.reminderDays = 'Por favor seleccione al menos un día';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -187,12 +187,6 @@ export default function MedicationForm({ mode, medication }: Props) {
     router.back();
   };
 
-import { ScrollView } from 'react-native';
-
-// ... (imports)
-
-// ... (component code)
-
   return (
     <Container>
       <ScrollView>
@@ -201,53 +195,53 @@ import { ScrollView } from 'react-native';
             {mode === 'add' ? 'Añadir Medicamento' : 'Editar Medicamento'}
           </Text>
 
-        {/* Medication Name */}
-        <MedicationNameInput
-          value={form.name}
-          onChangeText={(text) => setForm((s) => ({ ...s, name: text }))}
-          error={errors.name}
-        />
+          {/* Medication Name */}
+          <MedicationNameInput
+            value={form.name}
+            onChangeText={(text) => setForm((s) => ({ ...s, name: text }))}
+            error={errors.name}
+          />
 
-        {/* Dose Input */}
-        <DoseInputContainer
-          doseValue={form.doseValue}
-          doseUnit={form.doseUnit}
-          onDoseValueChange={(value) => setForm((s) => ({ ...s, doseValue: value }))}
-          onDoseUnitChange={(unit) => setForm((s) => ({ ...s, doseUnit: unit }))}
-          doseValueError={errors.doseValue}
-          doseUnitError={errors.doseUnit}
-        />
+          {/* Dose Input */}
+          <DoseInputContainer
+            doseValue={form.doseValue}
+            doseUnit={form.doseUnit}
+            onDoseValueChange={(value) => setForm((s) => ({ ...s, doseValue: value }))}
+            onDoseUnitChange={(unit) => setForm((s) => ({ ...s, doseUnit: unit }))}
+            doseValueError={errors.doseValue}
+            doseUnitError={errors.doseUnit}
+          />
 
-        {/* Quantity Type Selector */}
-        <QuantityTypeSelector
-          selectedTypes={form.quantityTypes}
-          onTypesChange={(types) => setForm((s) => ({ ...s, quantityTypes: types }))}
-          error={errors.quantityTypes}
-        />
+          {/* Quantity Type Selector */}
+          <QuantityTypeSelector
+            selectedTypes={form.quantityTypes}
+            onTypesChange={(types) => setForm((s) => ({ ...s, quantityTypes: types }))}
+            error={errors.quantityTypes}
+          />
 
-        {/* Reminder Time Picker */}
-        <ReminderTimePicker
-          times={form.reminderTimes}
-          onTimesChange={(times) => setForm((s) => ({ ...s, reminderTimes: times }))}
-          error={errors.reminderTimes}
-        />
+          {/* Reminder Time Picker */}
+          <ReminderTimePicker
+            times={form.reminderTimes}
+            onTimesChange={(times) => setForm((s) => ({ ...s, reminderTimes: times }))}
+            error={errors.reminderTimes}
+          />
 
-        {/* Reminder Days Selector */}
-        <ReminderDaysSelector
-          selectedDays={form.reminderDays}
-          onDaysChange={(days) => setForm((s) => ({ ...s, reminderDays: days }))}
-          error={errors.reminderDays}
-        />
+          {/* Reminder Days Selector */}
+          <ReminderDaysSelector
+            selectedDays={form.reminderDays}
+            onDaysChange={(days) => setForm((s) => ({ ...s, reminderDays: days }))}
+            error={errors.reminderDays}
+          />
 
-        {/* Submit Button */}
-        <Button
-          onPress={submitForm}
-          variant="primary"
-          size="lg"
-          className="mt-4"
-        >
-          {mode === 'add' ? 'Guardar' : 'Actualizar'}
-        </Button>
+          {/* Submit Button */}
+          <Button
+            onPress={submitForm}
+            variant="primary"
+            size="lg"
+            className="mt-4"
+          >
+            {mode === 'add' ? 'Guardar' : 'Actualizar'}
+          </Button>
         </Card>
       </ScrollView>
     </Container>
