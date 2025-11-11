@@ -20,7 +20,7 @@ export const Container: React.FC<ContainerProps> = ({
   };
   
   return (
-    <View className={`bg-gray-50 ${paddingClasses[padding]} ${className}`}>
+    <View className={`bg-gray-100 ${paddingClasses[padding]} ${className}`}>
       {children}
     </View>
   );

@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Modal, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, TextInput, Modal, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { DOSE_UNITS } from '../../../types';
+import { Button } from '../../ui/Button';
+import { Card } from '../../ui/Card';
 
 interface Props {
   doseValue: string;
@@ -22,6 +24,7 @@ export default function DoseInputContainer({
 }: Props) {
   const [showCustomUnit, setShowCustomUnit] = useState(false);
   const [customUnit, setCustomUnit] = useState('');
+  const [showUnitPicker, setShowUnitPicker] = useState(false);
 
   const handleUnitChange = (unit: string) => {
     if (unit === 'custom') {
@@ -42,236 +45,98 @@ export default function DoseInputContainer({
   };
 
   const handleDoseValueChange = (text: string) => {
-    // Only allow numeric input with decimal point
     const numericText = text.replace(/[^0-9.]/g, '');
-    
-    // Ensure only one decimal point
     const parts = numericText.split('.');
-    if (parts.length > 2) {
+    if (parts.length > 2 || (parts[1] && parts[1].length > 2)) {
       return;
     }
-    
-    // Limit to 2 decimal places
-    if (parts[1] && parts[1].length > 2) {
-      return;
-    }
-    
     onDoseValueChange(numericText);
   };
 
-  const [showUnitPicker, setShowUnitPicker] = useState(false);
-
   const getSelectedUnitLabel = () => {
     const unit = DOSE_UNITS.find(u => u.id === doseUnit);
-    return unit ? unit.label : 'Seleccionar unidad';
+    return unit ? unit.label : 'Seleccionar';
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>Dosis</Text>
-      <View style={styles.doseContainer}>
-        <View style={styles.doseValueContainer}>
+    <View className="mb-4">
+      <Text className="text-lg font-bold mb-2 text-gray-800">Dosis</Text>
+      <View className="flex-row gap-2">
+        <View className="flex-1">
           <TextInput
-            style={[
-              styles.doseInput,
-              doseValueError ? styles.inputError : null
-            ]}
+            className={`border rounded-lg p-3 bg-white text-base h-12 ${doseValueError ? 'border-red-500' : 'border-gray-300'}`}
             placeholder="500"
             value={doseValue}
             onChangeText={handleDoseValueChange}
             keyboardType="numeric"
-            accessibilityLabel="Dose value"
-            accessibilityHint="Enter the numeric dose value"
           />
-          {doseValueError && <Text style={styles.errorText}>{doseValueError}</Text>}
+          {doseValueError && <Text className="text-red-500 mt-1">{doseValueError}</Text>}
         </View>
         
-        <View style={styles.unitContainer}>
-          <TouchableOpacity
-            style={[
-              styles.unitSelector,
-              doseUnitError ? styles.inputError : null
-            ]}
+        <View className="flex-1.5">
+          <Button
             onPress={() => setShowUnitPicker(true)}
-            accessibilityLabel="Dose unit selector"
-            accessibilityHint="Tap to select dose unit"
+            className={`h-12 justify-center ${doseUnitError ? 'border-red-500' : 'border-gray-300'}`}
+            variant="secondary"
           >
-            <Text style={[
-              styles.unitSelectorText,
-              { color: doseUnit ? '#1F2937' : '#9CA3AF' }
-            ]}>
-              {getSelectedUnitLabel()}
-            </Text>
-            <Ionicons name="chevron-down" size={20} color="#6B7280" />
-          </TouchableOpacity>
-          {doseUnitError && <Text style={styles.errorText}>{doseUnitError}</Text>}
+            <View className="flex-row justify-between items-center w-full">
+              <Text className={`text-base ${doseUnit ? 'text-gray-800' : 'text-gray-400'}`}>
+                {getSelectedUnitLabel()}
+              </Text>
+              <Ionicons name="chevron-down" size={20} color="#6B7280" />
+            </View>
+          </Button>
+          {doseUnitError && <Text className="text-red-500 mt-1">{doseUnitError}</Text>}
         </View>
       </View>
       
       {showCustomUnit && (
-        <View style={styles.customUnitContainer}>
+        <View className="mt-2">
           <TextInput
-            style={styles.customUnitInput}
+            className="border border-gray-300 rounded-lg p-3 bg-white text-base h-12"
             placeholder="Ingrese unidad personalizada"
             value={customUnit}
             onChangeText={setCustomUnit}
             onSubmitEditing={handleCustomUnitSubmit}
-            accessibilityLabel="Custom dose unit"
-            accessibilityHint="Enter a custom dose unit"
           />
         </View>
       )}
 
-      {/* Unit Picker Modal */}
       <Modal
         visible={showUnitPicker}
         transparent={true}
         animationType="slide"
         onRequestClose={() => setShowUnitPicker(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Seleccionar Unidad</Text>
-            <ScrollView style={styles.modalScrollView}>
+        <View className="flex-1 bg-black/50 justify-center items-center p-4">
+          <Card className="w-full max-w-md max-h-[80%]">
+            <Text className="text-xl font-bold mb-4 text-center">Seleccionar Unidad</Text>
+            <ScrollView className="mb-4">
               {DOSE_UNITS.map((unit) => (
-                <TouchableOpacity
+                <Button
                   key={unit.id}
-                  style={[
-                    styles.modalOption,
-                    doseUnit === unit.id ? styles.selectedOption : null
-                  ]}
                   onPress={() => handleUnitChange(unit.id)}
+                  className={`mb-2 ${doseUnit === unit.id ? 'bg-blue-100' : 'bg-gray-50'}`}
+                  variant="secondary"
                 >
-                  <Text style={styles.modalOptionText}>{unit.label}</Text>
-                  {doseUnit === unit.id && (
-                    <Ionicons name="checkmark" size={20} color="#3B82F6" />
-                  )}
-                </TouchableOpacity>
+                  <View className="flex-row justify-between items-center w-full">
+                    <Text className="text-gray-800">{unit.label}</Text>
+                    {doseUnit === unit.id && (
+                      <Ionicons name="checkmark" size={20} color="#3B82F6" />
+                    )}
+                  </View>
+                </Button>
               ))}
             </ScrollView>
-            <TouchableOpacity
-              style={styles.modalCancelButton}
+            <Button
               onPress={() => setShowUnitPicker(false)}
+              variant="secondary"
             >
-              <Text style={styles.modalCancelButtonText}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
+              Cancelar
+            </Button>
+          </Card>
         </View>
       </Modal>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#1F2937',
-  },
-  doseContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  doseValueContainer: {
-    flex: 1,
-  },
-  unitContainer: {
-    flex: 1.5,
-  },
-  doseInput: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: '#FFFFFF',
-    fontSize: 16,
-    height: 48,
-  },
-  unitSelector: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-    height: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-  },
-  unitSelectorText: {
-    fontSize: 16,
-  },
-  inputError: {
-    borderColor: '#EF4444',
-  },
-  errorText: {
-    color: '#EF4444',
-    fontSize: 14,
-    marginTop: 4,
-  },
-  customUnitContainer: {
-    marginTop: 8,
-  },
-  customUnitInput: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: '#FFFFFF',
-    fontSize: 16,
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
-    width: '90%',
-    maxHeight: '80%',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  modalScrollView: {
-    maxHeight: 300,
-  },
-  modalOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  selectedOption: {
-    backgroundColor: '#EBF5FF',
-  },
-  modalOptionText: {
-    fontSize: 16,
-    color: '#1F2937',
-  },
-  modalCancelButton: {
-    marginTop: 16,
-    backgroundColor: '#F3F4F6',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  modalCancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-});

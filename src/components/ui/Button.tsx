@@ -18,25 +18,39 @@ export const Button: React.FC<ButtonProps> = ({
   disabled = false,
   className = "" 
 }) => {
-  const baseClasses = "font-semibold";
+  const baseClasses = "rounded-xl justify-center items-center";
   const variantClasses = {
-    primary: "bg-blue-500 text-white",
-    secondary: "bg-gray-800 text-white shadow-sm", 
-    danger: "bg-red-500 text-white"
+    primary: "bg-blue-500",
+    secondary: "bg-gray-200",
+    danger: "bg-red-500"
   };
   const sizeClasses = {
-    sm: "px-3 py-1 text-sm",
-    md: "px-4 py-2 text-base",
-    lg: "px-6 py-3 text-lg"
+    sm: "px-4 py-2",
+    md: "px-5 py-3",
+    lg: "px-6 py-4"
+  };
+  const textClasses = {
+    primary: "text-white",
+    secondary: "text-gray-800",
+    danger: "text-white"
+  };
+  const textSizeClasses = {
+    sm: "text-sm",
+    md: "text-base",
+    lg: "text-lg"
   };
   
+  const content = typeof children === 'string'
+    ? <Text className={`${textClasses[variant]} ${textSizeClasses[size]} font-semibold`}>{children}</Text>
+    : children;
+
   return (
     <TouchableOpacity
       onPress={onPress}
       disabled={disabled}
       className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${disabled ? 'opacity-50' : ''} ${className}`}
     >
-      {children}
+      {content}
     </TouchableOpacity>
   );
 };

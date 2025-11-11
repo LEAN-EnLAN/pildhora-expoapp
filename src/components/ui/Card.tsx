@@ -12,9 +12,9 @@ export const Card: React.FC<CardProps> = ({
   children, 
   className = "", 
   shadow = true, 
-  border = true 
+  border = false
 }) => {
-  const cardClasses = `bg-white rounded-xl p-4 ${shadow ? 'shadow-sm' : ''} ${border ? 'border border-gray-200' : ''} ${className}`;
+  const cardClasses = `bg-white rounded-2xl p-6 ${shadow ? 'shadow-md' : ''} ${border ? 'border border-gray-200' : ''} ${className}`;
   
   return (
     <View className={cardClasses}>

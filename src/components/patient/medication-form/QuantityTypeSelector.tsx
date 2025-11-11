@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, TextInput } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, Modal, ScrollView, TextInput, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { QUANTITY_TYPES } from '../../../types';
+import { Button } from '../../ui/Button';
+import { Card } from '../../ui/Card';
 
 interface Props {
   selectedTypes: string[];
@@ -14,13 +16,11 @@ export default function QuantityTypeSelector({ selectedTypes, onTypesChange, err
   const [customType, setCustomType] = useState('');
 
   const handleTypeToggle = (type: string) => {
-    if (selectedTypes.includes(type)) {
-      // Remove type if already selected
-      onTypesChange(selectedTypes.filter(t => t !== type));
-    } else {
-      // Add new type
-      onTypesChange([...selectedTypes, type]);
-    }
+    onTypesChange(
+      selectedTypes.includes(type)
+        ? selectedTypes.filter(t => t !== type)
+        : [...selectedTypes, type]
+    );
   };
 
   const handleAddCustomType = () => {
@@ -30,282 +30,88 @@ export default function QuantityTypeSelector({ selectedTypes, onTypesChange, err
     }
   };
 
-  const handleRemoveType = (typeToRemove: string) => {
-    onTypesChange(selectedTypes.filter(t => t !== typeToRemove));
-  };
-
   const getTypeIcon = (type: string) => {
     const foundType = QUANTITY_TYPES.find(t => t.label === type);
     return foundType ? foundType.icon : 'help-circle-outline';
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>Tipo de Medicamento</Text>
-      
-      {/* Selected Types Display */}
-      <View style={styles.selectedTypesContainer}>
+    <View className="mb-4">
+      <Text className="text-lg font-bold mb-2 text-gray-800">Tipo de Medicamento</Text>
+      <View className="min-h-[48px]">
         {selectedTypes.length === 0 ? (
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => setShowSelector(true)}
-          >
-            <Text style={styles.addButtonText}>Añadir tipo</Text>
-            <Ionicons name="add-circle-outline" size={20} color="#3B82F6" />
-          </TouchableOpacity>
+          <Button onPress={() => setShowSelector(true)} variant="secondary" className="justify-center">
+            <View className="flex-row items-center gap-2">
+              <Text className="text-blue-500 font-semibold">Añadir tipo</Text>
+              <Ionicons name="add-circle-outline" size={20} color="#3B82F6" />
+            </View>
+          </Button>
         ) : (
-          <View style={styles.typesList}>
-            {selectedTypes.map((type, index) => (
-              <View key={index} style={styles.typeBadge}>
-                <Ionicons 
-                  name={getTypeIcon(type) as any} 
-                  size={16} 
-                  color="#374151" 
-                  style={styles.typeIcon}
-                />
-                <Text style={styles.typeText}>{type}</Text>
-                <TouchableOpacity
-                  style={styles.deleteButton}
-                  onPress={() => handleRemoveType(type)}
-                  accessibilityLabel={`Remove ${type}`}
-                  accessibilityRole="button"
-                >
+          <View className="flex-row flex-wrap gap-2 items-center">
+            {selectedTypes.map((type) => (
+              <View key={type} className="flex-row items-center bg-gray-100 rounded-full px-3 py-1.5 gap-1.5">
+                <Ionicons name={getTypeIcon(type) as any} size={16} color="#374151" />
+                <Text className="text-sm text-gray-800 font-medium">{type}</Text>
+                <TouchableOpacity onPress={() => onTypesChange(selectedTypes.filter(t => t !== type))}>
                   <Ionicons name="close-circle" size={16} color="#EF4444" />
                 </TouchableOpacity>
               </View>
             ))}
-            <TouchableOpacity
-              style={styles.addMoreButton}
-              onPress={() => setShowSelector(true)}
-            >
+            <Button onPress={() => setShowSelector(true)} variant="secondary" className="p-1 rounded-full h-8 w-8">
               <Ionicons name="add" size={16} color="#3B82F6" />
-            </TouchableOpacity>
+            </Button>
           </View>
         )}
       </View>
-      
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && <Text className="text-red-500 mt-1">{error}</Text>}
 
-      {/* Type Selector Modal */}
-      <Modal
-        visible={showSelector}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowSelector(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Seleccionar Tipo</Text>
-            
-            <ScrollView style={styles.modalScrollView}>
+      <Modal visible={showSelector} transparent={true} animationType="slide" onRequestClose={() => setShowSelector(false)}>
+        <View className="flex-1 bg-black/50 justify-center items-center p-4">
+          <Card className="w-full max-w-md max-h-[90%]">
+            <Text className="text-xl font-bold mb-4 text-center">Seleccionar Tipo</Text>
+            <ScrollView className="mb-4">
               {QUANTITY_TYPES.map((type) => (
-                <TouchableOpacity
+                <Button
                   key={type.id}
-                  style={[
-                    styles.modalOption,
-                    selectedTypes.includes(type.label) ? styles.selectedOption : null
-                  ]}
                   onPress={() => handleTypeToggle(type.label)}
+                  className={`mb-2 ${selectedTypes.includes(type.label) ? 'bg-blue-100' : 'bg-gray-50'}`}
+                  variant="secondary"
                 >
-                  <View style={styles.modalOptionContent}>
-                    <Ionicons name={type.icon as any} size={20} color="#374151" />
-                    <Text style={styles.modalOptionText}>{type.label}</Text>
+                  <View className="flex-row justify-between items-center w-full">
+                    <View className="flex-row items-center gap-3">
+                      <Ionicons name={type.icon as any} size={20} color="#374151" />
+                      <Text className="text-gray-800">{type.label}</Text>
+                    </View>
+                    {selectedTypes.includes(type.label) && (
+                      <Ionicons name="checkmark" size={20} color="#3B82F6" />
+                    )}
                   </View>
-                  {selectedTypes.includes(type.label) && (
-                    <Ionicons name="checkmark" size={20} color="#3B82F6" />
-                  )}
-                </TouchableOpacity>
+                </Button>
               ))}
             </ScrollView>
 
-            {/* Custom Type Input */}
-            <View style={styles.customTypeContainer}>
-              <Text style={styles.customTypeLabel}>Tipo personalizado:</Text>
-              <View style={styles.customTypeInputContainer}>
+            <View className="my-2">
+              <Text className="font-semibold mb-2 text-gray-700">Tipo personalizado:</Text>
+              <View className="flex-row gap-2">
                 <TextInput
-                  style={styles.customTypeInput}
-                  placeholder="Ingrese tipo personalizado"
+                  className="flex-1 border border-gray-300 rounded-lg p-3 bg-white"
+                  placeholder="Ej: Inhalador"
                   value={customType}
                   onChangeText={setCustomType}
                   onSubmitEditing={handleAddCustomType}
                 />
-                <TouchableOpacity
-                  style={styles.addCustomButton}
-                  onPress={handleAddCustomType}
-                  disabled={!customType.trim()}
-                >
+                <Button onPress={handleAddCustomType} disabled={!customType.trim()}>
                   <Ionicons name="add" size={20} color="#FFFFFF" />
-                </TouchableOpacity>
+                </Button>
               </View>
             </View>
 
-            <TouchableOpacity
-              style={styles.modalCancelButton}
-              onPress={() => setShowSelector(false)}
-            >
-              <Text style={styles.modalCancelButtonText}>Listo</Text>
-            </TouchableOpacity>
-          </View>
+            <Button onPress={() => setShowSelector(false)} variant="primary" className="mt-4">
+              Listo
+            </Button>
+          </Card>
         </View>
       </Modal>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#1F2937',
-  },
-  selectedTypesContainer: {
-    minHeight: 48,
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: '#FFFFFF',
-    gap: 8,
-  },
-  addButtonText: {
-    fontSize: 16,
-    color: '#3B82F6',
-    fontWeight: '500',
-  },
-  typesList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  typeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    gap: 6,
-  },
-  typeIcon: {
-    marginLeft: 2,
-  },
-  typeText: {
-    fontSize: 14,
-    color: '#374151',
-    fontWeight: '500',
-  },
-  deleteButton: {
-    marginLeft: 4,
-  },
-  addMoreButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderStyle: 'dashed',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#FFFFFF',
-  },
-  errorText: {
-    color: '#EF4444',
-    fontSize: 14,
-    marginTop: 4,
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
-    width: '90%',
-    maxHeight: '80%',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  modalScrollView: {
-    maxHeight: 250,
-  },
-  modalOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  selectedOption: {
-    backgroundColor: '#EBF5FF',
-  },
-  modalOptionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  modalOptionText: {
-    fontSize: 16,
-    color: '#1F2937',
-  },
-  customTypeContainer: {
-    marginTop: 16,
-    marginBottom: 16,
-  },
-  customTypeLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 8,
-    color: '#374151',
-  },
-  customTypeInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  customTypeInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: '#FFFFFF',
-    fontSize: 16,
-  },
-  addCustomButton: {
-    backgroundColor: '#3B82F6',
-    borderRadius: 8,
-    padding: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalCancelButton: {
-    backgroundColor: '#3B82F6',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  modalCancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-});

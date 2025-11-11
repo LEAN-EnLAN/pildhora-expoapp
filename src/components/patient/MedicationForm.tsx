@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
+import { View, Text, Alert, StyleSheet } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../store';
 import { addMedication, updateMedication } from '../../store/slices/medicationsSlice';
@@ -10,6 +10,7 @@ import DoseInputContainer from './medication-form/DoseInputContainer';
 import QuantityTypeSelector from './medication-form/QuantityTypeSelector';
 import ReminderTimePicker from './medication-form/ReminderTimePicker';
 import ReminderDaysSelector from './medication-form/ReminderDaysSelector';
+import { Button, Card, Container } from '../ui';
 
 type Mode = 'add' | 'edit';
 
@@ -186,12 +187,19 @@ export default function MedicationForm({ mode, medication }: Props) {
     router.back();
   };
 
+import { ScrollView } from 'react-native';
+
+// ... (imports)
+
+// ... (component code)
+
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>
-          {mode === 'add' ? 'Añadir Medicamento' : 'Editar Medicamento'}
-        </Text>
+    <Container>
+      <ScrollView>
+        <Card>
+          <Text style={styles.title}>
+            {mode === 'add' ? 'Añadir Medicamento' : 'Editar Medicamento'}
+          </Text>
 
         {/* Medication Name */}
         <MedicationNameInput
@@ -232,43 +240,25 @@ export default function MedicationForm({ mode, medication }: Props) {
         />
 
         {/* Submit Button */}
-        <TouchableOpacity
-          style={styles.submitButton}
+        <Button
           onPress={submitForm}
+          variant="primary"
+          size="lg"
+          className="mt-4"
         >
-          <Text style={styles.submitButtonText}>
-            {mode === 'add' ? 'Guardar' : 'Actualizar'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+          {mode === 'add' ? 'Guardar' : 'Actualizar'}
+        </Button>
+        </Card>
+      </ScrollView>
+    </Container>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F3F4F6',
-  },
-  content: {
-    padding: 16,
-  },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 16,
     color: '#1F2937',
-  },
-  submitButton: {
-    backgroundColor: '#2563EB',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  submitButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
 });

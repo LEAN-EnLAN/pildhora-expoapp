@@ -2,18 +2,14 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Text,
   View,
-  TouchableOpacity,
   FlatList,
-  StyleSheet,
   Alert,
   RefreshControl,
   ActivityIndicator,
   ScrollView,
-  Modal,
   Linking,
   Platform
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,21 +26,8 @@ import {
   reinitializeFirebase
 } from '../../src/services/firebase';
 import DoseRing from '../../src/components/DoseRing';
-import { Card, NativeButton } from '../../src/components/ui';
+import { Card, Button, Container } from '../../src/components/ui';
 import { Patient, PatientWithDevice, Task, DoseSegment, IntakeRecord, IntakeStatus } from '../../src/types';
-
-const styles = StyleSheet.create({
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
-});
 
 export default function CaregiverDashboard() {
   const router = useRouter();
@@ -284,36 +267,39 @@ export default function CaregiverDashboard() {
   // Show initialization error with retry option
   if (initializationError) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-100">
+      <Container className="flex-1 bg-gray-100">
         <View className="flex-row items-center justify-between bg-white px-4 py-3 border-b border-gray-200">
           <View>
             <Text className="text-2xl font-extrabold text-gray-900">PILDHORA</Text>
             <Text className="text-sm text-gray-500">Hola, {displayName}</Text>
           </View>
-          <TouchableOpacity className="px-3 py-2 rounded-lg bg-gray-400 items-center justify-center" onPress={async () => {
-            await dispatch(logout());
-            router.replace('/');
-          }}>
-            <Text className="text-white font-bold text-center">Salir</Text>
-          </TouchableOpacity>
+          <Button
+            variant="secondary"
+            onPress={async () => {
+              await dispatch(logout());
+              router.replace('/');
+            }}
+          >
+            Salir
+          </Button>
         </View>
         <View className="p-4">
-          <View className="bg-red-100 border border-red-200 rounded-2xl p-4">
+          <Card className="bg-red-100 border border-red-200 rounded-2xl p-4">
             <Text className="text-red-800 text-center font-semibold mb-2">
               Error de inicialización de Firebase
             </Text>
             <Text className="text-red-700 text-center text-sm mb-4">
               {initializationError.message || 'No se pudo conectar con los servicios de Firebase'}
             </Text>
-            <TouchableOpacity
-              className="bg-blue-600 rounded-lg p-3 items-center"
+            <Button
+              variant="primary"
               onPress={handleRetryInitialization}
             >
-              <Text className="text-white font-semibold">Reintentar</Text>
-            </TouchableOpacity>
-          </View>
+              Reintentar
+            </Button>
+          </Card>
         </View>
-      </SafeAreaView>
+      </Container>
     );
   }
 
@@ -322,26 +308,24 @@ export default function CaregiverDashboard() {
     const isIndexError = patientsError?.message?.includes('requires an index');
     
     return (
-      <SafeAreaView className="flex-1 bg-gray-100">
+      <Container className="flex-1 bg-gray-100">
         <View className="flex-row items-center justify-between bg-white px-4 py-3 border-b border-gray-200">
           <View>
             <Text className="text-2xl font-extrabold text-gray-900">PILDHORA</Text>
             <Text className="text-sm text-gray-500">Hola, {displayName}</Text>
           </View>
-          <NativeButton
-            icon={<Ionicons name="log-out" size={20} color="#FFFFFF" />}
-            variant="icon"
-            size="small"
+          <Button
+            variant="secondary"
             onPress={async () => {
               await dispatch(logout());
               router.replace('/auth/signup');
             }}
-            accessibilityLabel="Salir"
-            accessibilityHint="Cerrar sesión y volver al registro"
-          />
+          >
+            <Ionicons name="log-out" size={20} color="#374151" />
+          </Button>
         </View>
         <View className="p-4">
-          <View className="bg-orange-100 border border-orange-200 rounded-2xl p-4">
+          <Card className="bg-orange-100 border border-orange-200 rounded-2xl p-4">
             <Text className="text-orange-800 text-center font-semibold mb-2">
               {isIndexError ? 'Configuración en progreso' : 'Error al cargar datos'}
             </Text>
@@ -351,44 +335,32 @@ export default function CaregiverDashboard() {
                 : (patientsError?.message || 'Verifica tu conexión e intenta nuevamente.')
               }
             </Text>
-            <NativeButton
-              title="Reintentar"
+            <Button
               variant="primary"
-              size="medium"
               onPress={handleRefresh}
-              accessibilityLabel="Reintentar"
-              accessibilityHint="Intentar cargar datos nuevamente"
-            />
-          </View>
+            >
+              Reintentar
+            </Button>
+          </Card>
         </View>
-      </SafeAreaView>
+      </Container>
     );
   }
 
   return (
-    <>
+    <Container className="flex-1">
       {/* Patient Selector */}
       {patientsWithDevices.length > 0 && (
         <View className="px-4 py-3 bg-white border-b border-gray-200">
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row gap-3">
             {patientsWithDevices.map((patient) => (
-              <TouchableOpacity
+              <Button
                 key={patient.id}
-                className={`px-4 py-2 rounded-full ${
-                  selectedPatient?.id === patient.id
-                    ? 'bg-blue-600'
-                    : 'bg-gray-200 border border-gray-300'
-                }`}
+                variant={selectedPatient?.id === patient.id ? 'primary' : 'secondary'}
                 onPress={() => handlePatientSelect(patient)}
               >
-                <Text
-                  className={`font-semibold ${
-                    selectedPatient?.id === patient.id ? 'text-white' : 'text-gray-700'
-                  }`}
-                >
-                  {patient.name}
-                </Text>
-              </TouchableOpacity>
+                {patient.name}
+              </Button>
             ))}
           </ScrollView>
         </View>
@@ -397,7 +369,7 @@ export default function CaregiverDashboard() {
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 20 }}>
         {selectedPatient ? (
           <View className="p-4">
-            <View className="bg-white rounded-2xl p-4 items-center">
+            <Card className="bg-white rounded-2xl p-4 items-center">
               <Text className="text-2xl font-bold mb-4">Adherencia Diaria</Text>
               <DoseRing
                 size={250}
@@ -405,9 +377,9 @@ export default function CaregiverDashboard() {
                 segments={selectedPatient.doseSegments || []}
                 accessibilityLabel={`Anillo de dosis de ${selectedPatient.name}`}
               />
-            </View>
+            </Card>
 
-            <View className="bg-white rounded-2xl p-4 mt-4">
+            <Card className="bg-white rounded-2xl p-4 mt-4">
               <Text className="text-xl font-bold mb-4">Dispositivo</Text>
               {selectedPatient.deviceState ? (
                 <>
@@ -431,15 +403,13 @@ export default function CaregiverDashboard() {
               ) : (
                 <Text className="text-gray-500">No hay dispositivo vinculado.</Text>
               )}
-              <NativeButton
-                title={`Chatear con ${selectedPatient.name}`}
+              <Button
                 variant="primary"
-                size="medium"
                 onPress={() => router.push({ pathname: '/caregiver/chat', params: { patientId: selectedPatient.id, patientName: selectedPatient.name }})}
-                accessibilityLabel={`Chatear con ${selectedPatient.name}`}
-                accessibilityHint={`Abrir chat con ${selectedPatient.name}`}
-              />
-            </View>
+              >
+                Chatear con {selectedPatient.name}
+              </Button>
+            </Card>
           </View>
         ) : (
           <View className="flex-1 justify-center items-center py-20">
@@ -450,27 +420,23 @@ export default function CaregiverDashboard() {
             <Text className="text-gray-500 text-sm text-center mt-1">
               Usa el botón de abajo para vincular un nuevo dispositivo.
             </Text>
-            <NativeButton
-              title="Vincular Dispositivo"
+            <Button
               variant="primary"
-              size="medium"
               onPress={() => router.push('/caregiver/add-device')}
-              accessibilityLabel="Vincular Dispositivo"
-              accessibilityHint="Agregar nuevo dispositivo para paciente"
-            />
+            >
+              Vincular Dispositivo
+            </Button>
           </View>
         )}
       </ScrollView>
       {/* Add Patient FAB */}
-      <NativeButton
-        icon={<Ionicons name="add-outline" size={32} color="white" />}
-        variant="icon"
-        size="large"
+      <Button
+        variant="primary"
+        className="absolute bottom-6 right-6 rounded-full w-16 h-16 justify-center items-center"
         onPress={() => router.push('/caregiver/add-device')}
-        style={styles.fab}
-        accessibilityLabel="Agregar paciente"
-        accessibilityHint="Agregar nuevo paciente o dispositivo"
-      />
-    </>
+      >
+        <Ionicons name="add-outline" size={32} color="white" />
+      </Button>
+    </Container>
   );
 }
