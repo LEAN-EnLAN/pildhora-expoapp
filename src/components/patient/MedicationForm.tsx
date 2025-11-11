@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Alert, StyleSheet } from 'react-native';
+import { ScrollView, Text, Alert, StyleSheet } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../store';
 import { addMedication, updateMedication } from '../../store/slices/medicationsSlice';
@@ -186,8 +186,6 @@ export default function MedicationForm({ mode, medication }: Props) {
 
     router.back();
   };
-
-import { ScrollView } from 'react-native';
 
 // ... (imports)
 

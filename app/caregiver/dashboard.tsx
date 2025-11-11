@@ -8,8 +8,10 @@ import {
   ActivityIndicator,
   ScrollView,
   Linking,
-  Platform
+  Platform,
+  StyleSheet
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +30,19 @@ import {
 import DoseRing from '../../src/components/DoseRing';
 import { Card, Button, Container } from '../../src/components/ui';
 import { Patient, PatientWithDevice, Task, DoseSegment, IntakeRecord, IntakeStatus } from '../../src/types';
+
+const styles = StyleSheet.create({
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+});
 
 export default function CaregiverDashboard() {
   const router = useRouter();
@@ -135,18 +150,18 @@ export default function CaregiverDashboard() {
     }
   }, [patientsLoading, patientsError, patients.length, patientsSource, isInitialized, initializationError]);
 
-
-
   // Fetch patient intakes when a patient is selected
   useEffect(() => {
     if (selectedPatient && isInitialized) {
       const fetchPatientIntakes = async () => {
         try {
           const db = await getDbInstance();
+          if (!db) {
+            throw new Error('Database not available');
+          }
           const intakesQuery = query(
             collection(db, 'intakeRecords'),
             where('patientId', '==', selectedPatient.id),
-            orderBy('scheduledTime', 'desc'),
             orderBy('scheduledTime', 'desc')
           );
           
@@ -185,7 +200,12 @@ export default function CaregiverDashboard() {
   useEffect(() => {
     const enhancedPatients = patients.map((patient: Patient) => {
       // Generate mock dose segments based on adherence
-      const doseSegments = generateMockDoseSegments(patient.adherence || 0);
+      const adherence = patient.adherence || 0;
+      const doseSegments: DoseSegment[] = [
+        { startHour: 8, endHour: 9, status: adherence > 25 ? 'DOSE_TAKEN' : 'PENDING' },
+        { startHour: 13, endHour: 14, status: adherence > 50 ? 'DOSE_TAKEN' : 'PENDING' },
+        { startHour: 20, endHour: 21, status: adherence > 75 ? 'DOSE_TAKEN' : 'PENDING' },
+      ];
 
       return {
         ...patient,
@@ -262,8 +282,6 @@ export default function CaregiverDashboard() {
     });
   };
 
-
-
   // Show initialization error with retry option
   if (initializationError) {
     return (
@@ -318,10 +336,10 @@ export default function CaregiverDashboard() {
             variant="secondary"
             onPress={async () => {
               await dispatch(logout());
-              router.replace('/auth/signup');
+              router.replace('/');
             }}
           >
-            <Ionicons name="log-out" size={20} color="#374151" />
+            Salir
           </Button>
         </View>
         <View className="p-4">
@@ -332,8 +350,7 @@ export default function CaregiverDashboard() {
             <Text className="text-orange-700 text-center text-sm mb-4">
               {isIndexError 
                 ? 'Los índices de la base de datos se están configurando. Esto puede tardar unos minutos. Por favor, intenta nuevamente en breve.'
-                : (patientsError?.message || 'Verifica tu conexión e intenta nuevamente.')
-              }
+                : (patientsError?.message || 'Verifica tu conexión e intenta nuevamente.')}
             </Text>
             <Button
               variant="primary"
@@ -371,12 +388,14 @@ export default function CaregiverDashboard() {
           <View className="p-4">
             <Card className="bg-white rounded-2xl p-4 items-center">
               <Text className="text-2xl font-bold mb-4">Adherencia Diaria</Text>
-              <DoseRing
-                size={250}
-                strokeWidth={20}
-                segments={selectedPatient.doseSegments || []}
-                accessibilityLabel={`Anillo de dosis de ${selectedPatient.name}`}
-              />
+              <View className="items-center justify-center">
+                <DoseRing
+                  size={250}
+                  strokeWidth={20}
+                  segments={selectedPatient.doseSegments || []}
+                  accessibilityLabel={`Anillo de dosis de ${selectedPatient.name}`}
+                />
+              </View>
             </Card>
 
             <Card className="bg-white rounded-2xl p-4 mt-4">
@@ -405,7 +424,7 @@ export default function CaregiverDashboard() {
               )}
               <Button
                 variant="primary"
-                onPress={() => router.push({ pathname: '/caregiver/chat', params: { patientId: selectedPatient.id, patientName: selectedPatient.name }})}
+                onPress={() => router.push({ pathname: '/caregiver/chat', params: { patientId: selectedPatient.id, patientName: selectedPatient.name } })}
               >
                 Chatear con {selectedPatient.name}
               </Button>
@@ -429,14 +448,18 @@ export default function CaregiverDashboard() {
           </View>
         )}
       </ScrollView>
+
       {/* Add Patient FAB */}
-      <Button
-        variant="primary"
-        className="absolute bottom-6 right-6 rounded-full w-16 h-16 justify-center items-center"
-        onPress={() => router.push('/caregiver/add-device')}
-      >
-        <Ionicons name="add-outline" size={32} color="white" />
-      </Button>
+      <View style={styles.fab}>
+        <Button
+          variant="primary"
+          size="lg"
+          className="rounded-full"
+          onPress={() => router.push('/caregiver/add-device')}
+        >
+          <Ionicons name="add-outline" size={32} color="white" />
+        </Button>
+      </View>
     </Container>
   );
 }

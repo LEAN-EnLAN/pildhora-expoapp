@@ -6,7 +6,7 @@ import { RootState } from '../../src/store';
 import { useCollectionSWR } from '../../src/hooks/useCollectionSWR';
 import { getTasksQuery, addTask, updateTask, deleteTask } from '../../src/services/firebase/tasks';
 import { Task } from '../../src/types';
-import { NativeButton } from '../../src/components/ui';
+import { Button } from '../../src/components/ui';
 
 export default function TasksScreen() {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -89,14 +89,13 @@ export default function TasksScreen() {
     <View className="flex-1 bg-gray-100">
       <View className="p-4 flex-row justify-between items-center">
         <Text className="text-2xl font-bold">Tareas</Text>
-        <NativeButton
-          icon={<Ionicons name="add" size={24} color="white" />}
-          variant="icon"
-          size="small"
+        <Button
           onPress={() => setModalVisible(true)}
-          accessibilityLabel="Agregar tarea"
-          accessibilityHint="Abrir formulario para agregar nueva tarea"
-        />
+          variant="primary"
+          size="sm"
+        >
+          <Ionicons name="add" size={24} color="white" />
+        </Button>
       </View>
       <FlatList
         data={tasks}
@@ -107,14 +106,13 @@ export default function TasksScreen() {
               <Ionicons name={item.completed ? 'checkbox' : 'square-outline'} size={24} color={item.completed ? 'green' : 'gray'} />
               <Text className={`ml-4 flex-1 ${item.completed ? 'line-through text-gray-500' : 'text-black'}`}>{item.title}</Text>
             </TouchableOpacity>
-            <NativeButton
-              icon={<Ionicons name="trash-outline" size={22} color="red" />}
-              variant="text"
-              size="small"
+            <Button
               onPress={() => handleDeleteTask(item.id)}
-              accessibilityLabel="Eliminar tarea"
-              accessibilityHint={`Eliminar tarea: ${item.title}`}
-            />
+              variant="secondary"
+              size="sm"
+            >
+              <Ionicons name="trash-outline" size={22} color="red" />
+            </Button>
           </View>
         )}
       />
@@ -133,22 +131,20 @@ export default function TasksScreen() {
               onChangeText={setNewTaskText}
               className="bg-gray-200 p-3 rounded-lg mb-4"
             />
-            <NativeButton
-              title="Agregar"
-              variant="primary"
-              size="medium"
+            <Button
               onPress={handleAddTask}
-              accessibilityLabel="Agregar tarea"
-              accessibilityHint="Agregar nueva tarea a la lista"
-            />
-            <NativeButton
-              title="Cancelar"
-              variant="text"
-              size="medium"
+              variant="primary"
+              size="md"
+            >
+              Agregar
+            </Button>
+            <Button
               onPress={() => setModalVisible(false)}
-              accessibilityLabel="Cancelar"
-              accessibilityHint="Cerrar formulario de nueva tarea"
-            />
+              variant="secondary"
+              size="md"
+            >
+              Cancelar
+            </Button>
           </View>
         </View>
       </Modal>

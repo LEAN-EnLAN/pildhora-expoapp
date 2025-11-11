@@ -8,7 +8,7 @@ import { RootState, AppDispatch } from '../../src/store';
 import { logout } from '../../src/store/slices/authSlice';
 import { fetchMedications } from '../../src/store/slices/medicationsSlice';
 import DoseRing from '../../src/components/DoseRing';
-import { Card, NativeButton } from '../../src/components/ui';
+import { Card, Button } from '../../src/components/ui';
 import { Medication, DoseSegment, IntakeStatus } from '../../src/types';
 import { getDbInstance } from '../../src/services/firebase';
 import { addDoc, collection, Timestamp } from 'firebase/firestore';
@@ -249,24 +249,22 @@ export default function PatientHome() {
         </View>
         <View className="flex-row items-center gap-3">
           {/* Emergency icon-only button */}
-          <NativeButton
-            icon={<Ionicons name="alert" size={20} color="#FFFFFF" />}
-            variant="destructive"
-            size="small"
+          <Button
             onPress={handleEmergency}
-            accessibilityLabel="Emergencia"
-            accessibilityHint="Toca para ver opciones de emergencia"
-          />
+            variant="danger"
+            size="sm"
+          >
+            <Ionicons name="alert" size={20} color="#FFFFFF" />
+          </Button>
           
           {/* Account button with action sheet */}
-          <NativeButton
-            icon={<Ionicons name="person" size={20} color="#FFFFFF" />}
-            variant="secondary"
-            size="small"
+          <Button
             onPress={handleAccountMenu}
-            accessibilityLabel="Cuenta"
-            accessibilityHint="Toca para ver opciones de cuenta"
-          />
+            variant="secondary"
+            size="sm"
+          >
+            <Ionicons name="person" size={20} color="#FFFFFF" />
+          </Button>
         </View>
       </View>
 
@@ -284,30 +282,27 @@ export default function PatientHome() {
                 <Text className="text-2xl font-bold text-gray-900 mb-2">Emergencia</Text>
                 <Text className="text-gray-600 mb-6 text-center">Selecciona una opción:</Text>
                 <View className="gap-3">
-                  <NativeButton
-                    title="Llamar 911"
-                    variant="destructive"
-                    size="large"
+                  <Button
                     onPress={() => callEmergency('911')}
-                    accessibilityLabel="Llamar al 911"
-                    accessibilityHint="Marcar número de emergencia 911"
-                  />
-                  <NativeButton
-                    title="Llamar 112"
-                    variant="secondary"
-                    size="large"
+                    variant="danger"
+                    size="lg"
+                  >
+                    Llamar 911
+                  </Button>
+                  <Button
                     onPress={() => callEmergency('112')}
-                    accessibilityLabel="Llamar al 112"
-                    accessibilityHint="Marcar número de emergencia 112"
-                  />
-                  <NativeButton
-                    title="Cancelar"
-                    variant="text"
-                    size="large"
+                    variant="secondary"
+                    size="lg"
+                  >
+                    Llamar 112
+                  </Button>
+                  <Button
                     onPress={() => setModalVisible(false)}
-                    accessibilityLabel="Cancelar"
-                    accessibilityHint="Cerrar menú de emergencia"
-                  />
+                    variant="secondary"
+                    size="lg"
+                  >
+                    Cancelar
+                  </Button>
                 </View>
               </View>
             </View>
@@ -338,16 +333,14 @@ export default function PatientHome() {
                 <Text className="text-gray-600">{upcoming.med.dosage}</Text>
                 <Text className="text-gray-600">{formatHourDecimal(upcoming.next)}</Text>
               </View>
-              <NativeButton
-                title="Tomar medicación"
-                variant="primary"
-                size="medium"
+              <Button
                 onPress={handleTakeUpcomingMedication}
+                variant="primary"
+                size="md"
                 disabled={takingLoading}
-                loading={takingLoading}
-                accessibilityLabel="Tomar medicación"
-                accessibilityHint="Registrar toma de medicación próxima"
-              />
+              >
+                {takingLoading ? 'Tomando...' : 'Tomar medicación'}
+              </Button>
             </View>
           ) : (
             <Text className="text-gray-500">No hay dosis próximas para hoy.</Text>
@@ -366,14 +359,13 @@ export default function PatientHome() {
                 <Text className="text-gray-600">Dosis y eventos anteriores</Text>
               </View>
             </View>
-            <NativeButton
-              title="Abrir"
-              variant="primary"
-              size="small"
+            <Button
               onPress={handleHistory}
-              accessibilityLabel="Abrir historial"
-              accessibilityHint="Ver historial de dosis y eventos"
-            />
+              variant="primary"
+              size="sm"
+            >
+              Abrir
+            </Button>
           </View>
         </View>
       </View>
@@ -384,13 +376,13 @@ export default function PatientHome() {
           <View className="flex-row justify-between items-center mb-4">
             <Text className="text-lg font-bold">Hoy</Text>
             <Link href="/patient/medications" asChild>
-              <NativeButton 
-                title="Mis Medicamentos" 
+              <Button
                 variant="primary"
-                size="medium"
-                accessibilityLabel="Mis Medicamentos"
-                accessibilityHint="Ver todos mis medicamentos"
-              />
+                size="md"
+                onPress={() => {}}
+              >
+                Mis Medicamentos
+              </Button>
             </Link>
           </View>
 
@@ -411,13 +403,13 @@ export default function PatientHome() {
                     })()}
                   </View>
                   <Link href={`/patient/medications/${item.id}`} asChild>
-                    <NativeButton 
-                      title="Abrir" 
+                    <Button
                       variant="secondary"
-                      size="small"
-                      accessibilityLabel="Abrir medicamento"
-                      accessibilityHint={`Abrir detalles de ${item.name}`}
-                    />
+                      size="sm"
+                      onPress={() => {}}
+                    >
+                      Abrir
+                    </Button>
                   </Link>
                 </View>
               ))}
