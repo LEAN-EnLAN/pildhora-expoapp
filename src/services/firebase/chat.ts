@@ -12,6 +12,7 @@ import {
   setDoc,
 } from 'firebase/firestore';
 import { getDbInstance } from './index';
+import * as user from './user';
 
 export interface Message {
   id: string;
@@ -39,6 +40,20 @@ const getChatId = (userId1: string, userId2: string): string => {
  */
 export const sendMessage = async (messageData: NewMessagePayload): Promise<void> => {
   const db = await getDbInstance();
+  const sender = await user.getPatientById(messageData.senderId);
+  if (!sender) {
+    throw new Error('Sender not found.');
+  }
+
+  const [caregiverId, patientId] =
+    sender.role === 'caregiver'
+      ? [messageData.senderId, messageData.receiverId]
+      : [messageData.receiverId, messageData.senderId];
+
+  const patients = await user.getCaregiverPatients(caregiverId);
+  if (!patients.some(p => p.id === patientId)) {
+    throw new Error('Unauthorized: Caregiver cannot message this patient.');
+  }
   const chatId = getChatId(messageData.senderId, messageData.receiverId);
   const chatDocRef = doc(db, 'chats', chatId);
   const messagesColRef = collection(chatDocRef, 'messages');

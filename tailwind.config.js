@@ -5,7 +5,6 @@ module.exports = {
   corePlugins: {
     boxShadow: false,
   },
-  // Note: Using NativeWind v2, which does not provide a `nativewind/preset`. Do not include presets here.
   theme: {
     extend: {
       colors: {

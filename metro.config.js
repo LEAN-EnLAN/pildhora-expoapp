@@ -29,4 +29,30 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   return context.resolveRequest(context, moduleName, platform);
 };
 
+// Fix MIME type issues for TypeScript and JavaScript bundles
+config.server = {
+  ...config.server,
+  enhanceMiddleware: (middleware) => {
+    return (req, res, next) => {
+      // Set proper Content-Type headers for JavaScript/TypeScript bundles
+      if (req.url && (req.url.endsWith('.bundle') || req.url.endsWith('.js') || req.url.endsWith('.ts'))) {
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      }
+      // Handle JSON bundles that should be served as JavaScript
+      if (req.url && req.url.includes('.bundle?') && req.headers.accept && req.headers.accept.includes('javascript')) {
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      }
+      return middleware(req, res, next);
+    };
+  },
+};
+
+// Add transformer options for better compatibility
+config.transformer.getTransformOptions = async () => ({
+  transform: {
+    experimentalImportSupport: false,
+    inlineRequires: true,
+  },
+});
+
 module.exports = config;

@@ -3,7 +3,9 @@ import {
   addDoc,
   Timestamp,
   doc,
+  getDoc,
   setDoc,
+  deleteDoc,
   query,
   where,
   getDocs,
@@ -19,8 +21,9 @@ interface NewUserPayload {
   name: string;
   email: string;
   role: 'patient' | 'caregiver';
-  caregiverId: string;
-  deviceId: string;
+  caregiverId?: string;
+  deviceId?: string;
+  patients?: string[];
 }
 
 /**
@@ -35,6 +38,27 @@ export const addUser = async (userData: NewUserPayload): Promise<string> => {
     createdAt: Timestamp.now(),
   });
   return docRef.id;
+};
+
+/**
+ * Updates a medication for a specific patient.
+ * @param medicationId - The ID of the medication to update.
+ * @param medicationData - The data to update.
+ */
+export const updateMedication = async (medicationId: string, medicationData: any): Promise<void> => {
+  const db = await getDbInstance();
+  const medicationRef = doc(db, 'medications', medicationId);
+  await setDoc(medicationRef, medicationData, { merge: true });
+};
+
+/**
+ * Deletes a medication for a specific patient.
+ * @param medicationId - The ID of the medication to delete.
+ */
+export const deleteMedication = async (medicationId: string): Promise<void> => {
+  const db = await getDbInstance();
+  const medicationRef = doc(db, 'medications', medicationId);
+  await deleteDoc(medicationRef);
 };
 
 /**
@@ -59,5 +83,97 @@ export const findPatientByDevice = async (deviceId: string): Promise<User | null
   }
 
   const userDoc = querySnapshot.docs[0];
+  return { id: userDoc.id, ...userDoc.data() } as User;
+};
+
+/**
+ * Fetches the device assigned to a specific patient.
+ * @param patientId - The ID of the patient.
+ * @returns The device if found, otherwise null.
+ */
+export const getPatientDevice = async (patientId: string): Promise<any | null> => {
+  const db = await getDbInstance();
+  const patient = await getPatientById(patientId);
+  if (!patient || !patient.deviceId) {
+    return null;
+  }
+
+  const deviceDocRef = doc(db, 'devices', patient.deviceId);
+  const deviceDoc = await getDoc(deviceDocRef);
+
+  if (!deviceDoc.exists()) {
+    return null;
+  }
+
+  return { id: deviceDoc.id, ...deviceDoc.data() };
+};
+
+/**
+ * Fetches all medications for a specific patient.
+ * @param patientId - The ID of the patient.
+ * @returns A promise that resolves to an array of medication documents.
+ */
+export const getMedications = async (patientId: string): Promise<any[]> => {
+  const db = await getDbInstance();
+  const medicationsRef = collection(db, 'medications');
+  const q = query(medicationsRef, where('patientId', '==', patientId));
+  const querySnapshot = await getDocs(q);
+
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+};
+
+/**
+ * Adds a new medication for a specific patient.
+ * @param medicationData - The data for the new medication.
+ * @returns The ID of the newly created medication document.
+ */
+export const addMedication = async (medicationData: any): Promise<string> => {
+  const db = await getDbInstance();
+  const docRef = await addDoc(collection(db, 'medications'), {
+    ...medicationData,
+    createdAt: Timestamp.now(),
+  });
+  return docRef.id;
+};
+
+/**
+ * Fetches all patients assigned to a specific caregiver.
+ * @param caregiverId - The ID of the caregiver.
+ * @returns A promise that resolves to an array of patient user documents.
+ */
+export const getCaregiverPatients = async (caregiverId: string): Promise<User[]> => {
+  const db = await getDbInstance();
+  const caregiverDocRef = doc(db, 'users', caregiverId);
+  const caregiverDoc = await getDoc(caregiverDocRef);
+
+  if (!caregiverDoc.exists() || caregiverDoc.data().role !== 'caregiver') {
+    return [];
+  }
+
+  const patientIds = caregiverDoc.data().patients || [];
+  if (patientIds.length === 0) {
+    return [];
+  }
+
+  const patientsQuery = query(collection(db, 'users'), where('__name__', 'in', patientIds));
+  const querySnapshot = await getDocs(patientsQuery);
+
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as User[];
+};
+
+/**
+ * Fetches a single patient's user document by their ID.
+ * @param patientId - The ID of the patient to retrieve.
+ * @returns The user document if found, otherwise null.
+ */
+export const getPatientById = async (patientId: string): Promise<User | null> => {
+  const db = await getDbInstance();
+  const userDocRef = doc(db, 'users', patientId);
+  const userDoc = await getDoc(userDocRef);
+
+  if (!userDoc.exists()) {
+    return null;
+  }
+
   return { id: userDoc.id, ...userDoc.data() } as User;
 };

@@ -5,6 +5,7 @@ export interface User {
   role: 'patient' | 'caregiver';
   name: string;
   createdAt: Date | string; // Can be Date object or ISO string after Firestore conversion
+  patients?: string[];
 }
 
 // Medication types
