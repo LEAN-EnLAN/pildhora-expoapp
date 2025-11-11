@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
-    "start": "dotenv -e .env -- expo start --port 8082",
+    "start": "dotenv -e .env -- expo start",
     "android": "dotenv -e .env -- expo start --android",
     "ios": "dotenv -e .env -- expo start --ios",
     "web": "dotenv -e .env -- expo start --web",
