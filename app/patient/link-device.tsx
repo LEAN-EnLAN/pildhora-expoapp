@@ -9,6 +9,7 @@ import { rdb, db } from '../../src/services/firebase';
 import { ref, get } from 'firebase/database';
 import { collection, query, where, getDocs, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
+import { NativeButton } from '../../src/components/ui';
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F2F2F7' },
@@ -293,9 +294,14 @@ export default function LinkDeviceScreen() {
               <View key={id} style={styles.listItem}>
                 <View style={styles.listItemRow}>
                   <Text style={styles.listItemText}>{id}</Text>
-                  <TouchableOpacity style={[styles.button, styles.buttonSecondary]} onPress={() => handleUnlink(id)}>
-                    <Text style={styles.buttonText}>Desenlazar</Text>
-                  </TouchableOpacity>
+                  <NativeButton
+                    title="Desenlazar"
+                    variant="text"
+                    size="medium"
+                    onPress={() => handleUnlink(id)}
+                    accessibilityLabel="Desenlazar dispositivo"
+                    accessibilityHint="Desenlazar este dispositivo de la lista"
+                  />
                 </View>
                 <View style={styles.statsSection}>
                   <View style={styles.statsRow}>

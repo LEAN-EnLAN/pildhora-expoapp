@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import { Provider, useSelector } from 'react-redux';
+// @ts-ignore – redux-persist lacks bundled types
 import { PersistGate } from 'redux-persist/integration/react';
 import { store, persistor, RootState } from '../src/store';
 import { useEffect } from 'react';
