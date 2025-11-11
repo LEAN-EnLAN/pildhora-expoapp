@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Switch } from 'react-native';
 import Slider from '@react-native-community/slider';
+import { useTranslation } from 'react-i18next';
 import ColorPickerScaffold from '../../src/components/ColorPickerScaffold';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../src/store';
@@ -36,6 +37,7 @@ const styles = StyleSheet.create({
 });
 
 export default function LinkDeviceScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const userId = useSelector((state: RootState) => state.auth.user?.id);
   const [deviceId, setDeviceId] = useState('');
@@ -115,13 +117,13 @@ export default function LinkDeviceScreen() {
             ledIntensity: 512,
             ledColor: [255, 0, 0],
             saving: false,
-            saveError: 'No se pudo leer datos del dispositivo (Firestore).',
+            saveError: t('patient.linkDevice.couldNotReadDeviceData'),
           };
         }
       }
       setDeviceStats(statsMap);
     } catch (e: any) {
-      setError(e.message || 'Error al cargar dispositivos');
+      setError(e.message || t('patient.linkDevice.errorLoadingDevices'));
     }
   }
 
@@ -144,12 +146,12 @@ export default function LinkDeviceScreen() {
 
     if (!userId) {
       console.error('[DEBUG] No userId in Redux state');
-      setError('Debes iniciar sesión para enlazar un dispositivo.');
+      setError(t('patient.linkDevice.loginToLink'));
       return;
     }
     if (!deviceId.trim()) {
       console.error('[DEBUG] No deviceId provided');
-      setError('Ingresa un Device ID válido.');
+      setError(t('patient.linkDevice.enterValidDeviceId'));
       return;
     }
 
@@ -168,7 +170,7 @@ export default function LinkDeviceScreen() {
         code: e.code,
         stack: e.stack
       });
-      setError(e.message || 'No se pudo enlazar el dispositivo');
+      setError(e.message || t('patient.linkDevice.couldNotLink'));
     } finally {
       setLoading(false);
     }
@@ -177,7 +179,7 @@ export default function LinkDeviceScreen() {
   const handleUnlink = async (id: string) => {
     setError(null);
     if (!userId) {
-      setError('Debes iniciar sesión para desenlazar un dispositivo.');
+      setError(t('patient.linkDevice.loginToUnlink'));
       return;
     }
     try {
@@ -185,7 +187,7 @@ export default function LinkDeviceScreen() {
       await unlinkDeviceFromUser(userId, id);
       await refreshLinkedDevices();
     } catch (e: any) {
-      setError(e.message || 'No se pudo desenlazar el dispositivo');
+      setError(e.message || t('patient.linkDevice.couldNotUnlink'));
     } finally {
       setLoading(false);
     }
@@ -232,7 +234,7 @@ export default function LinkDeviceScreen() {
     setDeviceStats((prev) => ({ ...prev, [id]: { ...(prev[id] || {}), saving: true, saveError: null } }));
     try {
       const cfg = deviceStats[id];
-      if (!cfg) throw new Error('Sin configuración local');
+      if (!cfg) throw new Error(t('patient.linkDevice.noLocalConfig'));
       
       // Check if database is available
       if (!db) {
@@ -255,36 +257,36 @@ export default function LinkDeviceScreen() {
       );
       setDeviceStats((prev) => ({ ...prev, [id]: { ...(prev[id] || {}), saving: false } }));
     } catch (e: any) {
-      setDeviceStats((prev) => ({ ...prev, [id]: { ...(prev[id] || {}), saving: false, saveError: e?.message || 'Error al guardar configuración' } }));
+      setDeviceStats((prev) => ({ ...prev, [id]: { ...(prev[id] || {}), saving: false, saveError: e?.message || t('patient.linkDevice.errorSavingConfig') } }));
     }
   };
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Enlazar Dispositivo</Text>
-        <Text style={styles.infoText}>Agrega tu Pillbox para habilitar estado en tiempo real y notificaciones.</Text>
+        <Text style={styles.headerTitle}>{t('patient.linkDevice.title')}</Text>
+        <Text style={styles.infoText}>{t('patient.linkDevice.subtitle')}</Text>
       </View>
 
       <View style={styles.card}>
-        <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 8 }}>Ingresar Device ID</Text>
+        <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 8 }}>{t('patient.linkDevice.enterDeviceId')}</Text>
         <TextInput
           style={styles.input}
-          placeholder="DEVICE-001"
+          placeholder={t('patient.linkDevice.deviceIdPlaceholder')}
           value={deviceId}
           onChangeText={setDeviceId}
           autoCapitalize="none"
         />
         <TouchableOpacity style={styles.button} onPress={handleLink} disabled={loading}>
-          <Text style={styles.buttonText}>{loading ? 'Enlazando...' : 'Enlazar'}</Text>
+          <Text style={styles.buttonText}>{loading ? t('patient.linkDevice.linking') : t('patient.linkDevice.link')}</Text>
         </TouchableOpacity>
         {error && <Text style={{ color: '#FF3B30' }}>{error}</Text>}
       </View>
 
       <View style={styles.card}>
-        <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 8 }}>Dispositivos Enlazados</Text>
+        <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 8 }}>{t('patient.linkDevice.linkedDevices')}</Text>
         {linkedDevices.length === 0 ? (
-          <Text style={styles.infoText}>No hay dispositivos enlazados.</Text>
+          <Text style={styles.infoText}>{t('patient.linkDevice.noLinkedDevices')}</Text>
         ) : (
           linkedDevices.map((id) => {
             const stats = deviceStats[id];
@@ -294,16 +296,16 @@ export default function LinkDeviceScreen() {
                 <View style={styles.listItemRow}>
                   <Text style={styles.listItemText}>{id}</Text>
                   <TouchableOpacity style={[styles.button, styles.buttonSecondary]} onPress={() => handleUnlink(id)}>
-                    <Text style={styles.buttonText}>Desenlazar</Text>
+                    <Text style={styles.buttonText}>{t('patient.linkDevice.unlink')}</Text>
                   </TouchableOpacity>
                 </View>
                 <View style={styles.statsSection}>
                   <View style={styles.statsRow}>
-                    <Text style={styles.infoText}>Batería</Text>
-                    <Text style={{ fontWeight: '600', color: '#1C1C1E' }}>{stats?.battery != null ? `${stats?.battery}%` : 'N/D'}</Text>
+                    <Text style={styles.infoText}>{t('patient.linkDevice.battery')}</Text>
+                    <Text style={{ fontWeight: '600', color: '#1C1C1E' }}>{stats?.battery != null ? `${stats?.battery}%` : t('patient.linkDevice.na')}</Text>
                   </View>
                   <View>
-                    <Text style={styles.infoText}>Modo de alarma</Text>
+                    <Text style={styles.infoText}>{t('patient.linkDevice.alarmMode')}</Text>
                     <View style={styles.chipRow}>
                       {['off', 'sound', 'led', 'both'].map((mode) => (
                         <TouchableOpacity
@@ -312,7 +314,7 @@ export default function LinkDeviceScreen() {
                           onPress={() => setAlarmMode(id, mode as any)}
                         >
                           <Text style={{ color: '#1C1C1E' }}>
-                            {mode === 'off' ? 'Apagado' : mode === 'sound' ? 'Sonido' : mode === 'led' ? 'Luz' : 'Ambos'}
+                            {t(`patient.linkDevice.${mode}`)}
                           </Text>
                         </TouchableOpacity>
                       ))}
@@ -320,7 +322,7 @@ export default function LinkDeviceScreen() {
                   </View>
                   <View>
                     <View style={styles.statsRow}>
-                      <Text style={styles.infoText}>Intensidad LED</Text>
+                      <Text style={styles.infoText}>{t('patient.linkDevice.ledIntensity')}</Text>
                       <Text style={{ fontWeight: '600', color: '#1C1C1E' }}>{stats?.ledIntensity ?? 512}</Text>
                     </View>
                     <Slider
@@ -336,7 +338,7 @@ export default function LinkDeviceScreen() {
                   </View>
                   <View>
                     <View style={styles.statsRow}>
-                      <Text style={styles.infoText}>Color LED</Text>
+                      <Text style={styles.infoText}>{t('patient.linkDevice.ledColor')}</Text>
                       <View style={[styles.swatch, { backgroundColor: colorHex }]} />
                     </View>
                     <ColorPickerScaffold
@@ -349,7 +351,7 @@ export default function LinkDeviceScreen() {
                   </View>
                   <View style={styles.statsRow}>
                     <TouchableOpacity style={[styles.button, { flex: 1 }]} onPress={() => saveDeviceConfig(id)} disabled={stats?.saving}>
-                      <Text style={styles.buttonText}>{stats?.saving ? 'Guardando...' : 'Guardar cambios'}</Text>
+                      <Text style={styles.buttonText}>{stats?.saving ? t('patient.linkDevice.saving') : t('patient.linkDevice.saveChanges')}</Text>
                     </TouchableOpacity>
                   </View>
                   {stats?.saveError ? <Text style={{ color: '#FF3B30' }}>{stats?.saveError}</Text> : null}
@@ -362,7 +364,7 @@ export default function LinkDeviceScreen() {
 
       <View style={styles.card}>
         <TouchableOpacity style={styles.button} onPress={() => router.back()}>
-          <Text style={styles.buttonText}>Volver</Text>
+          <Text style={styles.buttonText}>{t('patient.linkDevice.back')}</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>

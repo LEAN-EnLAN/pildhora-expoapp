@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { AppDispatch, RootState } from '../../src/store';
 import { initializeBLE, scanForDevices } from '../../src/store/slices/bleSlice';
@@ -18,6 +19,7 @@ import { findPatientByDevice } from '../../src/services/firebase/user';
 type Step = 'initializing' | 'scanning' | 'selectDevice' | 'linking' | 'success' | 'error';
 
 export default function AddPatientScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const { devices, scanning, error: bleError } = useSelector((state: RootState) => state.ble);
@@ -52,12 +54,12 @@ export default function AddPatientScreen() {
         setFoundPatientName(patient.name);
         setStep('success');
       } else {
-        setErrorMessage('Este dispositivo no está registrado a ningún paciente.');
+        setErrorMessage(t('caregiver.addDevice.noPatient'));
         setStep('error');
       }
     } catch (error: any) {
       console.error("Error finding patient by device:", error);
-      setErrorMessage(error.message || 'Ocurrió un error al verificar el dispositivo.');
+      setErrorMessage(error.message || t('caregiver.addDevice.errorChecking'));
       setStep('error');
     }
   };
@@ -70,7 +72,7 @@ export default function AddPatientScreen() {
           <View className="flex-1 justify-center items-center">
             <ActivityIndicator size="large" color="#3b82f6" />
             <Text className="mt-4 text-lg text-gray-600">
-              {step === 'initializing' ? 'Iniciando Bluetooth...' : 'Buscando dispositivos...'}
+              {step === 'initializing' ? t('caregiver.addDevice.initializing') : t('caregiver.addDevice.scanning')}
             </Text>
           </View>
         );
@@ -79,13 +81,13 @@ export default function AddPatientScreen() {
           <FlatList
             data={devices}
             keyExtractor={(item) => item.id}
-            ListHeaderComponent={<Text className="p-4 text-xl font-bold">Selecciona un Dispositivo</Text>}
+            ListHeaderComponent={<Text className="p-4 text-xl font-bold">{t('caregiver.addDevice.selectDevice')}</Text>}
             renderItem={({ item }) => (
               <TouchableOpacity
                 onPress={() => handleSelectDevice(item)}
                 className="bg-white p-4 m-2 rounded-lg flex-row items-center justify-between"
               >
-                <Text className="font-semibold text-base">{item.name || 'Dispositivo Desconocido'}</Text>
+                <Text className="font-semibold text-base">{item.name || t('caregiver.addDevice.unknownDevice')}</Text>
                 <Text className="text-gray-500 text-xs">{item.id}</Text>
                 <Ionicons name="chevron-forward" size={24} color="gray" />
               </TouchableOpacity>
@@ -96,19 +98,19 @@ export default function AddPatientScreen() {
         return (
           <View className="flex-1 justify-center items-center">
             <ActivityIndicator size="large" color="#3b82f6" />
-            <Text className="mt-4 text-lg text-gray-600">Vinculando dispositivo...</Text>
+            <Text className="mt-4 text-lg text-gray-600">{t('caregiver.addDevice.linking')}</Text>
           </View>
         );
       case 'success':
         return (
           <View className="flex-1 justify-center items-center p-4">
             <Ionicons name="checkmark-circle" size={80} color="green" />
-            <Text className="mt-4 text-2xl font-bold text-center">Dispositivo Vinculado</Text>
+            <Text className="mt-4 text-2xl font-bold text-center">{t('caregiver.addDevice.deviceLinked')}</Text>
             <Text className="text-gray-600 text-center mt-2">
-              El dispositivo ha sido vinculado correctamente al paciente {foundPatientName}.
+              {t('caregiver.addDevice.deviceLinkedTo', { patientName: foundPatientName })}
             </Text>
             <TouchableOpacity onPress={() => router.back()} className="bg-blue-500 p-3 rounded-lg mt-6 w-full items-center">
-              <Text className="text-white text-center font-bold">Hecho</Text>
+              <Text className="text-white text-center font-bold">{t('caregiver.addDevice.done')}</Text>
             </TouchableOpacity>
           </View>
         );
@@ -116,12 +118,12 @@ export default function AddPatientScreen() {
         return (
           <View className="flex-1 justify-center items-center p-4">
             <Ionicons name="close-circle" size={80} color="red" />
-            <Text className="mt-4 text-2xl font-bold text-center">Error</Text>
+            <Text className="mt-4 text-2xl font-bold text-center">{t('caregiver.addDevice.error')}</Text>
             <Text className="text-gray-600 text-center mt-2">
-              {errorMessage || 'No se pudo vincular el dispositivo.'}
+              {errorMessage || t('caregiver.addDevice.couldNotLink')}
             </Text>
             <TouchableOpacity onPress={() => router.back()} className="bg-blue-500 p-3 rounded-lg mt-6 w-full items-center">
-              <Text className="text-white text-center font-bold">Cerrar</Text>
+              <Text className="text-white text-center font-bold">{t('caregiver.addDevice.close')}</Text>
             </TouchableOpacity>
           </View>
         );
@@ -132,7 +134,7 @@ export default function AddPatientScreen() {
 
   return (
     <View className="flex-1 bg-gray-100">
-      <Stack.Screen options={{ headerShown: true, title: 'Vincular Dispositivo' }} />
+      <Stack.Screen options={{ headerShown: true, title: t('caregiver.addDevice.title') }} />
       {renderContent()}
     </View>
   );

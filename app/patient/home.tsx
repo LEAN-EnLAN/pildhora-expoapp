@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { RootState, AppDispatch } from '../../src/store';
 import { logout } from '../../src/store/slices/authSlice';
 import { fetchMedications } from '../../src/store/slices/medicationsSlice';
@@ -42,12 +43,13 @@ const getNextTimeToday = (med: Medication) => {
 };
 
 export default function PatientHome() {
+  const { t } = useTranslation();
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const { user } = useSelector((state: RootState) => state.auth);
   const { medications, loading } = useSelector((state: RootState) => state.medications);
 
-  const displayName = user?.name || (user?.email ? user.email.split('@')[0] : 'Paciente');
+  const displayName = user?.name || (user?.email ? user.email.split('@')[0] : t('patient.home.patient'));
   const patientId = user?.id;
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -108,7 +110,7 @@ export default function PatientHome() {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ['Cancelar', 'Llamar 911', 'Llamar 112'],
+          options: [t('patient.home.cancel'), t('patient.home.call911'), t('patient.home.call112')],
           cancelButtonIndex: 0,
           destructiveButtonIndex: 1,
           userInterfaceStyle: 'light',
@@ -142,7 +144,7 @@ export default function PatientHome() {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ['Cancelar', 'Salir de sesión', 'Configuraciones', 'Mi dispositivo'],
+          options: [t('patient.home.cancel'), t('patient.home.logout'), t('patient.home.settings'), t('patient.home.myDevice')],
           cancelButtonIndex: 0,
           userInterfaceStyle: 'light',
         },
@@ -163,7 +165,7 @@ export default function PatientHome() {
 
   const handleConfiguraciones = () => {
     // TODO: Navigate to settings page when implemented
-    Alert.alert('Próximamente', 'La página de configuraciones estará disponible pronto.');
+    Alert.alert(t('patient.home.comingSoon'), t('patient.home.settingsComingSoon'));
   };
 
   const handleMiDispositivo = () => {
@@ -172,7 +174,7 @@ export default function PatientHome() {
 
   const handleTakeUpcomingMedication = async () => {
     if (!upcoming || !patientId) {
-      Alert.alert('Información faltante', 'No se encontró una dosis próxima o el usuario no está autenticado.');
+      Alert.alert(t('patient.home.missingInfo'), t('patient.home.noUpcomingDoseOrUser'));
       return;
     }
     try {
@@ -197,10 +199,10 @@ export default function PatientHome() {
         });
       }
 
-      Alert.alert('Registrado', 'Se registró la toma de la medicación correctamente.');
+      Alert.alert(t('patient.home.registered'), t('patient.home.medicationRegistered'));
     } catch (e) {
       console.error('Error writing intake record', e);
-      Alert.alert('Error', 'No se pudo escribir el registro en la base de datos.');
+      Alert.alert(t('patient.home.error'), t('patient.home.dbWriteError'));
     } finally {
       setTakingLoading(false);
     }
@@ -222,21 +224,21 @@ export default function PatientHome() {
               onPress={handleLogout}
             >
               <Ionicons name="log-out-outline" size={20} color="#374151" />
-              <Text className="ml-3 text-gray-700 font-medium text-base">Salir de sesión</Text>
+              <Text className="ml-3 text-gray-700 font-medium text-base">{t('patient.home.logout')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               className="px-4 py-4 border-b border-gray-100 flex-row items-center"
               onPress={handleConfiguraciones}
             >
               <Ionicons name="settings-outline" size={20} color="#374151" />
-              <Text className="ml-3 text-gray-700 font-medium text-base">Configuraciones</Text>
+              <Text className="ml-3 text-gray-700 font-medium text-base">{t('patient.home.settings')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               className="px-4 py-4 flex-row items-center"
               onPress={handleMiDispositivo}
             >
               <Ionicons name="hardware-chip-outline" size={20} color="#374151" />
-              <Text className="ml-3 text-gray-700 font-medium text-base">Mi dispositivo</Text>
+              <Text className="ml-3 text-gray-700 font-medium text-base">{t('patient.home.myDevice')}</Text>
             </TouchableOpacity>
           </View>
         </>
@@ -245,7 +247,7 @@ export default function PatientHome() {
       <View className="flex-row items-center justify-between bg-white px-4 py-3 border-b border-gray-200">
         <View>
           <Text className="text-2xl font-extrabold text-gray-900">PILDHORA</Text>
-          <Text className="text-sm text-gray-500">Hola, {displayName}</Text>
+          <Text className="text-sm text-gray-500">{t('patient.home.greeting', { name: displayName })}</Text>
         </View>
         <View className="flex-row items-center gap-3">
           {/* Emergency icon-only button */}
@@ -254,8 +256,8 @@ export default function PatientHome() {
             variant="destructive"
             size="small"
             onPress={handleEmergency}
-            accessibilityLabel="Emergencia"
-            accessibilityHint="Toca para ver opciones de emergencia"
+            accessibilityLabel={t('patient.home.emergency')}
+            accessibilityHint={t('patient.home.emergencyHint')}
           />
           
           {/* Account button with action sheet */}
@@ -264,8 +266,8 @@ export default function PatientHome() {
             variant="secondary"
             size="small"
             onPress={handleAccountMenu}
-            accessibilityLabel="Cuenta"
-            accessibilityHint="Toca para ver opciones de cuenta"
+            accessibilityLabel={t('patient.home.account')}
+            accessibilityHint={t('patient.home.accountHint')}
           />
         </View>
       </View>
@@ -281,32 +283,32 @@ export default function PatientHome() {
           <View className="flex-1 bg-black/50 items-center justify-center px-6">
             <View className="bg-white w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl">
               <View className="p-6">
-                <Text className="text-2xl font-bold text-gray-900 mb-2">Emergencia</Text>
-                <Text className="text-gray-600 mb-6 text-center">Selecciona una opción:</Text>
+                <Text className="text-2xl font-bold text-gray-900 mb-2">{t('patient.home.emergencyModalTitle')}</Text>
+                <Text className="text-gray-600 mb-6 text-center">{t('patient.home.emergencyModalMessage')}</Text>
                 <View className="gap-3">
                   <NativeButton
-                    title="Llamar 911"
+                    title={t('patient.home.call911')}
                     variant="destructive"
                     size="large"
                     onPress={() => callEmergency('911')}
-                    accessibilityLabel="Llamar al 911"
-                    accessibilityHint="Marcar número de emergencia 911"
+                    accessibilityLabel={t('patient.home.call911')}
+                    accessibilityHint={t('patient.home.call911Hint')}
                   />
                   <NativeButton
-                    title="Llamar 112"
+                    title={t('patient.home.call112')}
                     variant="secondary"
                     size="large"
                     onPress={() => callEmergency('112')}
-                    accessibilityLabel="Llamar al 112"
-                    accessibilityHint="Marcar número de emergencia 112"
+                    accessibilityLabel={t('patient.home.call112')}
+                    accessibilityHint={t('patient.home.call112Hint')}
                   />
                   <NativeButton
-                    title="Cancelar"
+                    title={t('patient.home.cancel')}
                     variant="text"
                     size="large"
                     onPress={() => setModalVisible(false)}
-                    accessibilityLabel="Cancelar"
-                    accessibilityHint="Cerrar menú de emergencia"
+                    accessibilityLabel={t('patient.home.cancel')}
+                    accessibilityHint={t('patient.home.cancelHint')}
                   />
                 </View>
               </View>
@@ -320,9 +322,9 @@ export default function PatientHome() {
         {/* DoseRing section */}
         <View className="p-4">
         <View className="bg-white rounded-2xl p-4">
-          <Text className="text-lg font-bold mb-2">Estado del día</Text>
+          <Text className="text-lg font-bold mb-2">{t('patient.home.dayStatus')}</Text>
           <View className="items-center justify-center">
-            <DoseRing size={220} strokeWidth={18} segments={doseSegments} accessibilityLabel="Anillo de dosis del día" />
+            <DoseRing size={220} strokeWidth={18} segments={doseSegments} accessibilityLabel={t('patient.home.doseRingLabel')} />
           </View>
         </View>
       </View>
@@ -330,7 +332,7 @@ export default function PatientHome() {
       {/* Upcoming medication */}
       <View className="px-4">
         <View className="bg-white rounded-2xl p-4">
-          <Text className="text-lg font-bold mb-2">Próxima dosis</Text>
+          <Text className="text-lg font-bold mb-2">{t('patient.home.nextDose')}</Text>
           {upcoming ? (
             <View className="flex-row items-center justify-between">
               <View>
@@ -339,18 +341,18 @@ export default function PatientHome() {
                 <Text className="text-gray-600">{formatHourDecimal(upcoming.next)}</Text>
               </View>
               <NativeButton
-                title="Tomar medicación"
+                title={t('patient.home.takeMedication')}
                 variant="primary"
                 size="medium"
                 onPress={handleTakeUpcomingMedication}
                 disabled={takingLoading}
                 loading={takingLoading}
-                accessibilityLabel="Tomar medicación"
-                accessibilityHint="Registrar toma de medicación próxima"
+                accessibilityLabel={t('patient.home.takeMedication')}
+                accessibilityHint={t('patient.home.takeMedicationHint')}
               />
             </View>
           ) : (
-            <Text className="text-gray-500">No hay dosis próximas para hoy.</Text>
+            <Text className="text-gray-500">{t('patient.home.noUpcomingDoses')}</Text>
           )}
         </View>
       </View>
@@ -362,17 +364,17 @@ export default function PatientHome() {
             <View className="flex-row items-center gap-3">
               <Ionicons name="time" size={22} color="#1C1C1E" />
               <View>
-                <Text className="text-lg font-bold">Historial</Text>
-                <Text className="text-gray-600">Dosis y eventos anteriores</Text>
+                <Text className="text-lg font-bold">{t('patient.home.history')}</Text>
+                <Text className="text-gray-600">{t('patient.home.historySubtitle')}</Text>
               </View>
             </View>
             <NativeButton
-              title="Abrir"
+              title={t('patient.home.open')}
               variant="primary"
               size="small"
               onPress={handleHistory}
-              accessibilityLabel="Abrir historial"
-              accessibilityHint="Ver historial de dosis y eventos"
+              accessibilityLabel={t('patient.home.openHistory')}
+              accessibilityHint={t('patient.home.openHistoryHint')}
             />
           </View>
         </View>
@@ -382,20 +384,20 @@ export default function PatientHome() {
       <View className="px-4 mt-2">
         <Card className="rounded-2xl">
           <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-lg font-bold">Hoy</Text>
+            <Text className="text-lg font-bold">{t('patient.home.today')}</Text>
             <Link href="/patient/medications" asChild>
               <NativeButton 
-                title="Mis Medicamentos" 
+                title={t('patient.home.myMedications')}
                 variant="primary"
                 size="medium"
-                accessibilityLabel="Mis Medicamentos"
-                accessibilityHint="Ver todos mis medicamentos"
+                accessibilityLabel={t('patient.home.myMedications')}
+                accessibilityHint={t('patient.home.myMedicationsHint')}
               />
             </Link>
           </View>
 
           {loading ? (
-            <Text className="text-gray-600">Cargando...</Text>
+            <Text className="text-gray-600">{t('patient.home.loading')}</Text>
           ) : (
             <View className="gap-3">
               {medications.filter(isScheduledToday).map((item) => (
@@ -406,17 +408,17 @@ export default function PatientHome() {
                     {(() => {
                       const next = getNextTimeToday(item);
                       return next !== null ? (
-                        <Text className="text-gray-600">Próxima: {formatHourDecimal(next)}</Text>
+                        <Text className="text-gray-600">{t('patient.home.next', { time: formatHourDecimal(next) })}</Text>
                       ) : null;
                     })()}
                   </View>
                   <Link href={`/patient/medications/${item.id}`} asChild>
                     <NativeButton 
-                      title="Abrir" 
+                      title={t('patient.home.open')}
                       variant="secondary"
                       size="small"
-                      accessibilityLabel="Abrir medicamento"
-                      accessibilityHint={`Abrir detalles de ${item.name}`}
+                      accessibilityLabel={t('patient.home.openMedication')}
+                      accessibilityHint={t('patient.home.openMedicationHint', { medicationName: item.name })}
                     />
                   </Link>
                 </View>

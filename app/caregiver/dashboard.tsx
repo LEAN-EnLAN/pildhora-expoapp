@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, query, where, orderBy, doc, getDoc } from 'firebase/firestore';
 import { AppDispatch, RootState } from '../../src/store';
@@ -47,6 +48,7 @@ const styles = StyleSheet.create({
 });
 
 export default function CaregiverDashboard() {
+  const { t } = useTranslation();
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
@@ -57,7 +59,7 @@ export default function CaregiverDashboard() {
   const [selectedPatient, setSelectedPatient] = useState<PatientWithDevice | null>(null);
   const [patientIntakes, setPatientIntakes] = useState<IntakeRecord[]>([]);
 
-  const displayName = user?.name || (user?.email ? user.email.split('@')[0] : 'Cuidador');
+  const displayName = user?.name || (user?.email ? user.email.split('@')[0] : t('caregiver.dashboard.caregiver'));
 
   // State for queries and initialization
   const [patientsQuery, setPatientsQuery] = useState<any>(null);
@@ -288,28 +290,28 @@ export default function CaregiverDashboard() {
         <View className="flex-row items-center justify-between bg-white px-4 py-3 border-b border-gray-200">
           <View>
             <Text className="text-2xl font-extrabold text-gray-900">PILDHORA</Text>
-            <Text className="text-sm text-gray-500">Hola, {displayName}</Text>
+            <Text className="text-sm text-gray-500">{t('caregiver.dashboard.greeting', { name: displayName })}</Text>
           </View>
           <TouchableOpacity className="px-3 py-2 rounded-lg bg-gray-400 items-center justify-center" onPress={async () => {
             await dispatch(logout());
             router.replace('/');
           }}>
-            <Text className="text-white font-bold text-center">Salir</Text>
+            <Text className="text-white font-bold text-center">{t('caregiver.dashboard.logout')}</Text>
           </TouchableOpacity>
         </View>
         <View className="p-4">
           <View className="bg-red-100 border border-red-200 rounded-2xl p-4">
             <Text className="text-red-800 text-center font-semibold mb-2">
-              Error de inicialización de Firebase
+              {t('caregiver.dashboard.firebaseInitError')}
             </Text>
             <Text className="text-red-700 text-center text-sm mb-4">
-              {initializationError.message || 'No se pudo conectar con los servicios de Firebase'}
+              {initializationError.message || t('caregiver.dashboard.firebaseInitErrorMessage')}
             </Text>
             <TouchableOpacity
               className="bg-blue-600 rounded-lg p-3 items-center"
               onPress={handleRetryInitialization}
             >
-              <Text className="text-white font-semibold">Reintentar</Text>
+              <Text className="text-white font-semibold">{t('caregiver.dashboard.retry')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -326,7 +328,7 @@ export default function CaregiverDashboard() {
         <View className="flex-row items-center justify-between bg-white px-4 py-3 border-b border-gray-200">
           <View>
             <Text className="text-2xl font-extrabold text-gray-900">PILDHORA</Text>
-            <Text className="text-sm text-gray-500">Hola, {displayName}</Text>
+            <Text className="text-sm text-gray-500">{t('caregiver.dashboard.greeting', { name: displayName })}</Text>
           </View>
           <NativeButton
             icon={<Ionicons name="log-out" size={20} color="#FFFFFF" />}
@@ -336,28 +338,28 @@ export default function CaregiverDashboard() {
               await dispatch(logout());
               router.replace('/auth/signup');
             }}
-            accessibilityLabel="Salir"
-            accessibilityHint="Cerrar sesión y volver al registro"
+            accessibilityLabel={t('caregiver.dashboard.logout')}
+            accessibilityHint={t('caregiver.dashboard.logoutHint')}
           />
         </View>
         <View className="p-4">
           <View className="bg-orange-100 border border-orange-200 rounded-2xl p-4">
             <Text className="text-orange-800 text-center font-semibold mb-2">
-              {isIndexError ? 'Configuración en progreso' : 'Error al cargar datos'}
+              {isIndexError ? t('caregiver.dashboard.configInProgress') : t('caregiver.dashboard.errorLoadingData')}
             </Text>
             <Text className="text-orange-700 text-center text-sm mb-4">
               {isIndexError 
-                ? 'Los índices de la base de datos se están configurando. Esto puede tardar unos minutos. Por favor, intenta nuevamente en breve.'
-                : (patientsError?.message || 'Verifica tu conexión e intenta nuevamente.')
+                ? t('caregiver.dashboard.dbIndexConfig')
+                : (patientsError?.message || t('caregiver.dashboard.checkConnection'))
               }
             </Text>
             <NativeButton
-              title="Reintentar"
+              title={t('caregiver.dashboard.retry')}
               variant="primary"
               size="medium"
               onPress={handleRefresh}
-              accessibilityLabel="Reintentar"
-              accessibilityHint="Intentar cargar datos nuevamente"
+              accessibilityLabel={t('caregiver.dashboard.retry')}
+              accessibilityHint={t('caregiver.dashboard.retry')}
             />
           </View>
         </View>
@@ -398,46 +400,46 @@ export default function CaregiverDashboard() {
         {selectedPatient ? (
           <View className="p-4">
             <View className="bg-white rounded-2xl p-4 items-center">
-              <Text className="text-2xl font-bold mb-4">Adherencia Diaria</Text>
+              <Text className="text-2xl font-bold mb-4">{t('caregiver.dashboard.dailyAdherence')}</Text>
               <DoseRing
                 size={250}
                 strokeWidth={20}
                 segments={selectedPatient.doseSegments || []}
-                accessibilityLabel={`Anillo de dosis de ${selectedPatient.name}`}
+                accessibilityLabel={t('caregiver.dashboard.doseRingLabel', { patientName: selectedPatient.name })}
               />
             </View>
 
             <View className="bg-white rounded-2xl p-4 mt-4">
-              <Text className="text-xl font-bold mb-4">Dispositivo</Text>
+              <Text className="text-xl font-bold mb-4">{t('caregiver.dashboard.device')}</Text>
               {selectedPatient.deviceState ? (
                 <>
                   <View className="flex-row justify-between items-center">
                     <View className="flex-row items-center">
                       <Ionicons name="watch-outline" size={24} color="gray" />
-                      <Text className="text-lg ml-2">Nivel de Batería</Text>
+                      <Text className="text-lg ml-2">{t('caregiver.dashboard.batteryLevel')}</Text>
                     </View>
                     <Text className="text-lg font-semibold">{selectedPatient.deviceState.battery_level}%</Text>
                   </View>
                   <View className="flex-row justify-between items-center mt-4">
                     <View className="flex-row items-center">
                       <Ionicons name="wifi-outline" size={24} color="gray" />
-                      <Text className="text-lg ml-2">Estado</Text>
+                      <Text className="text-lg ml-2">{t('caregiver.dashboard.status')}</Text>
                     </View>
                     <Text className={`text-lg font-semibold ${selectedPatient.deviceState.is_online ? 'text-green-500' : 'text-red-500'}`}>
-                      {selectedPatient.deviceState.is_online ? 'En Línea' : 'Desconectado'}
+                      {selectedPatient.deviceState.is_online ? t('caregiver.dashboard.online') : t('caregiver.dashboard.offline')}
                     </Text>
                   </View>
                 </>
               ) : (
-                <Text className="text-gray-500">No hay dispositivo vinculado.</Text>
+                <Text className="text-gray-500">{t('caregiver.dashboard.noDevice')}</Text>
               )}
               <NativeButton
-                title={`Chatear con ${selectedPatient.name}`}
+                title={t('caregiver.dashboard.chatWith', { patientName: selectedPatient.name })}
                 variant="primary"
                 size="medium"
                 onPress={() => router.push({ pathname: '/caregiver/chat', params: { patientId: selectedPatient.id, patientName: selectedPatient.name }})}
-                accessibilityLabel={`Chatear con ${selectedPatient.name}`}
-                accessibilityHint={`Abrir chat con ${selectedPatient.name}`}
+                accessibilityLabel={t('caregiver.dashboard.chatWith', { patientName: selectedPatient.name })}
+                accessibilityHint={t('caregiver.dashboard.openChat', { patientName: selectedPatient.name })}
               />
             </View>
           </View>
@@ -445,18 +447,18 @@ export default function CaregiverDashboard() {
           <View className="flex-1 justify-center items-center py-20">
             <Ionicons name="people-outline" size={48} color="#9CA3AF" />
             <Text className="text-gray-600 mt-4 text-center">
-              No hay pacientes asignados a tu cuenta
+              {t('caregiver.dashboard.noPatients')}
             </Text>
             <Text className="text-gray-500 text-sm text-center mt-1">
-              Usa el botón de abajo para vincular un nuevo dispositivo.
+              {t('caregiver.dashboard.linkDeviceInstruction')}
             </Text>
             <NativeButton
-              title="Vincular Dispositivo"
+              title={t('caregiver.dashboard.linkDevice')}
               variant="primary"
               size="medium"
               onPress={() => router.push('/caregiver/add-device')}
-              accessibilityLabel="Vincular Dispositivo"
-              accessibilityHint="Agregar nuevo dispositivo para paciente"
+              accessibilityLabel={t('caregiver.dashboard.linkDevice')}
+              accessibilityHint={t('caregiver.dashboard.addDevice')}
             />
           </View>
         )}
@@ -468,8 +470,8 @@ export default function CaregiverDashboard() {
         size="large"
         onPress={() => router.push('/caregiver/add-device')}
         style={styles.fab}
-        accessibilityLabel="Agregar paciente"
-        accessibilityHint="Agregar nuevo paciente o dispositivo"
+        accessibilityLabel={t('caregiver.dashboard.addPatient')}
+        accessibilityHint={t('caregiver.dashboard.addPatientHint')}
       />
     </>
   );

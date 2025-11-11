@@ -10,6 +10,7 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useDispatch, useSelector } from "react-redux";
+import { useTranslation } from "react-i18next";
 import { RootState, AppDispatch } from "../../../src/store";
 import { fetchMedications } from "../../../src/store/slices/medicationsSlice";
 import { startIntakesSubscription, stopIntakesSubscription, deleteAllIntakes, updateIntakeStatus } from "../../../src/store/slices/intakesSlice";
@@ -26,6 +27,7 @@ type EnrichedIntakeRecord = IntakeRecord & {
 };
 
 export default function HistoryScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
@@ -46,9 +48,9 @@ export default function HistoryScreen() {
       } catch (error: any) {
         console.error('[History] Firebase initialization error:', error);
         Alert.alert(
-          "Error de Conexión",
-          "No se pudo conectar con la base de datos. Por favor, verifica tu conexión a internet e intenta nuevamente.",
-          [{ text: "OK" }]
+          t("patient.history.connectionError"),
+          t("patient.history.connectionErrorMessage"),
+          [{ text: t("patient.history.ok") }]
         );
       }
     };
@@ -107,25 +109,25 @@ export default function HistoryScreen() {
 
   const handleClearAllData = () => {
     Alert.alert(
-      "Limpiar todos los datos",
-      "¿Estás seguro de que quieres limpiar todos los datos del historial? Esta acción no se puede deshacer.",
+      t("patient.history.clearAllDataTitle"),
+      t("patient.history.clearAllDataMessage"),
       [
         {
-          text: "Cancelar",
+          text: t("patient.history.cancel"),
           style: "cancel",
         },
         {
-          text: "Limpiar todo",
+          text: t("patient.history.clearAll"),
           style: "destructive",
           onPress: async () => {
             try {
               if (!patientId) return;
               const result = await dispatch(deleteAllIntakes(patientId)).unwrap();
-              Alert.alert("Éxito", `Se han eliminado ${result.deleted} registros del historial`);
+              Alert.alert(t("patient.history.success"), t("patient.history.deletedRecords", { count: result.deleted }));
             } catch (error: any) {
               console.error("Error clearing data:", error);
-              const errorMessage = error?.message || "No se pudieron eliminar los datos";
-              Alert.alert("Error", errorMessage);
+              const errorMessage = error?.message || t("patient.history.errorDeleting");
+              Alert.alert(t("patient.history.error"), errorMessage);
             }
           },
         },
@@ -136,11 +138,11 @@ export default function HistoryScreen() {
   const handleMarkAsMissed = async (recordId: string) => {
     try {
       await dispatch(updateIntakeStatus({ id: recordId, status: IntakeStatus.MISSED })).unwrap();
-      Alert.alert("Actualizado", "El registro ha sido marcado como olvidado.");
+      Alert.alert(t("patient.history.updated"), t("patient.history.recordMarkedAsMissed"));
     } catch (error: any) {
       console.error("Error updating intake status:", error);
-      const errorMessage = error?.message || "No se pudo actualizar el estado del registro.";
-      Alert.alert("Error", errorMessage);
+      const errorMessage = error?.message || t("patient.history.errorUpdating");
+      Alert.alert(t("patient.history.error"), errorMessage);
     }
   };
 
@@ -165,7 +167,7 @@ export default function HistoryScreen() {
     return (
       <SafeAreaView className="flex-1 bg-gray-100 justify-center items-center">
         <Text className="text-gray-600">
-          {!isInitialized ? "Inicializando aplicación..." : "Cargando historial..."}
+          {!isInitialized ? t("patient.history.initializing") : t("patient.history.loading")}
         </Text>
       </SafeAreaView>
     );
@@ -177,7 +179,7 @@ export default function HistoryScreen() {
       <SafeAreaView className="flex-1 bg-gray-100 justify-center items-center px-6">
         <Ionicons name="warning-outline" size={48} color="#EF4444" />
         <Text className="text-red-600 mt-4 text-center font-semibold">
-          Error de Conexión
+          {t("patient.history.connectionError")}
         </Text>
         <Text className="text-gray-600 mt-2 text-center">
           {error}
@@ -190,7 +192,7 @@ export default function HistoryScreen() {
             // This will trigger the initialization useEffect again
           }}
         >
-          <Text className="text-white font-semibold">Reintentar</Text>
+          <Text className="text-white font-semibold">{t("patient.history.retry")}</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -207,7 +209,7 @@ export default function HistoryScreen() {
           >
             <Ionicons name="chevron-back" size={20} color="#374151" />
           </TouchableOpacity>
-          <Text className="text-2xl font-extrabold text-gray-900">Historial</Text>
+          <Text className="text-2xl font-extrabold text-gray-900">{t("patient.history.title")}</Text>
         </View>
       </View>
 
@@ -227,7 +229,7 @@ export default function HistoryScreen() {
             onPress={() => setSelectedFilter("all")}
             activeOpacity={selectedFilter === "all" ? 0.8 : 1}
             accessibilityRole="button"
-            accessibilityLabel="Mostrar todos los registros"
+            accessibilityLabel={t("patient.history.showAll")}
             accessibilityState={selectedFilter === "all" ? { selected: true } : undefined}
           >
             <Text
@@ -235,7 +237,7 @@ export default function HistoryScreen() {
                 selectedFilter === "all" ? "text-white" : "text-gray-700"
               }`}
             >
-              Todos
+              {t("patient.history.all")}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -247,7 +249,7 @@ export default function HistoryScreen() {
             onPress={() => setSelectedFilter("taken")}
             activeOpacity={selectedFilter === "taken" ? 0.8 : 1}
             accessibilityRole="button"
-            accessibilityLabel="Mostrar solo medicamentos tomados"
+            accessibilityLabel={t("patient.history.showTaken")}
             accessibilityState={selectedFilter === "taken" ? { selected: true } : undefined}
           >
             <Text
@@ -255,7 +257,7 @@ export default function HistoryScreen() {
                 selectedFilter === "taken" ? "text-white" : "text-gray-700"
               }`}
             >
-              Tomados
+              {t("patient.history.taken")}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -267,7 +269,7 @@ export default function HistoryScreen() {
             onPress={() => setSelectedFilter("missed")}
             activeOpacity={selectedFilter === "missed" ? 0.8 : 1}
             accessibilityRole="button"
-            accessibilityLabel="Mostrar solo medicamentos olvidados"
+            accessibilityLabel={t("patient.history.showMissed")}
             accessibilityState={selectedFilter === "missed" ? { selected: true } : undefined}
           >
             <Text
@@ -275,7 +277,7 @@ export default function HistoryScreen() {
                 selectedFilter === "missed" ? "text-white" : "text-gray-700"
               }`}
             >
-              Olvidados
+              {t("patient.history.missed")}
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -288,10 +290,10 @@ export default function HistoryScreen() {
             <Ionicons name="time-outline" size={48} color="#9CA3AF" />
             <Text className="text-gray-500 mt-4 text-center">
               {selectedFilter === "all"
-                ? "No hay registros en el historial"
+                ? t("patient.history.noRecords")
                 : selectedFilter === "taken"
-                ? "No hay medicamentos tomados"
-                : "No hay medicamentos olvidados"}
+                ? t("patient.history.noTaken")
+                : t("patient.history.noMissed")}
             </Text>
           </View>
         ) : (
@@ -346,7 +348,7 @@ export default function HistoryScreen() {
                           record.status === IntakeStatus.TAKEN ? "text-green-700" : "text-red-700"
                         }`}
                       >
-                        {record.status === IntakeStatus.TAKEN ? "Tomado" : "Olvidado"}
+                        {record.status === IntakeStatus.TAKEN ? t("patient.history.taken") : t("patient.history.missed")}
                       </Text>
                     </View>
                   </View>
@@ -354,7 +356,7 @@ export default function HistoryScreen() {
                   {/* Taken time if available */}
                   {record.takenAt && (
                     <Text className="text-gray-500 text-xs mt-2 ml-4">
-                      Tomado a las {formatTime(record.takenAt)}
+                      {t("patient.history.takenAt", { time: formatTime(record.takenAt) })}
                     </Text>
                   )}
 
@@ -366,7 +368,7 @@ export default function HistoryScreen() {
                         onPress={() => handleMarkAsMissed(record.id)}
                       >
                         <Text className="text-red-600 font-semibold text-sm">
-                          Marcar como olvidado
+                          {t("patient.history.markAsMissed")}
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -386,7 +388,7 @@ export default function HistoryScreen() {
             >
               <Ionicons name="trash-outline" size={20} color="#EF4444" />
               <Text className="text-red-600 font-semibold ml-2">
-                Limpiar todo el historial
+                {t("patient.history.clearHistory")}
               </Text>
             </TouchableOpacity>
           </View>

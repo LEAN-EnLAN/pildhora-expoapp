@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Text, View, FlatList, TextInput, Modal, Alert, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 import { RootState } from '../../src/store';
 import { useCollectionSWR } from '../../src/hooks/useCollectionSWR';
 import { getTasksQuery, addTask, updateTask, deleteTask } from '../../src/services/firebase/tasks';
@@ -9,6 +10,7 @@ import { Task } from '../../src/types';
 import { NativeButton } from '../../src/components/ui';
 
 export default function TasksScreen() {
+  const { t } = useTranslation();
   const { user } = useSelector((state: RootState) => state.auth);
   const [tasksQuery, setTasksQuery] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -31,7 +33,7 @@ export default function TasksScreen() {
       }
     } catch (error) {
       console.error("Error updating task:", error);
-      Alert.alert("Error", "No se pudo actualizar la tarea.");
+      Alert.alert(t('caregiver.tasks.error'), t('caregiver.tasks.couldNotUpdate'));
     }
   };
 
@@ -55,19 +57,19 @@ export default function TasksScreen() {
         setModalVisible(false);
       } catch (error) {
         console.error("Error adding task:", error);
-        Alert.alert("Error", "No se pudo agregar la tarea.");
+        Alert.alert(t('caregiver.tasks.error'), t('caregiver.tasks.couldNotAdd'));
       }
     }
   };
 
   const handleDeleteTask = (taskId: string) => {
     Alert.alert(
-      "Eliminar Tarea",
-      "¿Estás seguro de que quieres eliminar esta tarea?",
+      t('caregiver.tasks.deleteTask'),
+      t('caregiver.tasks.deleteTaskConfirmation'),
       [
-        { text: "Cancelar", style: "cancel" },
+        { text: t('caregiver.tasks.cancel'), style: "cancel" },
         {
-          text: "Eliminar",
+          text: t('caregiver.tasks.delete'),
           style: "destructive",
           onPress: async () => {
             try {
@@ -77,7 +79,7 @@ export default function TasksScreen() {
               }
             } catch (error) {
               console.error("Error deleting task:", error);
-              Alert.alert("Error", "No se pudo eliminar la tarea.");
+              Alert.alert(t('caregiver.tasks.error'), t('caregiver.tasks.couldNotDelete'));
             }
           },
         },
@@ -88,14 +90,14 @@ export default function TasksScreen() {
   return (
     <View className="flex-1 bg-gray-100">
       <View className="p-4 flex-row justify-between items-center">
-        <Text className="text-2xl font-bold">Tareas</Text>
+        <Text className="text-2xl font-bold">{t('caregiver.tasks.title')}</Text>
         <NativeButton
           icon={<Ionicons name="add" size={24} color="white" />}
           variant="icon"
           size="small"
           onPress={() => setModalVisible(true)}
-          accessibilityLabel="Agregar tarea"
-          accessibilityHint="Abrir formulario para agregar nueva tarea"
+          accessibilityLabel={t('caregiver.tasks.addTask')}
+          accessibilityHint={t('caregiver.tasks.addTaskHint')}
         />
       </View>
       <FlatList
@@ -112,8 +114,8 @@ export default function TasksScreen() {
               variant="text"
               size="small"
               onPress={() => handleDeleteTask(item.id)}
-              accessibilityLabel="Eliminar tarea"
-              accessibilityHint={`Eliminar tarea: ${item.title}`}
+              accessibilityLabel={t('caregiver.tasks.deleteTask')}
+              accessibilityHint={t('caregiver.tasks.deleteTaskHint', { taskTitle: item.title })}
             />
           </View>
         )}
@@ -126,28 +128,28 @@ export default function TasksScreen() {
       >
         <View className="flex-1 justify-center items-center bg-black/50">
           <View className="bg-white p-6 rounded-lg w-11/12">
-            <Text className="text-xl font-bold mb-4">Nueva Tarea</Text>
+            <Text className="text-xl font-bold mb-4">{t('caregiver.tasks.newTask')}</Text>
             <TextInput
-              placeholder="Descripción de la tarea"
+              placeholder={t('caregiver.tasks.taskDescription')}
               value={newTaskText}
               onChangeText={setNewTaskText}
               className="bg-gray-200 p-3 rounded-lg mb-4"
             />
             <NativeButton
-              title="Agregar"
+              title={t('caregiver.tasks.add')}
               variant="primary"
               size="medium"
               onPress={handleAddTask}
-              accessibilityLabel="Agregar tarea"
-              accessibilityHint="Agregar nueva tarea a la lista"
+              accessibilityLabel={t('caregiver.tasks.addTask')}
+              accessibilityHint={t('caregiver.tasks.addTaskHint')}
             />
             <NativeButton
-              title="Cancelar"
+              title={t('caregiver.tasks.cancel')}
               variant="text"
               size="medium"
               onPress={() => setModalVisible(false)}
-              accessibilityLabel="Cancelar"
-              accessibilityHint="Cerrar formulario de nueva tarea"
+              accessibilityLabel={t('caregiver.tasks.cancel')}
+              accessibilityHint={t('caregiver.tasks.cancel')}
             />
           </View>
         </View>

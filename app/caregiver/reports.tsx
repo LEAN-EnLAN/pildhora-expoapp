@@ -3,12 +3,14 @@ import { Text, View, FlatList, TouchableOpacity, Alert, ActivityIndicator, Linki
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 import { RootState } from '../../src/store';
 import { useCollectionSWR } from '../../src/hooks/useCollectionSWR';
 import { getReportsQuery, uploadReportFile, addReportMetadata } from '../../src/services/firebase/reports';
 import { Report } from '../../src/types';
 
 export default function ReportsScreen() {
+  const { t } = useTranslation();
   const { user } = useSelector((state: RootState) => state.auth);
   // In a real app with multiple patients, you'd get this from a selector
   const selectedPatientId = 'patient-1'; // Placeholder patient ID
@@ -38,7 +40,7 @@ export default function ReportsScreen() {
       const { uri, name, mimeType } = result.assets[0];
 
       if (!user) {
-        Alert.alert("Error", "You must be logged in to upload files.");
+        Alert.alert(t('caregiver.reports.error'), t('caregiver.reports.mustBeLoggedIn'));
         return;
       }
 
@@ -55,11 +57,11 @@ export default function ReportsScreen() {
       });
 
       mutate(); // Refresh the list
-      Alert.alert("Éxito", "El reporte se ha subido correctamente.");
+      Alert.alert(t('caregiver.reports.success'), t('caregiver.reports.reportUploaded'));
 
     } catch (error) {
       console.error("Error uploading report:", error);
-      Alert.alert("Error", "No se pudo subir el reporte.");
+      Alert.alert(t('caregiver.reports.error'), t('caregiver.reports.couldNotUpload'));
     } finally {
       setUploading(false);
     }
@@ -74,7 +76,7 @@ export default function ReportsScreen() {
   return (
     <View className="flex-1 bg-gray-100">
       <View className="p-4 flex-row justify-between items-center">
-        <Text className="text-2xl font-bold">Reportes</Text>
+        <Text className="text-2xl font-bold">{t('caregiver.reports.title')}</Text>
         <TouchableOpacity onPress={handleUploadReport} className="bg-blue-500 p-2 rounded-full" disabled={uploading}>
           {uploading ? <ActivityIndicator color="white" /> : <Ionicons name="cloud-upload-outline" size={24} color="white" />}
         </TouchableOpacity>
@@ -101,7 +103,7 @@ export default function ReportsScreen() {
         )}
         ListEmptyComponent={() => (
           <View className="flex-1 justify-center items-center mt-20">
-            <Text className="text-gray-500">No hay reportes.</Text>
+            <Text className="text-gray-500">{t('caregiver.reports.noReports')}</Text>
           </View>
         )}
       />

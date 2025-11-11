@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'expo-router';
 import { RootState, AppDispatch } from '../../../src/store';
 import { fetchMedications } from '../../../src/store/slices/medicationsSlice';
@@ -8,6 +9,7 @@ import { Medication } from '../../../src/types';
 import { Card } from '../../../src/components/ui';
 
 export default function MedicationsIndex() {
+  const { t } = useTranslation();
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
   const { medications, loading } = useSelector((state: RootState) => state.medications);
@@ -22,12 +24,12 @@ export default function MedicationsIndex() {
     // Check if using new format
     if (medication.doseValue && medication.doseUnit) {
       const dose = `${medication.doseValue}${medication.doseUnit}`;
-      const quantity = medication.quantityType || 'Tablets';
+      const quantity = medication.quantityType || t('patient.medications.tablets');
       return `${dose}, ${quantity}`;
     }
 
     // Fallback to legacy format
-    return medication.dosage || 'Sin dosis especificada';
+    return medication.dosage || t('patient.medications.noDoseSpecified');
   };
 
   const formatTimeDisplay = (time: string) => {
@@ -41,15 +43,15 @@ export default function MedicationsIndex() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Mis Medicamentos</Text>
+        <Text style={styles.title}>{t('patient.medications.myMedications')}</Text>
         <Link href="/patient/medications/add" asChild>
           <TouchableOpacity style={styles.addButton}>
-            <Text style={styles.addButtonText}>Añadir</Text>
+            <Text style={styles.addButtonText}>{t('patient.medications.add')}</Text>
           </TouchableOpacity>
         </Link>
       </View>
       {loading ? (
-        <Text style={styles.loadingText}>Cargando...</Text>
+        <Text style={styles.loadingText}>{t('patient.medications.loading')}</Text>
       ) : (
         <FlatList
           data={medications}
@@ -62,13 +64,13 @@ export default function MedicationsIndex() {
                 <Text style={styles.medicationFrequency}>{item.frequency}</Text>
                 {item.times?.length ? (
                   <Text style={styles.nextDose}>
-                    Próxima: {formatTimeDisplay(item.times[0])}
+                    {t('patient.medications.next', { time: formatTimeDisplay(item.times[0]) })}
                   </Text>
                 ) : null}
               </View>
               <Link href={`/patient/medications/${item.id}`} asChild>
                 <TouchableOpacity style={styles.openButton}>
-                  <Text style={styles.openButtonText}>Abrir</Text>
+                  <Text style={styles.openButtonText}>{t('patient.medications.open')}</Text>
                 </TouchableOpacity>
               </Link>
             </Card>

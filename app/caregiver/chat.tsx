@@ -3,12 +3,14 @@ import { Text, View, FlatList, TextInput, TouchableOpacity, Alert } from 'react-
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 import { RootState } from '../../src/store';
 import { useCollectionSWR } from '../../src/hooks/useCollectionSWR';
 import { getMessagesQuery, sendMessage, Message } from '../../src/services/firebase/chat';
 import { Timestamp } from 'firebase/firestore';
 
 export default function ChatScreen() {
+  const { t } = useTranslation();
   const { patientId, patientName } = useLocalSearchParams();
   const navigation = useNavigation();
   const { user } = useSelector((state: RootState) => state.auth);
@@ -17,11 +19,11 @@ export default function ChatScreen() {
   const [newMessage, setNewMessage] = useState('');
 
   useEffect(() => {
-    navigation.setOptions({ title: `Chat con ${patientName || 'Paciente'}` });
+    navigation.setOptions({ title: t('caregiver.chat.title', { patientName: patientName || t('caregiver.chat.patient') }) });
     if (user && patientId) {
       getMessagesQuery(user.id, patientId as string).then(setMessagesQuery);
     }
-  }, [navigation, patientName, user, patientId]);
+  }, [navigation, patientName, user, patientId, t]);
 
   const { data: messages = [], mutate } = useCollectionSWR<Message>(messagesQuery);
 
@@ -38,7 +40,7 @@ export default function ChatScreen() {
         mutate();
       } catch (error) {
         console.error("Error sending message:", error);
-        Alert.alert("Error", "No se pudo enviar el mensaje.");
+        Alert.alert(t('caregiver.chat.error'), t('caregiver.chat.couldNotSend'));
         setNewMessage(textToSend); // Restore message on error
       }
     }
@@ -70,7 +72,7 @@ export default function ChatScreen() {
       />
       <View className="flex-row items-center p-2 border-t border-gray-200 bg-white">
         <TextInput
-          placeholder="Escribe un mensaje..."
+          placeholder={t('caregiver.chat.placeholder')}
           value={newMessage}
           onChangeText={setNewMessage}
           className="flex-1 bg-gray-200 rounded-full px-4 py-2"

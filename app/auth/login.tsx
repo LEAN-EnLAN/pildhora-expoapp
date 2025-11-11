@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Text, View, TouchableOpacity, TextInput, Alert, Image, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 import { signIn, logout } from '../../src/store/slices/authSlice';
 import { RootState, AppDispatch } from '../../src/store';
 import { getAuthInstance } from '../../src/services/firebase';
@@ -132,6 +133,7 @@ const styles = StyleSheet.create({
 });
 
 export default function LoginScreen() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const router = useRouter();
@@ -154,7 +156,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
+      Alert.alert(t('auth.login.errorTitle'), t('auth.login.fillAllFields'));
       return;
     }
 
@@ -187,10 +189,10 @@ export default function LoginScreen() {
       // Mensajes más amigables para errores comunes de Firebase Auth
       const message = typeof error === 'string' ? error : (error?.message || 'Error desconocido');
       let friendly = message;
-      if (message.includes('auth/wrong-password')) friendly = 'Contraseña incorrecta. Intenta nuevamente.';
-      if (message.includes('auth/user-not-found')) friendly = 'No existe una cuenta con ese correo.';
-      if (message.includes('auth/too-many-requests')) friendly = 'Demasiados intentos. Espera un momento y vuelve a intentar.';
-      Alert.alert('Error de inicio de sesión', friendly);
+      if (message.includes('auth/wrong-password')) friendly = t('auth.login.wrongPassword');
+      if (message.includes('auth/user-not-found')) friendly = t('auth.login.userNotFound');
+      if (message.includes('auth/too-many-requests')) friendly = t('auth.login.tooManyRequests');
+      Alert.alert(t('auth.login.loginErrorTitle'), friendly);
     }
   };
 
@@ -206,7 +208,7 @@ export default function LoginScreen() {
       const authInstance = await getAuthInstance();
       if (authInstance) await authInstance.signOut(); 
     } catch {}
-    Alert.alert('Sesión cerrada', 'Has cerrado sesión. Ahora puedes iniciar con otra cuenta.');
+    Alert.alert(t('auth.login.sessionClosedTitle'), t('auth.login.sessionClosedMessage'));
   };
 
   return (
@@ -220,10 +222,10 @@ export default function LoginScreen() {
           {isAuthenticated && user ? (
             <View style={{ backgroundColor: '#FFF3CD', borderColor: '#FFEEBA', borderWidth: 1, padding: 12, borderRadius: 8, marginBottom: 16 }}>
               <Text style={{ color: '#856404' }}>
-                Actualmente has iniciado sesión como {user.email || user.name}. Si deseas probar iniciar sesión con otro usuario, cierra sesión primero.
+                {t('auth.login.loggedInAs', { user: user.email || user.name })}
               </Text>
               <TouchableOpacity onPress={handleLogout} style={{ marginTop: 8 }}>
-                <Text style={{ color: '#007AFF', fontWeight: '600' }}>Cerrar sesión</Text>
+                <Text style={{ color: '#007AFF', fontWeight: '600' }}>{t('auth.login.logout')}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -232,16 +234,16 @@ export default function LoginScreen() {
             <View style={styles.logo}>
               <Text style={styles.logoText}>P</Text>
             </View>
-            <Text style={styles.welcomeTitle}>Bienvenido de nuevo</Text>
-            <Text style={styles.welcomeSubtitle}>Inicia sesión en tu cuenta de Pildhora</Text>
+            <Text style={styles.welcomeTitle}>{t('auth.login.welcomeBack')}</Text>
+            <Text style={styles.welcomeSubtitle}>{t('auth.login.loginToYourAccount')}</Text>
           </View>
 
           {/* Email Input */}
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Correo electrónico</Text>
+            <Text style={styles.inputLabel}>{t('auth.login.email')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Ingresa tu correo"
+              placeholder={t('auth.login.enterYourEmail')}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -251,10 +253,10 @@ export default function LoginScreen() {
 
           {/* Password Input */}
           <View style={styles.passwordContainer}>
-            <Text style={styles.inputLabel}>Contraseña</Text>
+            <Text style={styles.inputLabel}>{t('auth.login.password')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Ingresa tu contraseña"
+              placeholder={t('auth.login.enterYourPassword')}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -268,21 +270,21 @@ export default function LoginScreen() {
             disabled={loading}
           >
             <Text style={styles.signInButtonText}>
-              {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+              {loading ? t('auth.login.loggingIn') : t('auth.login.login')}
             </Text>
           </TouchableOpacity>
 
           {/* Sign Up Link */}
           <View style={styles.signUpContainer}>
-            <Text style={styles.signUpText}>¿No tienes una cuenta? </Text>
+            <Text style={styles.signUpText}>{t('auth.login.noAccount')}</Text>
             <TouchableOpacity onPress={navigateToSignup}>
-              <Text style={styles.signUpLink}>Regístrate</Text>
+              <Text style={styles.signUpLink}>{t('auth.login.signUp')}</Text>
             </TouchableOpacity>
           </View>
 
           {/* Back Button */}
           <TouchableOpacity style={styles.backContainer} onPress={() => router.back()}>
-            <Text style={styles.backText}>← Volver a la selección de rol</Text>
+            <Text style={styles.backText}>{t('auth.login.backToRoleSelection')}</Text>
           </TouchableOpacity>
         </View>
       </View>

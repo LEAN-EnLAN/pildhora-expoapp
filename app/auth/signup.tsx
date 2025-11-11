@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Text, View, TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 import { signUp } from '../../src/store/slices/authSlice';
 import { RootState, AppDispatch } from '../../src/store';
 
@@ -202,6 +203,7 @@ const styles = StyleSheet.create({
 });
 
 export default function SignupScreen() {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -233,17 +235,17 @@ export default function SignupScreen() {
 
   const handleSignup = async () => {
     if (!name || !email || !password || !confirmPassword) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
+      Alert.alert(t('auth.signup.errorTitle'), t('auth.signup.fillAllFields'));
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Las contraseñas no coinciden');
+      Alert.alert(t('auth.signup.errorTitle'), t('auth.signup.passwordsDoNotMatch'));
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
+      Alert.alert(t('auth.signup.errorTitle'), t('auth.signup.passwordTooShort'));
       return;
     }
 
@@ -266,9 +268,9 @@ export default function SignupScreen() {
 
     try {
       const result = await dispatch(signUp({ email, password, name, role })).unwrap();
-      Alert.alert('Éxito', '¡Cuenta creada exitosamente!', [
+      Alert.alert(t('auth.signup.successTitle'), t('auth.signup.accountCreatedSuccessfully'), [
         {
-          text: 'Aceptar',
+          text: t('auth.signup.accept'),
           onPress: () => {
             if (result.role === 'patient') {
               router.replace('/patient/home');
@@ -279,7 +281,7 @@ export default function SignupScreen() {
         },
       ]);
     } catch (error) {
-      Alert.alert('Error de registro', error as string);
+      Alert.alert(t('auth.signup.signupErrorTitle'), error as string);
     }
   };
 
@@ -299,16 +301,16 @@ export default function SignupScreen() {
             <View style={styles.logo}>
               <Text style={styles.logoText}>P</Text>
             </View>
-            <Text style={styles.welcomeTitle}>Crear cuenta</Text>
-            <Text style={styles.welcomeSubtitle}>Únete a Pildhora hoy</Text>
+            <Text style={styles.welcomeTitle}>{t('auth.signup.createAccount')}</Text>
+            <Text style={styles.welcomeSubtitle}>{t('auth.signup.joinPildhora')}</Text>
           </View>
 
           {/* Name Input */}
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Nombre completo</Text>
+            <Text style={styles.inputLabel}>{t('auth.signup.fullName')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Ingresa tu nombre completo"
+              placeholder={t('auth.signup.enterYourFullName')}
               value={name}
               onChangeText={setName}
             />
@@ -316,10 +318,10 @@ export default function SignupScreen() {
 
           {/* Email Input */}
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Correo electrónico</Text>
+            <Text style={styles.inputLabel}>{t('auth.signup.email')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Ingresa tu correo"
+              placeholder={t('auth.signup.enterYourEmail')}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -329,10 +331,10 @@ export default function SignupScreen() {
 
           {/* Password Input */}
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Contraseña</Text>
+            <Text style={styles.inputLabel}>{t('auth.signup.password')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Ingresa tu contraseña"
+              placeholder={t('auth.signup.enterYourPassword')}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -341,10 +343,10 @@ export default function SignupScreen() {
 
           {/* Confirm Password Input */}
           <View style={styles.confirmPasswordContainer}>
-            <Text style={styles.inputLabel}>Confirmar contraseña</Text>
+            <Text style={styles.inputLabel}>{t('auth.signup.confirmPassword')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Confirma tu contraseña"
+              placeholder={t('auth.signup.confirmYourPassword')}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry
@@ -353,7 +355,7 @@ export default function SignupScreen() {
 
           {/* Role Selection */}
           <View style={styles.roleContainer}>
-            <Text style={styles.roleLabel}>Soy:</Text>
+            <Text style={styles.roleLabel}>{t('auth.signup.iAmA')}</Text>
             <View style={styles.roleButtonContainer}>
               <TouchableOpacity
                 style={[
@@ -366,7 +368,7 @@ export default function SignupScreen() {
                   styles.roleButtonText,
                   role === 'patient' && styles.roleButtonTextSelected
                 ]}>
-                  Paciente
+                  {t('auth.signup.patient')}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -380,7 +382,7 @@ export default function SignupScreen() {
                   styles.roleButtonText,
                   role === 'caregiver' && styles.caregiverButtonTextSelected
                 ]}>
-                  Cuidador
+                  {t('auth.signup.caregiver')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -393,21 +395,21 @@ export default function SignupScreen() {
             disabled={loading}
           >
             <Text style={styles.signUpButtonText}>
-              {loading ? 'Creando cuenta...' : 'Registrarse'}
+              {loading ? t('auth.signup.creatingAccount') : t('auth.signup.signUp')}
             </Text>
           </TouchableOpacity>
 
           {/* Sign In Link */}
           <View style={styles.signInContainer}>
-            <Text style={styles.signInText}>¿Ya tienes una cuenta? </Text>
+            <Text style={styles.signInText}>{t('auth.signup.alreadyHaveAnAccount')}</Text>
             <TouchableOpacity onPress={navigateToLogin}>
-              <Text style={styles.signInLink}>Iniciar sesión</Text>
+              <Text style={styles.signInLink}>{t('auth.signup.login')}</Text>
             </TouchableOpacity>
           </View>
 
           {/* Back Button */}
           <TouchableOpacity style={styles.backContainer} onPress={() => router.back()}>
-            <Text style={styles.backText}>← Volver a la selección de rol</Text>
+            <Text style={styles.backText}>{t('auth.signup.backToRoleSelection')}</Text>
           </TouchableOpacity>
         </View>
       </View>
