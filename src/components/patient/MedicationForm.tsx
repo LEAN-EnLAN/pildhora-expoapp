@@ -238,7 +238,7 @@ export default function MedicationForm({ mode, medication }: Props) {
             onPress={submitForm}
             variant="primary"
             size="lg"
-            className="mt-4"
+            style={styles.submitButton}
           >
             {mode === 'add' ? 'Guardar' : 'Actualizar'}
           </Button>
@@ -254,5 +254,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 16,
     color: '#1F2937',
+  },
+  submitButton: {
+    marginTop: 16,
   },
 });

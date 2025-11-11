@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Platform, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface CaregiverHeaderProps {
@@ -9,26 +9,25 @@ interface CaregiverHeaderProps {
 }
 
 export default function CaregiverHeader({ title, showScreenTitle, onLogout }: CaregiverHeaderProps) {
-  // This is a placeholder for the actual emergency logic
   const handleEmergency = () => console.log('Emergency pressed');
 
   return (
-    <View style={{ paddingTop: Platform.OS === 'android' ? 40 : 50, paddingBottom: 10 }} className="flex-row items-center justify-between bg-white px-4 border-b border-gray-200">
+    <View style={styles.container}>
       <View>
-        <Text className="text-2xl font-extrabold text-gray-900">PILDHORA</Text>
+        <Text style={styles.logo}>PILDHORA</Text>
         {showScreenTitle && (
-          <Text className="text-lg text-blue-600 font-bold">{title}</Text>
+          <Text style={styles.screenTitle}>{title}</Text>
         )}
       </View>
-      <View className="flex-row items-center gap-3">
+      <View style={styles.actionsContainer}>
         <TouchableOpacity
-          className="w-10 h-10 rounded-full bg-red-500 items-center justify-center shadow-sm"
+          style={[styles.button, styles.emergencyButton]}
           onPress={handleEmergency}
         >
           <Ionicons name="alert" size={20} color="#FFFFFF" />
         </TouchableOpacity>
         <TouchableOpacity
-          className="w-10 h-10 rounded-full bg-gray-700 items-center justify-center shadow-sm"
+          style={[styles.button, styles.logoutButton]}
           onPress={onLogout}
         >
           <Ionicons name="log-out" size={20} color="#FFFFFF" />
@@ -37,3 +36,50 @@ export default function CaregiverHeader({ title, showScreenTitle, onLogout }: Ca
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    paddingTop: Platform.OS === 'android' ? 40 : 50,
+    paddingBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  logo: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  screenTitle: {
+    fontSize: 18,
+    color: '#2563EB',
+    fontWeight: 'bold',
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  button: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  emergencyButton: {
+    backgroundColor: '#EF4444',
+  },
+  logoutButton: {
+    backgroundColor: '#374151',
+  },
+});

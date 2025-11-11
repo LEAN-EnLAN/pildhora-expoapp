@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Text, View, FlatList } from 'react-native';
+import { Text, View, FlatList, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../src/store';
@@ -20,30 +20,77 @@ export default function AuditScreen() {
   const { data: auditLog = [] } = useCollectionSWR<AuditLog>(auditQuery);
 
   return (
-    <View className="flex-1 bg-gray-100">
-      <View className="p-4">
-        <Text className="text-2xl font-bold">Registro de Actividad</Text>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Registro de Actividad</Text>
       </View>
       <FlatList
         data={auditLog}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <View className="bg-white p-4 m-2 rounded-lg flex-row items-start">
-            <Ionicons name="receipt-outline" size={24} color="orange" className="mt-1" />
-            <View className="ml-4 flex-1">
-              <Text className="font-semibold">{item.action}</Text>
-              <Text className="text-gray-500 text-xs mt-1">
+          <View style={styles.logItem}>
+            <Ionicons name="receipt-outline" size={24} color="orange" style={styles.icon} />
+            <View style={styles.logContent}>
+              <Text style={styles.logAction}>{item.action}</Text>
+              <Text style={styles.logTimestamp}>
                 {new Date(item.timestamp.toString()).toLocaleString()}
               </Text>
             </View>
           </View>
         )}
         ListEmptyComponent={() => (
-            <View className="flex-1 justify-center items-center mt-20">
-              <Text className="text-gray-500">No hay registros de actividad.</Text>
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No hay registros de actividad.</Text>
             </View>
         )}
       />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+  },
+  header: {
+    padding: 16,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  logItem: {
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    marginHorizontal: 8,
+    marginVertical: 4,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  icon: {
+    marginTop: 4,
+  },
+  logContent: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  logAction: {
+    fontWeight: '600',
+  },
+  logTimestamp: {
+    color: '#6B7280',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 80,
+  },
+  emptyText: {
+    color: '#6B7280',
+  },
+});

@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, Text } from 'react-native';
-import { Button } from '../../ui/Button';
+import { View, Text, StyleSheet, Switch } from 'react-native';
 
 interface Props {
   selectedDays: string[];
@@ -9,15 +8,13 @@ interface Props {
 }
 
 const DAYS = [
-  { id: 'Mon', label: 'Lun' }, { id: 'Tue', label: 'Mar' }, { id: 'Wed', label: 'Mié' },
-  { id: 'Thu', label: 'Jue' }, { id: 'Fri', label: 'Vie' }, { id: 'Sat', label: 'Sáb' },
-  { id: 'Sun', label: 'Dom' },
-];
-
-const QUICK_SELECT_OPTIONS = [
-  { id: 'weekdays', label: 'Días de semana', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] },
-  { id: 'weekends', label: 'Fines de semana', days: ['Sat', 'Sun'] },
-  { id: 'all', label: 'Todos', days: DAYS.map(d => d.id) },
+  { id: 'Mon', label: 'Lunes' },
+  { id: 'Tue', label: 'Martes' },
+  { id: 'Wed', label: 'Miércoles' },
+  { id: 'Thu', label: 'Jueves' },
+  { id: 'Fri', label: 'Viernes' },
+  { id: 'Sat', label: 'Sábado' },
+  { id: 'Sun', label: 'Domingo' },
 ];
 
 export default function ReminderDaysSelector({ selectedDays, onDaysChange, error }: Props) {
@@ -29,45 +26,49 @@ export default function ReminderDaysSelector({ selectedDays, onDaysChange, error
     );
   };
 
-  const getQuickSelectVariant = (days: string[]) => {
-    const isAll = days.every(day => selectedDays.includes(day));
-    const isPartially = days.some(day => selectedDays.includes(day)) && !isAll;
-    if (isAll) return 'primary';
-    if (isPartially) return 'secondary';
-    return 'secondary';
-  };
-
   return (
-    <View className="mb-4">
-      <Text className="text-lg font-bold mb-2 text-gray-800">Días de Recordatorio</Text>
-      <View className="flex-row justify-between mb-4">
-        {DAYS.map(day => (
-          <Button
-            key={day.id}
-            onPress={() => toggleDay(day.id)}
-            className="w-10 h-10 rounded-full items-center justify-center"
-            variant={selectedDays.includes(day.id) ? 'primary' : 'secondary'}
-          >
-            {day.label}
-          </Button>
-        ))}
-      </View>
-      <View>
-        <Text className="text-base font-medium mb-2 text-gray-700">Selección rápida:</Text>
-        <View className="flex-row flex-wrap gap-2">
-          {QUICK_SELECT_OPTIONS.map(option => (
-            <Button
-              key={option.id}
-              onPress={() => onDaysChange(option.days)}
-              variant={getQuickSelectVariant(option.days)}
-              size="sm"
-            >
-              {option.label}
-            </Button>
-          ))}
+    <View style={styles.container}>
+      <Text style={styles.title}>Días de Recordatorio</Text>
+      {DAYS.map(day => (
+        <View key={day.id} style={styles.dayRow}>
+          <Text style={styles.dayLabel}>{day.label}</Text>
+          <Switch
+            value={selectedDays.includes(day.id)}
+            onValueChange={() => toggleDay(day.id)}
+            trackColor={{ false: "#767577", true: "#81b0ff" }}
+            thumbColor={selectedDays.includes(day.id) ? "#007AFF" : "#f4f3f4"}
+            ios_backgroundColor="#3e3e3e"
+          />
         </View>
-      </View>
-      {error && <Text className="text-red-500 mt-1">{error}</Text>}
+      ))}
+      {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#1F2937',
+  },
+  dayRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  dayLabel: {
+    fontSize: 16,
+  },
+  errorText: {
+    color: '#EF4444',
+    marginTop: 4,
+  },
+});

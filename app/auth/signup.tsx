@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Text, View, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { Text, View, TextInput, Alert, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { signUp } from '../../src/store/slices/authSlice';
@@ -79,34 +79,34 @@ export default function SignupScreen() {
   };
 
   return (
-    <Container className="flex-1">
+    <Container style={styles.flex1}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1 justify-center items-center p-4"
+        style={styles.container}
       >
-        <Card className="w-full max-w-sm p-6">
-          <View className="items-center mb-8">
-            <View className="w-24 h-24 bg-blue-500 rounded-full justify-center items-center mb-4 shadow-lg">
-              <Text className="text-white text-5xl font-bold">P</Text>
+        <Card style={styles.card}>
+          <View style={styles.header}>
+            <View style={styles.logoContainer}>
+              <Text style={styles.logoText}>P</Text>
             </View>
-            <Text className="text-3xl font-bold text-gray-800">Crear cuenta</Text>
-            <Text className="text-gray-500 mt-1">Únete a Pildhora hoy</Text>
+            <Text style={styles.title}>Crear cuenta</Text>
+            <Text style={styles.subtitle}>Únete a Pildhora hoy</Text>
           </View>
 
-          <View className="mb-4">
-            <Text className="text-sm font-medium text-gray-700 mb-2">Nombre completo</Text>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Nombre completo</Text>
             <TextInput
-              className="border border-gray-300 rounded-xl p-4 bg-white text-base shadow-sm"
+              style={styles.input}
               placeholder="Ingresa tu nombre completo"
               value={name}
               onChangeText={setName}
             />
           </View>
 
-          <View className="mb-4">
-            <Text className="text-sm font-medium text-gray-700 mb-2">Correo electrónico</Text>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Correo electrónico</Text>
             <TextInput
-              className="border border-gray-300 rounded-xl p-4 bg-white text-base shadow-sm"
+              style={styles.input}
               placeholder="Ingresa tu correo"
               value={email}
               onChangeText={setEmail}
@@ -115,10 +115,10 @@ export default function SignupScreen() {
             />
           </View>
 
-          <View className="mb-4">
-            <Text className="text-sm font-medium text-gray-700 mb-2">Contraseña</Text>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Contraseña</Text>
             <TextInput
-              className="border border-gray-300 rounded-xl p-4 bg-white text-base shadow-sm"
+              style={styles.input}
               placeholder="Ingresa tu contraseña"
               value={password}
               onChangeText={setPassword}
@@ -126,10 +126,10 @@ export default function SignupScreen() {
             />
           </View>
 
-          <View className="mb-6">
-            <Text className="text-sm font-medium text-gray-700 mb-2">Confirmar contraseña</Text>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Confirmar contraseña</Text>
             <TextInput
-              className="border border-gray-300 rounded-xl p-4 bg-white text-base shadow-sm"
+              style={styles.input}
               placeholder="Confirma tu contraseña"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
@@ -137,19 +137,19 @@ export default function SignupScreen() {
             />
           </View>
 
-          <View className="mb-6">
-            <Text className="text-sm font-medium text-gray-700 mb-3">Soy:</Text>
-            <View className="flex-row">
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Soy:</Text>
+            <View style={styles.roleContainer}>
               <Button
                 onPress={() => setRole('patient')}
-                className={`flex-1 mr-2 ${role === 'patient' ? 'bg-green-100 border-green-500' : 'bg-white border-gray-300'}`}
+                style={[styles.roleButton, styles.marginRight2, role === 'patient' ? styles.patientSelected : styles.roleUnselected]}
                 variant={role === 'patient' ? 'primary' : 'secondary'}
               >
                 Paciente
               </Button>
               <Button
                 onPress={() => setRole('caregiver')}
-                className={`flex-1 ml-2 ${role === 'caregiver' ? 'bg-blue-100 border-blue-500' : 'bg-white border-gray-300'}`}
+                style={[styles.roleButton, styles.marginLeft2, role === 'caregiver' ? styles.caregiverSelected : styles.roleUnselected]}
                 variant={role === 'caregiver' ? 'primary' : 'secondary'}
               >
                 Cuidador
@@ -162,20 +162,20 @@ export default function SignupScreen() {
             disabled={loading}
             variant="primary"
             size="lg"
-            className="w-full"
+            style={styles.signupButton}
           >
             {loading ? 'Creando cuenta...' : 'Registrarse'}
           </Button>
 
-          <View className="flex-row justify-center mt-4">
-            <Text className="text-gray-500">¿Ya tienes una cuenta? </Text>
-            <Button onPress={navigateToLogin} className="p-0">
+          <View style={styles.loginContainer}>
+            <Text style={styles.loginText}>¿Ya tienes una cuenta? </Text>
+            <Button onPress={navigateToLogin} style={styles.loginButton}>
               Iniciar sesión
             </Button>
           </View>
 
-          <View className="mt-4">
-            <Button onPress={() => router.back()} className="p-0">
+          <View style={styles.backButtonContainer}>
+            <Button onPress={() => router.back()} style={styles.backButton}>
               ← Volver a la selección de rol
             </Button>
           </View>
@@ -184,3 +184,118 @@ export default function SignupScreen() {
     </Container>
   );
 }
+
+const styles = StyleSheet.create({
+  flex1: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  card: {
+    width: '100%',
+    maxWidth: 384,
+    padding: 24,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  logoContainer: {
+    width: 96,
+    height: 96,
+    backgroundColor: '#3B82F6',
+    borderRadius: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  logoText: {
+    color: '#FFFFFF',
+    fontSize: 64,
+    fontWeight: 'bold',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  subtitle: {
+    color: '#6B7280',
+    marginTop: 4,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    fontSize: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  roleContainer: {
+    flexDirection: 'row',
+  },
+  roleButton: {
+    flex: 1,
+  },
+  marginRight2: {
+    marginRight: 8,
+  },
+  marginLeft2: {
+    marginLeft: 8,
+  },
+  patientSelected: {
+    backgroundColor: '#D1FAE5',
+    borderColor: '#10B981',
+  },
+  caregiverSelected: {
+    backgroundColor: '#DBEAFE',
+    borderColor: '#3B82F6',
+  },
+  roleUnselected: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#D1D5DB',
+  },
+  signupButton: {
+    width: '100%',
+  },
+  loginContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 16,
+  },
+  loginText: {
+    color: '#6B7280',
+  },
+  loginButton: {
+    padding: 0,
+  },
+  backButtonContainer: {
+    marginTop: 16,
+  },
+  backButton: {
+    padding: 0,
+  },
+});

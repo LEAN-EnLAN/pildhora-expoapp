@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Modal, Platform, TouchableOpacity } from 'react-native';
+import { View, Text, Modal, Platform, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Button } from '../../ui/Button';
@@ -46,7 +46,6 @@ export default function ReminderTimePicker({ times, onTimesChange, error }: Prop
         onTimesChange([...times, timeString]);
       }
 
-      // For iOS, user must confirm, so we only update the temp date here
       if (Platform.OS === 'ios') {
         setTempDate(selectedDate);
       }
@@ -78,21 +77,21 @@ export default function ReminderTimePicker({ times, onTimesChange, error }: Prop
   };
 
   return (
-    <View className="mb-4">
-      <Text className="text-lg font-bold mb-2 text-gray-800">Horas de Recordatorio</Text>
-      <View className="min-h-[48px]">
+    <View style={styles.container}>
+      <Text style={styles.title}>Horas de Recordatorio</Text>
+      <View style={styles.minHeight48}>
         {times.length === 0 ? (
-          <Button onPress={() => showTimePicker()} variant="secondary" className="justify-center">
-            <View className="flex-row items-center gap-2">
-              <Text className="text-blue-500 font-semibold">Añadir hora</Text>
+          <Button onPress={() => showTimePicker()} variant="secondary" style={styles.justifyCenter}>
+            <View style={styles.buttonContent}>
+              <Text style={styles.addTimeText}>Añadir hora</Text>
               <Ionicons name="time-outline" size={20} color="#3B82F6" />
             </View>
           </Button>
         ) : (
-          <View className="flex-row flex-wrap gap-2 items-center">
+          <View style={styles.timesContainer}>
             {times.map((time, index) => (
-              <View key={index} className="flex-row items-center bg-gray-100 rounded-full px-3 py-1.5 gap-2">
-                <Text className="text-sm text-gray-800 font-medium">{displayTime(time)}</Text>
+              <View key={index} style={styles.timePill}>
+                <Text style={styles.timeText}>{displayTime(time)}</Text>
                 <TouchableOpacity onPress={() => showTimePicker(index)}>
                   <Ionicons name="create-outline" size={16} color="#3B82F6" />
                 </TouchableOpacity>
@@ -101,13 +100,13 @@ export default function ReminderTimePicker({ times, onTimesChange, error }: Prop
                 </TouchableOpacity>
               </View>
             ))}
-            <Button onPress={() => showTimePicker()} variant="secondary" className="p-1 rounded-full h-8 w-8">
+            <Button onPress={() => showTimePicker()} variant="secondary" style={styles.addButton}>
               <Ionicons name="add" size={16} color="#3B82F6" />
             </Button>
           </View>
         )}
       </View>
-      {error && <Text className="text-red-500 mt-1">{error}</Text>}
+      {error && <Text style={styles.errorText}>{error}</Text>}
 
       {Platform.OS === 'android' && isPickerVisible && (
         <DateTimePicker
@@ -120,19 +119,19 @@ export default function ReminderTimePicker({ times, onTimesChange, error }: Prop
 
       {Platform.OS === 'ios' && (
         <Modal visible={isPickerVisible} transparent={true} animationType="slide">
-          <View className="flex-1 bg-black/50 justify-end">
-            <Card className="rounded-b-none">
+          <View style={styles.iosModalContainer}>
+            <Card style={styles.iosModalCard}>
               <DateTimePicker
                 value={tempDate}
                 mode="time"
                 display="spinner"
                 onChange={handleTimeChange}
               />
-              <View className="flex-row justify-between gap-4 mt-4">
-                <Button onPress={() => setPickerVisible(false)} variant="secondary" className="flex-1">
+              <View style={styles.iosModalButtons}>
+                <Button onPress={() => setPickerVisible(false)} variant="secondary" style={styles.flex1}>
                   Cancelar
                 </Button>
-                <Button onPress={handleConfirmIOSTime} variant="primary" className="flex-1">
+                <Button onPress={handleConfirmIOSTime} variant="primary" style={styles.flex1}>
                   Confirmar
                 </Button>
               </View>
@@ -143,3 +142,78 @@ export default function ReminderTimePicker({ times, onTimesChange, error }: Prop
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#1F2937',
+  },
+  minHeight48: {
+    minHeight: 48,
+  },
+  justifyCenter: {
+    justifyContent: 'center',
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  addTimeText: {
+    color: '#3B82F6',
+    fontWeight: '600',
+  },
+  timesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    alignItems: 'center',
+  },
+  timePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 9999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 8,
+  },
+  timeText: {
+    fontSize: 14,
+    color: '#1F2937',
+    fontWeight: '500',
+  },
+  addButton: {
+    padding: 4,
+    borderRadius: 9999,
+    height: 32,
+    width: 32,
+  },
+  errorText: {
+    color: '#EF4444',
+    marginTop: 4,
+  },
+  iosModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  iosModalCard: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  iosModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 16,
+    marginTop: 16,
+  },
+  flex1: {
+    flex: 1,
+  },
+});

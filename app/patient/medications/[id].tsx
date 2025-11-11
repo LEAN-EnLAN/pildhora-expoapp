@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../../../src/store';
@@ -20,13 +20,35 @@ export default function EditMedicationScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-gray-100">
-      <View className="p-4">
+    <ScrollView style={styles.container}>
+      <View style={styles.content}>
         <MedicationForm mode="edit" medication={medication} />
-        <TouchableOpacity className="bg-red-500 px-4 py-2 rounded-lg mt-4" onPress={handleDelete}>
-          <Text className="text-white font-semibold text-center">Eliminar</Text>
+        <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
+          <Text style={styles.deleteButtonText}>Eliminar</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+  },
+  content: {
+    padding: 16,
+  },
+  deleteButton: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  deleteButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+});
