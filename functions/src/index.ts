@@ -8,7 +8,7 @@
  */
 
 import { setGlobalOptions } from "firebase-functions";
-import { onRequest } from "firebase-functions/https";
+import { onCall, onRequest } from "firebase-functions/v2/https";
 import { onValueUpdated, onValueCreated, onValueDeleted } from "firebase-functions/database";
 import { onDocumentUpdated, onDocumentCreated } from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
@@ -418,4 +418,79 @@ export const onDeviceLinkUpdated = onDocumentUpdated("deviceLinks/{linkId}", asy
   } catch (e: any) {
     logger.error("onDeviceLinkUpdated error", { error: e.message, linkId });
   }
+});
+
+/**
+ * Get all intake records for a given patient.
+ */
+export const getPatientIntakeRecords = onCall(async (request) => {
+  const patientId = request.data.patientId;
+  if (!patientId) {
+    throw new Error("Missing patientId");
+  }
+
+  const db = admin.firestore();
+  const intakesSnapshot = await db
+    .collection("intakeRecords")
+    .where("patientId", "==", patientId)
+    .orderBy("scheduledTime", "desc")
+    .get();
+
+  const intakes = intakesSnapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...data,
+      // Convert Firestore Timestamps to ISO strings
+      scheduledTime: data.scheduledTime.toDate().toISOString(),
+      takenAt: data.takenAt ? data.takenAt.toDate().toISOString() : null,
+    };
+  });
+
+  return { intakes };
+});
+
+/**
+ * Get adherence data for a given patient, calculated from the last 24 hours.
+ */
+export const getPatientAdherence = onCall(async (request) => {
+  const patientId = request.data.patientId;
+  if (!patientId) {
+    throw new Error("Missing patientId");
+  }
+
+  const db = admin.firestore();
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  const intakesSnapshot = await db
+    .collection("intakeRecords")
+    .where("patientId", "==", patientId)
+    .where("scheduledTime", ">=", twentyFourHoursAgo)
+    .get();
+
+  const intakes = intakesSnapshot.docs.map((doc) => doc.data());
+
+  if (intakes.length === 0) {
+    return { adherence: 100, doseSegments: [] };
+  }
+
+  const totalDoses = intakes.length;
+  const takenDoses = intakes.filter((intake) => intake.status === "TAKEN").length;
+  const missedDoses = intakes.filter((intake) => intake.status === "MISSED").length;
+  const scheduledDoses = intakes.filter((intake) => intake.status === "SCHEDULED").length;
+
+  const adherence = (takenDoses / totalDoses) * 100;
+
+  const doseSegments = [];
+  if (takenDoses > 0) {
+    doseSegments.push({ percentage: (takenDoses / totalDoses) * 100, color: "#4CAF50" });
+  }
+  if (missedDoses > 0) {
+    doseSegments.push({ percentage: (missedDoses / totalDoses) * 100, color: "#F44336" });
+  }
+  if (scheduledDoses > 0) {
+    doseSegments.push({ percentage: (scheduledDoses / totalDoses) * 100, color: "#FFC107" });
+  }
+
+  return { adherence, doseSegments };
 });
