@@ -5,9 +5,9 @@
 // Since we can't directly import TypeScript files in Node.js without setup,
 // we'll create a manual test that simulates what the app would do
 
-const firebase = require('firebase/app');
-require('firebase/auth');
-require('firebase/database');
+const { initializeApp } = require('firebase/app');
+const { getAuth } = require('firebase/auth');
+const { getDatabase } = require('firebase/database');
 
 // Firebase configuration (replace with your actual config)
 const firebaseConfig = {
@@ -21,12 +21,13 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase if not already initialized
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
+let app;
+if (firebaseConfig.apiKey) {
+  app = initializeApp(firebaseConfig);
 }
 
-const auth = firebase.auth();
-const rdb = firebase.database();
+const auth = getAuth(app);
+const rdb = getDatabase(app);
 
 async function testDeviceLinking() {
   console.log('Testing device linking functionality...');
@@ -36,6 +37,10 @@ async function testDeviceLinking() {
   const testDeviceId = 'TEST-DEVICE-001';
   
   try {
+    if (!app) {
+      console.log('Firebase app not initialized. Skipping test.');
+      return;
+    }
     // First, we need to authenticate
     console.log('0. Checking authentication status...');
     const currentUser = auth.currentUser;
@@ -56,7 +61,7 @@ async function testDeviceLinking() {
     const deviceRef = rdb.ref(`users/${currentUser.uid}/devices/${testDeviceId}`);
     const deviceData = {
       deviceId: testDeviceId,
-      linkedAt: firebase.database.ServerValue.TIMESTAMP,
+      linkedAt: serverTimestamp(),
       status: 'active'
     };
     
