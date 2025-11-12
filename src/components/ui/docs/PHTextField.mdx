@@ -1,0 +1,53 @@
+---
+title: PHTextField
+---
+
+# PHTextField
+
+Componente de entrada nativa iOS (UITextField) bridged a React Native con fallback multiplataforma.
+
+## Props
+
+- `value`, `placeholder`, `disabled`, `errorMessage`, `secure`, `keyboardType`, `returnKeyType`, `autoCapitalize`
+- Eventos: `onChangeText`, `onFocus`, `onBlur`, `onSubmitEditing`
+- `appearance`: `light | dark | automatic` (por defecto `automatic`).
+
+## Uso básico
+
+```tsx
+import { PHTextField } from '@/src/components/ui';
+
+<PHTextField
+  placeholder="Correo"
+  keyboardType="email-address"
+  autoCapitalize="none"
+  value={email}
+  onChangeText={setEmail}
+/>
+```
+
+## Grupo de campos
+
+```tsx
+import { PHTextFieldGroup } from '@/src/components/ui';
+
+<PHTextFieldGroup
+  rows={[
+    { kind: 'placeholder', text: 'Value' },
+    { kind: 'input', props: { value, onChangeText: setValue }, showClear: true, onClear: () => setValue('') },
+    { kind: 'value', text: 'Value' },
+  ]}
+/>
+```
+
+## Estados
+
+- Enfocado: cursor azul, comportamiento nativo.
+- Deshabilitado: no editable.
+- Error: separador rojo desde el wrapper; el módulo nativo mostrará subrayado rojo.
+
+## Plataforma
+
+- iOS: usa `UITextField` nativo vía bridge.
+- Android/Web: fallback a `TextInput` con estilos equivalentes.
+

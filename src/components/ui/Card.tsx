@@ -31,8 +31,8 @@ export const Card: React.FC<CardProps> = ({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 24,
+    borderRadius: 16,
+    padding: 12,
   },
   shadow: {
     ...Platform.select({

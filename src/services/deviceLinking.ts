@@ -1,4 +1,4 @@
-import { db, auth, rdb } from './firebase';
+import { getAuthInstance, getDbInstance, getRdbInstance } from './firebase';
 import { doc, setDoc, deleteDoc, serverTimestamp, collection, query, where, getDocs, updateDoc, getDoc } from 'firebase/firestore';
 import { ref, set, remove } from 'firebase/database';
 
@@ -12,28 +12,19 @@ export async function linkDeviceToUser(userId: string, deviceId: string): Promis
   
   if (!userId || !deviceId) throw new Error('linkDeviceToUser requires userId and deviceId');
 
-  // Wait for auth to be initialized
-  const currentUser = await new Promise((resolve, reject) => {
-    const unsubscribe = auth.onAuthStateChanged(user => {
-      unsubscribe();
-      resolve(user);
-    }, reject);
-    setTimeout(() => reject(new Error("Auth state change timeout")), 5000);
-  });
-  
-  console.log('[DEBUG] Firebase Auth current user:', {
-    isAuthenticated: !!currentUser,
-    uid: currentUser?.uid,
-    email: currentUser?.email,
-    providedUserId: userId,
-    uidMatches: currentUser?.uid === userId
-  });
+  const auth = await getAuthInstance();
+  const rdb = await getRdbInstance();
+
+  if (!auth || !rdb) {
+    throw new Error('Firebase services not available');
+  }
+
+  const currentUser = auth.currentUser;
   
   if (!currentUser) {
-    console.error('[DEBUG] No authenticated user in Firebase Auth');
-    throw new Error('User not authenticated in Firebase Auth');
+    throw new Error('User not authenticated');
   }
-  
+
   if (currentUser.uid !== userId) {
     console.error('[DEBUG] UID mismatch between Redux state and Firebase Auth', {
       authUid: currentUser.uid,
@@ -77,18 +68,24 @@ export async function checkDevelopmentRuleStatus(): Promise<void> {
   console.log('[DEBUG] Current system time:', new Date().toISOString());
   console.log('[DEBUG] Development rule expires: 2025-12-31T23:59:59.999Z');
   
-  // Check authentication state first
-  const currentUser = await new Promise((resolve, reject) => {
-    const unsubscribe = auth.onAuthStateChanged(user => {
-      unsubscribe();
-      resolve(user);
-    }, reject);
-    setTimeout(() => reject(new Error("Auth state change timeout")), 5000);
-  });
+  const auth = await getAuthInstance();
+  const db = await getDbInstance();
+
+  if (!auth || !db) {
+    console.warn('[DEBUG] Firebase services not available for rule status check.');
+    return;
+  }
+
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    console.log('[DEBUG] No authenticated user, skipping rule check.');
+    return;
+  }
+
   console.log('[DEBUG] Authentication state:', {
     isAuthenticated: !!currentUser,
-    uid: currentUser?.uid,
-    email: currentUser?.email
+    uid: currentUser.uid,
+    email: currentUser.email
   });
   
   // Check if we can read a test document to verify rule evaluation
@@ -103,7 +100,7 @@ export async function checkDevelopmentRuleStatus(): Promise<void> {
       console.log('[DEBUG] Test document does not exist, creating it...');
       // Create the test document if it doesn't exist
       await setDoc(testDocRef, {
-        createdBy: currentUser?.uid || 'anonymous',
+        createdBy: currentUser.uid || 'anonymous',
         createdAt: serverTimestamp(),
         purpose: 'development-rule-diagnostic',
         test: true
@@ -142,16 +139,16 @@ export async function checkDevelopmentRuleStatus(): Promise<void> {
 export async function unlinkDeviceFromUser(userId: string, deviceId: string): Promise<void> {
   if (!userId || !deviceId) throw new Error('unlinkDeviceFromUser requires userId and deviceId');
   
-  // Verify authentication state
-  const currentUser = await new Promise((resolve, reject) => {
-    const unsubscribe = auth.onAuthStateChanged(user => {
-      unsubscribe();
-      resolve(user);
-    }, reject);
-    setTimeout(() => reject(new Error("Auth state change timeout")), 5000);
-  });
+  const auth = await getAuthInstance();
+  const rdb = await getRdbInstance();
+
+  if (!auth || !rdb) {
+    throw new Error('Firebase services not available');
+  }
+
+  const currentUser = auth.currentUser;
   if (!currentUser) {
-    throw new Error('User not authenticated in Firebase Auth');
+    throw new Error('User not authenticated');
   }
   
   if (currentUser.uid !== userId) {

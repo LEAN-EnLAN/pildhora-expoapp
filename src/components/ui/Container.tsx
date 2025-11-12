@@ -34,12 +34,12 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   md: {
-    padding: 16,
+    padding: 12,
   },
   lg: {
-    padding: 24,
+    padding: 16,
   },
   xl: {
-    padding: 32,
+    padding: 20,
   },
 });

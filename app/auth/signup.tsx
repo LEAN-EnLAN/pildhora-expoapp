@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Text, View, TextInput, Alert, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { Text, View, Alert, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { signUp } from '../../src/store/slices/authSlice';
 import { RootState, AppDispatch } from '../../src/store';
 import { Button, Card, Container } from '../../src/components/ui';
+import { PHTextField } from '../../src/components/ui/PHTextField';
 
 export default function SignupScreen() {
   const [name, setName] = useState('');
@@ -95,18 +96,17 @@ export default function SignupScreen() {
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Nombre completo</Text>
-            <TextInput
-              style={styles.input}
+            <PHTextField
               placeholder="Ingresa tu nombre completo"
               value={name}
               onChangeText={setName}
+              autoCapitalize="words"
             />
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Correo electrónico</Text>
-            <TextInput
-              style={styles.input}
+            <PHTextField
               placeholder="Ingresa tu correo"
               value={email}
               onChangeText={setEmail}
@@ -117,23 +117,21 @@ export default function SignupScreen() {
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Contraseña</Text>
-            <TextInput
-              style={styles.input}
+            <PHTextField
               placeholder="Ingresa tu contraseña"
               value={password}
               onChangeText={setPassword}
-              secureTextEntry
+              secure
             />
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Confirmar contraseña</Text>
-            <TextInput
-              style={styles.input}
+            <PHTextField
               placeholder="Confirma tu contraseña"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
-              secureTextEntry
+              secure
             />
           </View>
 

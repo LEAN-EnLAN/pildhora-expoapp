@@ -7,7 +7,7 @@ interface ButtonProps {
   variant?: 'primary' | 'secondary' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   disabled?: boolean;
-  style?: ViewStyle;
+  style?: ViewStyle | ViewStyle[];
 }
 
 export const Button: React.FC<ButtonProps> = ({ 
@@ -67,12 +67,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   md: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   lg: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   disabled: {
     opacity: 0.5,
@@ -90,12 +90,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   smText: {
-    fontSize: 16,
+    fontSize: 14,
   },
   mdText: {
-    fontSize: 18,
+    fontSize: 16,
   },
   lgText: {
-    fontSize: 20,
+    fontSize: 18,
   },
 });

@@ -12,7 +12,7 @@ export default function MedicationsIndex() {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const { user } = useSelector((state: RootState) => state.auth);
-  const { medications, loading, error } from useSelector((state: RootState) => state.medications);
+  const { medications, loading, error } = useSelector((state: RootState) => state.medications);
   const patientId = user?.id;
 
   useEffect(() => {

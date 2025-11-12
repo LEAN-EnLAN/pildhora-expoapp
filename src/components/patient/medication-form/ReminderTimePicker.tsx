@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, Modal, Platform, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Platform, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Button } from '../../ui/Button';
-import { Card } from '../../ui/Card';
 
 interface Props {
   times: string[];
@@ -12,7 +11,7 @@ interface Props {
 }
 
 export default function ReminderTimePicker({ times, onTimesChange, error }: Props) {
-  const [isPickerVisible, setPickerVisible] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
   const [tempDate, setTempDate] = useState(new Date());
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
@@ -27,41 +26,46 @@ export default function ReminderTimePicker({ times, onTimesChange, error }: Prop
     } else {
       setTempDate(new Date());
     }
-    setPickerVisible(true);
+    setShowPicker(true);
   };
 
   const handleTimeChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
-      setPickerVisible(false);
-    }
-
-    if (event.type === 'set' && selectedDate) {
-      const timeString = selectedDate.toTimeString().slice(0, 5);
+      setShowPicker(false);
       
-      if (editingIndex !== null) {
-        const newTimes = [...times];
-        newTimes[editingIndex] = timeString;
-        onTimesChange(newTimes);
-      } else {
-        onTimesChange([...times, timeString]);
+      if (event.type === 'set' && selectedDate) {
+        const timeString = selectedDate.toTimeString().slice(0, 5);
+        
+        if (editingIndex !== null) {
+          const newTimes = [...times];
+          newTimes[editingIndex] = timeString;
+          onTimesChange(newTimes);
+        } else {
+          onTimesChange([...times, timeString]);
+        }
       }
-
-      if (Platform.OS === 'ios') {
+    } else if (Platform.OS === 'ios') {
+      // For iOS, handle the native Cupertino picker
+      if (selectedDate) {
         setTempDate(selectedDate);
+        
+        // iOS inline picker applies changes immediately when user interacts
+        if (event.type === 'set') {
+          const timeString = selectedDate.toTimeString().slice(0, 5);
+          
+          if (editingIndex !== null) {
+            const newTimes = [...times];
+            newTimes[editingIndex] = timeString;
+            onTimesChange(newTimes);
+          } else {
+            onTimesChange([...times, timeString]);
+          }
+          
+          // Auto-close for compact/inline display modes
+          setShowPicker(false);
+        }
       }
     }
-  };
-
-  const handleConfirmIOSTime = () => {
-    const timeString = tempDate.toTimeString().slice(0, 5);
-    if (editingIndex !== null) {
-      const newTimes = [...times];
-      newTimes[editingIndex] = timeString;
-      onTimesChange(newTimes);
-    } else {
-      onTimesChange([...times, timeString]);
-    }
-    setPickerVisible(false);
   };
 
   const handleRemoveTime = (index: number) => {
@@ -108,36 +112,17 @@ export default function ReminderTimePicker({ times, onTimesChange, error }: Prop
       </View>
       {error && <Text style={styles.errorText}>{error}</Text>}
 
-      {Platform.OS === 'android' && isPickerVisible && (
-        <DateTimePicker
-          value={tempDate}
-          mode="time"
-          display="default"
-          onChange={handleTimeChange}
-        />
-      )}
-
-      {Platform.OS === 'ios' && (
-        <Modal visible={isPickerVisible} transparent={true} animationType="slide">
-          <View style={styles.iosModalContainer}>
-            <Card style={styles.iosModalCard}>
-              <DateTimePicker
-                value={tempDate}
-                mode="time"
-                display="spinner"
-                onChange={handleTimeChange}
-              />
-              <View style={styles.iosModalButtons}>
-                <Button onPress={() => setPickerVisible(false)} variant="secondary" style={styles.flex1}>
-                  Cancelar
-                </Button>
-                <Button onPress={handleConfirmIOSTime} variant="primary" style={styles.flex1}>
-                  Confirmar
-                </Button>
-              </View>
-            </Card>
-          </View>
-        </Modal>
+      {showPicker && (
+        <View style={Platform.OS === 'ios' ? styles.iosPickerContainer : styles.pickerContainer}>
+          <DateTimePicker
+            value={tempDate}
+            mode="time"
+            display={Platform.OS === 'ios' ? 'inline' : 'default'}
+            onChange={handleTimeChange}
+            locale="es-ES"
+            style={Platform.OS === 'ios' ? styles.iosPicker : styles.androidPicker}
+          />
+        </View>
       )}
     </View>
   );
@@ -198,22 +183,21 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     marginTop: 4,
   },
-  iosModalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
+  pickerContainer: {
+    marginTop: 8,
   },
-  iosModalCard: {
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
+  iosPickerContainer: {
+    marginTop: 8,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  iosModalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 16,
-    marginTop: 16,
+  iosPicker: {
+    width: '100%',
   },
-  flex1: {
-    flex: 1,
+  androidPicker: {
+    width: '100%',
   },
 });

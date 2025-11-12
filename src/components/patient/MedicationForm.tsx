@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, Text, Alert, StyleSheet } from 'react-native';
+import { ScrollView, Alert, StyleSheet } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../store';
 import { addMedication, updateMedication } from '../../store/slices/medicationsSlice';
@@ -191,10 +191,6 @@ export default function MedicationForm({ mode, medication }: Props) {
     <Container>
       <ScrollView>
         <Card>
-          <Text style={styles.title}>
-            {mode === 'add' ? 'Añadir Medicamento' : 'Editar Medicamento'}
-          </Text>
-
           {/* Medication Name */}
           <MedicationNameInput
             value={form.name}
@@ -249,13 +245,7 @@ export default function MedicationForm({ mode, medication }: Props) {
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    color: '#1F2937',
-  },
   submitButton: {
-    marginTop: 16,
+    marginTop: 12,
   },
 });

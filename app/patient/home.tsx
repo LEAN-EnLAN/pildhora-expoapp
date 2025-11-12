@@ -81,14 +81,18 @@ export default function PatientHome() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const todaysIntakes = intakes.filter(intake => {
-        const intakeDate = new Date(intake.scheduledTime);
-        return intakeDate >= today && intake.status === IntakeStatus.TAKEN;
+    const uniqueTaken = new Set<string>();
+    intakes.forEach((intake) => {
+      const intakeDate = new Date(intake.scheduledTime);
+      if (intakeDate >= today && intake.status === IntakeStatus.TAKEN) {
+        const medKey = intake.medicationId || intake.medicationName;
+        const timeKey = intakeDate.toISOString();
+        uniqueTaken.add(`${medKey}-${timeKey}`);
+      }
     });
-
-    const takenDoses = todaysIntakes.length;
-
-    return takenDoses / totalDoses;
+    const takenUnique = uniqueTaken.size;
+    const ratio = takenUnique / totalDoses;
+    return Math.min(1, Math.max(0, ratio));
   }, [medications, intakes]);
 
   const upcoming = useMemo(() => {
@@ -99,6 +103,25 @@ export default function PatientHome() {
     candidates.sort((a, b) => a.next - b.next);
     return candidates.length ? candidates[0] : null;
   }, [medications]);
+
+  const alreadyTakenUpcoming = useMemo(() => {
+    if (!upcoming) return false;
+    const next = upcoming.next;
+    const hh = Math.floor(next);
+    const mm = Math.round((next - hh) * 60);
+    const scheduledDate = new Date();
+    scheduledDate.setHours(hh, mm, 0, 0);
+    const scheduledMs = scheduledDate.getTime();
+    return intakes.some((intake) => {
+      if (intake.status !== IntakeStatus.TAKEN) return false;
+      const intakeMs = new Date(intake.scheduledTime).getTime();
+      const matchesTime = intakeMs === scheduledMs;
+      const matchesMed = intake.medicationId
+        ? intake.medicationId === upcoming.med.id
+        : intake.medicationName === upcoming.med.name;
+      return matchesTime && matchesMed;
+    });
+  }, [upcoming, intakes]);
 
   const handleHistory = () => router.push('/patient/history');
   const handleEmergency = () => handleEmergencyPress();
@@ -172,6 +195,20 @@ export default function PatientHome() {
       const mm = Math.round((next - hh) * 60);
       const scheduledDate = new Date();
       scheduledDate.setHours(hh, mm, 0, 0);
+      const scheduledMs = scheduledDate.getTime();
+      const isDuplicate = intakes.some((intake) => {
+        if (intake.status !== IntakeStatus.TAKEN) return false;
+        const intakeMs = new Date(intake.scheduledTime).getTime();
+        const matchesTime = intakeMs === scheduledMs;
+        const matchesMed = intake.medicationId
+          ? intake.medicationId === upcoming.med.id
+          : intake.medicationName === upcoming.med.name;
+        return matchesTime && matchesMed;
+      });
+      if (isDuplicate) {
+        Alert.alert('Ya registrado', 'Esta dosis ya fue registrada para el horario programado.');
+        return;
+      }
       const db = await getDbInstance();
       if (db) {
         await addDoc(collection(db, 'intakeRecords'), {
@@ -255,9 +292,9 @@ export default function PatientHome() {
                       variant="primary"
                       size="md"
                       onPress={handleTakeUpcomingMedication}
-                      disabled={takingLoading}
+                      disabled={takingLoading || alreadyTakenUpcoming}
                     >
-                      {takingLoading ? 'Cargando...' : 'Tomar medicación'}
+                      {alreadyTakenUpcoming ? 'Ya registrada' : (takingLoading ? 'Cargando...' : 'Tomar medicación')}
                     </Button>
                   </View>
                 ) : (

@@ -121,7 +121,7 @@ initializeFirebaseApp().catch(error => {
   console.error('[Firebase] Initialization failed:', error);
 });
 
-import { getReactNativePersistence } from 'firebase/auth';
+// Do NOT import react-native auth persistence at module scope; it breaks web bundling.
 
 // Initialize Firebase Auth only after Firebase app is ready
 let authInstance: Auth | null = null;
@@ -133,9 +133,13 @@ const initializeFirebaseServices = async () => {
   await waitForFirebaseInitialization();
   
   if (!authInstance) {
-    authInstance = getAuth(app!, {
-      persistence: getReactNativePersistence(AsyncStorage),
-    });
+    authInstance = getAuth(app!);
+    if (Platform.OS === 'web') {
+      try {
+        await setPersistence(authInstance, browserLocalPersistence);
+      } catch {}
+    }
+    // For native RN we keep default persistence (in-memory) to avoid web bundling issues.
   }
   
   if (!dbInstance) {

@@ -22,7 +22,7 @@ export default function ReportsScreen() {
   }, [user]);
 
   const cacheKey = user?.id ? `reports:${user.id}` : null;
-  const { data: reports = [] } = useCollectionSWR<Report>({
+  const { data: reports = [], mutate } = useCollectionSWR<Report>({
     cacheKey,
     query: reportsQuery,
   });

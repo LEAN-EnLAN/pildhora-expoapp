@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet, Alert, TouchableOpacity, Text } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../../../src/store';
@@ -35,44 +35,50 @@ export default function EditMedicationScreen() {
   };
 
   return (
-    <View style={styles.container}>
-        <View style={styles.header}>
-            <Button variant="secondary" onPress={() => router.back()}>
-                <Ionicons name="chevron-back" size={24} color="#374151" />
-            </Button>
-            <Text style={styles.title}>Editar Medicamento</Text>
-            <Button variant="danger" onPress={handleDelete}>
-                <Ionicons name="trash-outline" size={24} color="white" />
-            </Button>
-        </View>
-        <ScrollView>
-            <View style={styles.content}>
-                <MedicationForm mode="edit" medication={medication} />
-            </View>
-        </ScrollView>
+    <View style={styles.screen}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
+          <Ionicons name="chevron-back" size={24} color="#111827" />
+        </TouchableOpacity>
+        <Text style={styles.title}>Editar Medicamento</Text>
+        <TouchableOpacity onPress={handleDelete} style={[styles.iconButton, styles.deleteButton]}>
+          <Ionicons name="trash-outline" size={22} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
+      <MedicationForm mode="edit" medication={medication} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: 'white',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB'
+    borderBottomColor: '#E5E7EB',
   },
   title: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
+    color: '#111827',
   },
-  content: {
-    padding: 16,
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E5E7EB',
+  },
+  deleteButton: {
+    backgroundColor: '#EF4444',
   },
 });

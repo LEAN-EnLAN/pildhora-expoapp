@@ -1,0 +1,162 @@
+* {
+  box-sizing: border-box;
+}
+
+.darkExamples {
+  width: 440px;
+  height: 280px;
+
+  .frame {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border-radius: 26px;
+    background: var(--Backgrounds-Grouped-Secondary, #1c1c1e);
+    width: 402px;
+    overflow: hidden;
+
+    .aSeparator {
+      flex-shrink: 0;
+      align-self: stretch;
+      box-shadow: 0 -1px var(--Separators-Vibrant, #1a1a1a);
+      height: 1px;
+    }
+
+    .contents {
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      align-items: flex-start;
+      align-self: stretch;
+      justify-content: center;
+      padding-right: 16px;
+      padding-left: 16px;
+      height: 52px;
+
+      .value {
+        display: flex;
+        flex-grow: 1;
+        align-items: center;
+        align-self: stretch;
+        width: 370px;
+        line-height: 20px;
+        letter-spacing: -0.43px;
+        color: var(--Labels-Tertiary, #ebebf54d);
+        font-family: "SF Pro", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", SimHei, Arial, Helvetica, sans-serif;
+        font-size: 17px;
+        font-weight: 500;
+      }
+    }
+
+    .contents2 {
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      align-items: flex-start;
+      align-self: stretch;
+      justify-content: center;
+      padding-right: 16px;
+      padding-left: 16px;
+      height: 52px;
+
+      .text {
+        display: flex;
+        flex-grow: 1;
+        align-items: flex-start;
+        align-self: stretch;
+
+        .cursorAndValue {
+          display: flex;
+          flex-grow: 1;
+          align-items: center;
+          align-self: stretch;
+
+          .value2 {
+            flex-shrink: 0;
+            line-height: 20px;
+            letter-spacing: -0.43px;
+            color: var(--Labels-Primary, #ffffff);
+            font-family: "SF Pro", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", SimHei, Arial, Helvetica, sans-serif;
+            font-size: 17px;
+            font-weight: 500;
+          }
+
+          .cursor {
+            flex-shrink: 0;
+            border-radius: 10px;
+            background: var(--Accents-Blue, #0091ff);
+            width: 2px;
+            height: 22px;
+          }
+        }
+
+        .clear {
+          display: flex;
+          flex-shrink: 0;
+          align-items: center;
+          align-self: stretch;
+          width: 20px;
+          line-height: 22px;
+          letter-spacing: 0;
+          color: var(--Labels-Tertiary, #ebebf54d);
+          font-family: "SF Pro", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", SimHei, Arial, Helvetica, sans-serif;
+          font-size: 17px;
+        }
+      }
+    }
+
+    .contents3 {
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      align-items: flex-start;
+      align-self: stretch;
+      justify-content: center;
+      padding-right: 16px;
+      padding-left: 16px;
+      height: 52px;
+
+      .value3 {
+        display: flex;
+        flex-grow: 1;
+        align-items: center;
+        align-self: stretch;
+        width: 370px;
+        line-height: 20px;
+        letter-spacing: -0.43px;
+        color: var(--Labels-Primary, #ffffff);
+        font-family: "SF Pro", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", SimHei, Arial, Helvetica, sans-serif;
+        font-size: 17px;
+        font-weight: 500;
+      }
+    }
+  }
+
+  .mode {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    column-gap: 4px;
+    border: 1px solid var(--Labels-Secondary, #ebebf599);
+    border-radius: 14px;
+    background: var(--Fills-Secondary, #78788052);
+    padding: 2px 5px;
+    width: 54px;
+
+    .union {
+      flex-shrink: 0;
+      width: 8px;
+      height: 9px;
+    }
+
+    .dark {
+      flex-grow: 1;
+      line-height: 13px;
+      letter-spacing: -0.4px;
+      color: var(--Labels-Primary, #ffffff);
+      font-family: "SF Pro", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", SimHei, Arial, Helvetica, sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+    }
+  }
+}

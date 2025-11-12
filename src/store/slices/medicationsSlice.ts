@@ -1,24 +1,9 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Medication, ApiResponse, User } from '../../types';
 
-// Helper to convert Firestore Timestamps to ISO strings for Redux state
-const convertTimestamps = (data: any): any => {
-  if (data instanceof Timestamp) {
-    return data.toDate().toISOString();
-  }
-  if (Array.isArray(data)) {
-    return data.map(convertTimestamps);
-  }
-  if (data !== null && typeof data === 'object') {
-    return Object.keys(data).reduce((acc, key) => {
-      acc[key] = convertTimestamps(data[key]);
-      return acc;
-    }, {} as { [key: string]: any });
-  }
-  return data;
-};
 import { getDbInstance, waitForFirebaseInitialization } from '../../services/firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, orderBy, getDoc, Timestamp } from 'firebase/firestore';
+import { convertTimestamps } from '../../utils/firestoreUtils';
 import { getAuth } from 'firebase/auth';
 import {
   migrateDosageFormat,

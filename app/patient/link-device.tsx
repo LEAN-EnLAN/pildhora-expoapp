@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Switch } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Switch, Modal } from 'react-native';
+import { PHTextField } from '../../src/components/ui/PHTextField';
 import Slider from '@react-native-community/slider';
 import ColorPickerScaffold from '../../src/components/ColorPickerScaffold';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../src/store';
 import { linkDeviceToUser, unlinkDeviceFromUser, checkDevelopmentRuleStatus } from '../../src/services/deviceLinking';
-import { rdb, db } from '../../src/services/firebase';
+import { getDbInstance, getRdbInstance, getAuthInstance } from '../../src/services/firebase';
 import { ref, get } from 'firebase/database';
 import { collection, query, where, getDocs, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
@@ -31,11 +32,24 @@ const styles = StyleSheet.create({
   chipText: { color: '#1C1C1E' },
   swatchesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   swatch: { width: 24, height: 24, borderRadius: 12, borderWidth: 1, borderColor: '#D1D5DB' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalCard: { width: '100%', maxWidth: 560, backgroundColor: 'white', borderRadius: 16, padding: 16 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  modalTitle: { fontSize: 16, fontWeight: '600' },
   controlRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   smallButton: { backgroundColor: '#E5E7EB', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8 },
   smallButtonText: { color: '#1C1C1E', fontWeight: '600' },
   infoText: { fontSize: 14, color: '#8E8E93' },
 });
+
+type DeviceStatsLocal = Record<string, {
+  battery: number | null;
+  alarmMode: 'off' | 'sound' | 'led' | 'both';
+  ledIntensity: number;
+  ledColor: [number, number, number];
+  saving?: boolean;
+  saveError?: string | null;
+}>;
 
 export default function LinkDeviceScreen() {
   const router = useRouter();
@@ -44,54 +58,66 @@ export default function LinkDeviceScreen() {
   const [linkedDevices, setLinkedDevices] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [deviceStats, setDeviceStats] = useState<Record<string, {
-    battery: number | null;
-    alarmMode: 'off' | 'sound' | 'led' | 'both';
-    ledIntensity: number; // 0-1023 typical
-    ledColor: [number, number, number];
-    saving?: boolean;
-    saveError?: string | null;
-  }>>({});
+  const [deviceStats, setDeviceStats] = useState<DeviceStatsLocal>({});
+  const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
+  const [loadingDevices, setLoadingDevices] = useState(false);
+  const [diagnosticStatus, setDiagnosticStatus] = useState<string | null>(null);
 
   async function refreshLinkedDevices() {
     if (!userId) return;
     try {
-      // Check if database is available
-      if (!db) {
+      setLoadingDevices(true);
+      const auth = await getAuthInstance();
+      const dbInst = await getDbInstance();
+      if (!auth || !dbInst) {
+        setLoadingDevices(false);
         console.warn('Database not available');
+        return;
+      }
+      const currentUser = auth.currentUser;
+      if (!currentUser || currentUser.uid !== userId) {
+        setLoadingDevices(false);
+        setError('Estado de autenticación inválido');
         return;
       }
       
       // Read the user's active device links from Firestore
       const qLinks = query(
-        collection(db, 'deviceLinks'),
+        collection(dbInst, 'deviceLinks'),
         where('userId', '==', userId),
         where('status', '==', 'active')
       );
       const linksSnap = await getDocs(qLinks);
       let ids = linksSnap.docs.map((d) => (d.data() as any).deviceId).filter(Boolean);
       // Fallback: if no Firestore links found yet, read from RTDB user links
-      if (!ids.length && rdb) {
+      if (!ids.length) {
         try {
-          const snap = await get(ref(rdb, `users/${userId}/devices`));
-          const val = snap.val() || {};
-          ids = Object.keys(val);
+          const rdbInst = await getRdbInstance();
+          if (rdbInst) {
+            const snap = await get(ref(rdbInst, `users/${userId}/devices`));
+            const val = snap.val() || {};
+            ids = Object.keys(val);
+          }
         } catch { }
       }
       setLinkedDevices(ids);
 
-      // Fetch desiredConfig and lastKnownState for each device from Firestore devices/{id}
       const statsMap: Record<string, any> = {};
-      for (const id of ids) {
+      const docs = await Promise.all(ids.map(async (id) => {
         try {
-          const devDoc = await getDoc(doc(db, 'devices', id));
-          const devData = devDoc.exists() ? devDoc.data() : {} as any;
+          const devDoc = await getDoc(doc(dbInst, 'devices', id));
+          return { id, devDoc };
+        } catch {
+          return { id, devDoc: null };
+        }
+      }));
+      for (const { id, devDoc } of docs) {
+        try {
+          const devData = devDoc && devDoc.exists() ? devDoc.data() : {} as any;
           const desired = (devData as any)?.desiredConfig || {};
           const alarmMode = (desired?.alarm_mode as 'off' | 'sound' | 'led' | 'both') ?? 'off';
           const ledIntensity = (desired?.led_intensity as number) ?? 512;
           const ledColorArr = (desired?.led_color_rgb as [number, number, number]) ?? [255, 0, 0];
-
-          // Prefer Firestore lastKnownState mirrored by Cloud Function; fall back to null
           const last = (devData as any)?.lastKnownState || {};
           let battery: number | null = null;
           const rawBattery = last?.battery ?? last?.batteryPercent ?? last?.battery_percentage ?? last?.battery_level ?? null;
@@ -101,29 +127,16 @@ export default function LinkDeviceScreen() {
             const parsed = parseFloat(rawBattery);
             battery = isNaN(parsed) ? null : Math.round(parsed);
           }
-
-          statsMap[id] = {
-            battery,
-            alarmMode,
-            ledIntensity,
-            ledColor: ledColorArr,
-            saving: false,
-            saveError: null,
-          };
+          statsMap[id] = { battery, alarmMode, ledIntensity, ledColor: ledColorArr, saving: false, saveError: null };
         } catch (e) {
-          statsMap[id] = {
-            battery: null,
-            alarmMode: 'off',
-            ledIntensity: 512,
-            ledColor: [255, 0, 0],
-            saving: false,
-            saveError: 'No se pudo leer datos del dispositivo (Firestore).',
-          };
+          statsMap[id] = { battery: null, alarmMode: 'off', ledIntensity: 512, ledColor: [255, 0, 0], saving: false, saveError: 'No se pudo leer datos del dispositivo (Firestore).' };
         }
       }
       setDeviceStats(statsMap);
     } catch (e: any) {
       setError(e.message || 'Error al cargar dispositivos');
+    } finally {
+      setLoadingDevices(false);
     }
   }
 
@@ -235,9 +248,13 @@ export default function LinkDeviceScreen() {
     try {
       const cfg = deviceStats[id];
       if (!cfg) throw new Error('Sin configuración local');
+      const auth = await getAuthInstance();
+      if (!auth || !auth.currentUser || auth.currentUser.uid !== userId) {
+        throw new Error('Usuario no autenticado');
+      }
       
-      // Check if database is available
-      if (!db) {
+      const dbInst = await getDbInstance();
+      if (!dbInst) {
         throw new Error('Database not available');
       }
       
@@ -248,7 +265,7 @@ export default function LinkDeviceScreen() {
         alarm_mode: cfg.alarmMode,
       };
       await setDoc(
-        doc(db, 'devices', id),
+        doc(dbInst, 'devices', id),
         {
           desiredConfig: payload,
           updatedAt: serverTimestamp(),
@@ -261,6 +278,25 @@ export default function LinkDeviceScreen() {
     }
   };
 
+  const diagnoseFirestoreConnection = async () => {
+    setDiagnosticStatus('Comprobando...');
+    try {
+      const auth = await getAuthInstance();
+      const dbInst = await getDbInstance();
+      if (!auth || !dbInst || !auth.currentUser) {
+        setDiagnosticStatus('Servicios no disponibles o usuario no autenticado');
+        return;
+      }
+      const uid = auth.currentUser.uid;
+      const testRef = doc(dbInst, 'diagnostics', uid);
+      await setDoc(testRef, { ok: true, at: serverTimestamp() }, { merge: true });
+      const snap = await getDoc(testRef);
+      setDiagnosticStatus(snap.exists() ? 'Conexión verificada' : 'Fallo en verificación');
+    } catch (e: any) {
+      setDiagnosticStatus(e?.code === 'permission-denied' ? 'Permiso denegado por reglas' : e?.message || 'Error de conexión');
+    }
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -270,12 +306,12 @@ export default function LinkDeviceScreen() {
 
       <View style={styles.card}>
         <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 8 }}>Ingresar Device ID</Text>
-        <TextInput
-          style={styles.input}
+        <PHTextField
           placeholder="DEVICE-001"
           value={deviceId}
           onChangeText={setDeviceId}
           autoCapitalize="none"
+          style={styles.input}
         />
         <Button onPress={handleLink} disabled={loading}>
           {loading ? 'Enlazando...' : 'Enlazar'}
@@ -285,7 +321,9 @@ export default function LinkDeviceScreen() {
 
       <View style={styles.card}>
         <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 8 }}>Dispositivos Enlazados</Text>
-        {linkedDevices.length === 0 ? (
+        {loadingDevices ? (
+          <Text style={styles.infoText}>Cargando dispositivos...</Text>
+        ) : linkedDevices.length === 0 ? (
           <Text style={styles.infoText}>No hay dispositivos enlazados.</Text>
         ) : (
           linkedDevices.map((id) => {
@@ -314,7 +352,7 @@ export default function LinkDeviceScreen() {
                       {['off', 'sound', 'led', 'both'].map((mode) => (
                         <Button
                           key={mode}
-                          style={[styles.chip, stats?.alarmMode === mode ? styles.chipActive : null]}
+                          style={[styles.chip, stats?.alarmMode === mode ? styles.chipActive : {}]}
                           onPress={() => setAlarmMode(id, mode as any)}
                         >
                           <Text style={styles.chipText}>
@@ -345,13 +383,30 @@ export default function LinkDeviceScreen() {
                       <Text style={styles.infoText}>Color LED</Text>
                       <View style={[styles.swatch, { backgroundColor: colorHex }]} />
                     </View>
-                    <ColorPickerScaffold
-                      value={colorHex}
-                      onCompleteJS={({ hex }) => {
-                        setColor(id, hexToRgb(hex));
-                      }}
-                      style={{ marginTop: 8 }}
-                    />
+                    <View style={{ marginTop: 8 }}>
+                      <Button onPress={() => setColorPickerFor(id)} variant="secondary" size="md">
+                        Editar color
+                      </Button>
+                    </View>
+                    <Modal visible={colorPickerFor === id} transparent animationType="fade" onRequestClose={() => setColorPickerFor(null)}>
+                      <View style={styles.modalOverlay}>
+                        <View style={styles.modalCard}>
+                          <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Colors</Text>
+                            <Button variant="secondary" size="sm" onPress={() => setColorPickerFor(null)}>
+                              Cerrar
+                            </Button>
+                          </View>
+                          <ColorPickerScaffold
+                            value={colorHex}
+                            onCompleteJS={({ hex }) => {
+                              setColor(id, hexToRgb(hex));
+                            }}
+                            style={{ marginTop: 8 }}
+                          />
+                        </View>
+                      </View>
+                    </Modal>
                   </View>
                   <View style={styles.statsRow}>
                     <Button onPress={() => saveDeviceConfig(id)} disabled={stats?.saving}>
@@ -364,6 +419,14 @@ export default function LinkDeviceScreen() {
             );
           })
         )}
+      </View>
+
+      <View style={styles.card}>
+        <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 8 }}>Diagnóstico de Firestore</Text>
+        <View style={styles.statsRow}>
+          <Button onPress={diagnoseFirestoreConnection}>Probar conexión</Button>
+          <Text style={styles.infoText}>{diagnosticStatus ?? 'Sin pruebas'}</Text>
+        </View>
       </View>
 
       <View style={styles.card}>

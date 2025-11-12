@@ -35,7 +35,7 @@ const AdherenceProgressChart: React.FC<AdherenceProgressChartProps> = ({ progres
         hideLegend={true}
       />
       <View style={styles.labelContainer}>
-         <Text style={styles.progressText}>{`${Math.round(progress * 100)}%`}</Text>
+         <Text style={styles.progressText}>{`${Math.round(Math.max(0, Math.min(progress, 1)) * 100)}%`}</Text>
          <Text style={styles.adherenceLabel}>Adherencia</Text>
       </View>
     </View>

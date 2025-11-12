@@ -1,0 +1,18 @@
+export const textfieldTokens = {
+  rowHeight: 52,
+  paddingHorizontal: 16,
+  fontSize: 17,
+  lineHeight: 20,
+  letterSpacing: -0.43,
+  cursorColorLight: '#0088FF',
+  cursorColorDark: '#0091FF',
+  separatorLight: '#E6E6E6',
+  separatorDark: '#1A1A1A',
+  borderRadius: 12,
+  shadowColor: '#000000',
+  shadowOpacity: 0.08,
+  shadowRadius: 3,
+  shadowOffsetH: 0,
+  shadowOffsetV: 1,
+  elevation: 2,
+};

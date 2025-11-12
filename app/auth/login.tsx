@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Text, View, TextInput, Alert, Image, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { Text, View, Alert, Image, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { signIn, logout } from '../../src/store/slices/authSlice';
 import { RootState, AppDispatch } from '../../src/store';
 import { getAuthInstance } from '../../src/services/firebase';
 import { Button, Card, Container } from '../../src/components/ui';
+import { PHTextField } from '../../src/components/ui/PHTextField';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -96,8 +97,7 @@ export default function LoginScreen() {
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Correo electrónico</Text>
-            <TextInput
-              style={styles.input}
+            <PHTextField
               placeholder="Ingresa tu correo"
               value={email}
               onChangeText={setEmail}
@@ -108,12 +108,11 @@ export default function LoginScreen() {
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Contraseña</Text>
-            <TextInput
-              style={styles.input}
+            <PHTextField
               placeholder="Ingresa tu contraseña"
               value={password}
               onChangeText={setPassword}
-              secureTextEntry
+              secure
             />
           </View>
 

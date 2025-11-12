@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Text, View, FlatList, TextInput, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { Text, View, FlatList, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { PHTextField } from '../../src/components/ui/PHTextField';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
@@ -72,7 +73,7 @@ export default function ChatScreen() {
         style={styles.list}
       />
       <View style={styles.inputContainer}>
-        <TextInput
+        <PHTextField
           placeholder="Escribe un mensaje..."
           value={newMessage}
           onChangeText={setNewMessage}

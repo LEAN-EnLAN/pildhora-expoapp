@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Modal, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Modal, ScrollView, StyleSheet } from 'react-native';
+import { PHTextField } from '../../ui/PHTextField';
 import { Ionicons } from '@expo/vector-icons';
 import { DOSE_UNITS } from '../../../types';
 import { Button } from '../../ui/Button';
@@ -63,8 +64,7 @@ export default function DoseInputContainer({
       <Text style={styles.title}>Dosis</Text>
       <View style={styles.inputRow}>
         <View style={styles.flex1}>
-          <TextInput
-            style={[styles.textInput, doseValueError ? styles.inputError : styles.inputBorder]}
+          <PHTextField
             placeholder="500"
             value={doseValue}
             onChangeText={handleDoseValueChange}
@@ -92,8 +92,7 @@ export default function DoseInputContainer({
       
       {showCustomUnit && (
         <View style={styles.marginTop2}>
-          <TextInput
-            style={styles.textInput}
+          <PHTextField
             placeholder="Ingrese unidad personalizada"
             value={customUnit}
             onChangeText={setCustomUnit}
@@ -143,10 +142,10 @@ export default function DoseInputContainer({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 8,
     color: '#1F2937',
@@ -161,20 +160,9 @@ const styles = StyleSheet.create({
   flex1_5: {
     flex: 1.5,
   },
-  textInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: '#FFFFFF',
-    fontSize: 16,
-    height: 48,
-  },
-  inputError: {
-    borderColor: '#EF4444',
-  },
-  inputBorder: {
-    borderColor: '#D1D5DB',
-  },
+  textInput: {},
+  inputError: {},
+  inputBorder: {},
   errorText: {
     color: '#EF4444',
     marginTop: 4,

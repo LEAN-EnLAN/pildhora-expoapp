@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Text, View, FlatList, TextInput, Modal, Alert, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, View, FlatList, Modal, Alert, StyleSheet, TouchableOpacity } from 'react-native';
+import { PHTextField } from '../../src/components/ui/PHTextField';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../src/store';
@@ -20,7 +21,7 @@ export default function TasksScreen() {
     }
   }, [user]);
 
-  const { data: tasks = [], mutate } = useCollectionSWR<Task>(tasksQuery);
+  const { data: tasks = [], mutate } = useCollectionSWR<Task>({ query: tasksQuery, cacheKey: user?.id ? `tasks:${user.id}` : null });
 
   const toggleCompletion = async (task: Task) => {
     try {
@@ -116,7 +117,7 @@ export default function TasksScreen() {
         <View style={styles.modalContainer}>
           <View style={styles.modalView}>
             <Text style={styles.modalTitle}>Nueva Tarea</Text>
-            <TextInput
+            <PHTextField
               placeholder="Descripción de la tarea"
               value={newTaskText}
               onChangeText={setNewTaskText}

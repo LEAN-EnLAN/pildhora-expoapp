@@ -1,0 +1,1560 @@
+* {
+  box-sizing: border-box;
+}
+
+.section {
+  width: 1050px;
+  height: 1560px;
+
+  .swatch121 {
+    flex-shrink: 0;
+    border-radius: 18px;
+    background: #af52de;
+    width: 82px;
+    height: 82px;
+  }
+
+  .separator {
+    position: absolute;
+    top: 0;
+    right: -1px;
+    opacity: 0.3;
+    border-radius: 1px;
+    background: #8e8e93;
+    width: 1px;
+    height: 28px;
+  }
+
+  .label2 {
+    flex-grow: 1;
+    height: 18px;
+    overflow: hidden;
+    text-align: center;
+    text-overflow: ellipsis;
+    line-height: 18px;
+    letter-spacing: -0.08px;
+    white-space: nowrap;
+    color: var(--Labels-Primary, #000000);
+    font-family: "SF Pro", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", SimHei, Arial, Helvetica, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .grabber {
+    flex-shrink: 0;
+    border-radius: 100px;
+    background: var(--Fills---Vibrant-Primary, #cccccc);
+    width: 40px;
+    height: 5px;
+  }
+
+  .title {
+    flex-shrink: 0;
+    line-height: 22px;
+    letter-spacing: -0.43px;
+    color: var(--Labels---Vibrant-Primary, #333333);
+    font-family: "SF Pro", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", SimHei, Arial, Helvetica, sans-serif;
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  .symbol {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    align-self: stretch;
+    justify-content: center;
+    width: 36px;
+    height: 44px;
+    letter-spacing: 0;
+    color: var(--Labels---Vibrant-Secondary, #999999);
+    font-family: "SF Pro", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", SimHei, Arial, Helvetica, sans-serif;
+    font-size: 17px;
+    font-weight: 500;
+  }
+
+  .frame {
+    display: inline-flex;
+    flex-grow: 1;
+    align-items: center;
+    justify-content: center;
+    column-gap: 8px;
+    border-radius: 50px;
+    padding: 8px 12px;
+
+    .dot1 {
+      flex-shrink: 0;
+      border-radius: 50px;
+      background: var(--Labels-Primary, #000000);
+      width: 8px;
+      height: 8px;
+    }
+
+    .dot2 {
+      flex-shrink: 0;
+      opacity: 0.3;
+      border-radius: 50px;
+      background: var(--Labels-Primary, #000000);
+      width: 8px;
+      height: 8px;
+    }
+  }
+
+  .row12 {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    align-self: stretch;
+    justify-content: space-between;
+
+    .swatchDot {
+      flex-shrink: 0;
+      border-radius: 100px;
+      background: #000000;
+      width: 30px;
+      height: 30px;
+    }
+
+    .swatchDot2 {
+      flex-shrink: 0;
+      border-radius: 100px;
+      background: #007aff;
+      width: 30px;
+      height: 30px;
+    }
+
+    .swatchDot3 {
+      flex-shrink: 0;
+      border-radius: 100px;
+      background: #34c759;
+      width: 30px;
+      height: 30px;
+    }
+
+    .swatchDot4 {
+      flex-shrink: 0;
+      border-radius: 100px;
+      background: #ffcc00;
+      width: 30px;
+      height: 30px;
+    }
+
+    .swatchDot5 {
+      flex-shrink: 0;
+      border-radius: 100px;
+      background: #ff3b30;
+      width: 30px;
+      height: 30px;
+    }
+  }
+
+  .leadingButton {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    column-gap: 12px;
+    border-radius: 100px;
+    background: var(--Fills---Vibrant-Secondary, #e0e0e0);
+    padding-right: 4px;
+    padding-left: 4px;
+  }
+
+  .row22 {
+    display: flex;
+    flex-shrink: 0;
+    align-items: flex-start;
+    align-self: stretch;
+    justify-content: space-between;
+
+    .swatchDot6 {
+      flex-shrink: 0;
+      border-radius: 100px;
+      background: #7ac6f5;
+      width: 30px;
+      height: 30px;
+    }
+
+    .swatchDot7 {
+      display: flex;
+      flex-shrink: 0;
+      align-items: center;
+      border-radius: 100px;
+      background: #af52de;
+      padding: 4px;
+
+      .selectionRing {
+        border-radius: 100px;
+        width: 22px;
+        height: 22px;
+      }
+    }
+
+    .swatchDot8 {
+      flex-shrink: 0;
+      border-radius: 100px;
+      background: #5856d6;
+      width: 30px;
+      height: 30px;
+    }
+
+    .swatchDot9 {
+      flex-shrink: 0;
+      border-radius: 100px;
+      background: #ff2d55;
+      width: 30px;
+      height: 30px;
+    }
+
+    .addButton {
+      flex-shrink: 0;
+      border-radius: 100px;
+      width: 30px;
+      height: 30px;
+    }
+  }
+
+  .colorGrid {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    align-items: center;
+    align-self: stretch;
+    border-radius: 18px;
+    overflow: hidden;
+
+    .row1 {
+      display: flex;
+      flex-shrink: 0;
+      align-items: flex-start;
+      align-self: stretch;
+
+      .swatch {
+        flex-grow: 1;
+        background: #fefffe;
+        height: 30px;
+      }
+
+      .swatch2 {
+        flex-grow: 1;
+        background: #ebebeb;
+        height: 30px;
+      }
+
+      .swatch3 {
+        flex-grow: 1;
+        background: #d6d6d6;
+        height: 30px;
+      }
+
+      .swatch4 {
+        flex-grow: 1;
+        background: #c2c2c2;
+        height: 30px;
+      }
+
+      .swatch5 {
+        flex-grow: 1;
+        background: #adadad;
+        height: 30px;
+      }
+
+      .swatch6 {
+        flex-grow: 1;
+        background: #999999;
+        height: 30px;
+      }
+
+      .swatch7 {
+        flex-grow: 1;
+        background: #858585;
+        height: 30px;
+      }
+
+      .swatch8 {
+        flex-grow: 1;
+        background: #707070;
+        height: 30px;
+      }
+
+      .swatch9 {
+        flex-grow: 1;
+        background: #5c5c5c;
+        height: 30px;
+      }
+
+      .swatch10 {
+        flex-grow: 1;
+        background: #474747;
+        height: 30px;
+      }
+
+      .swatch11 {
+        flex-grow: 1;
+        background: #333333;
+        height: 30px;
+      }
+
+      .swatch12 {
+        flex-grow: 1;
+        background: #000000;
+        height: 30px;
+      }
+    }
+
+    .row2 {
+      display: flex;
+      flex-shrink: 0;
+      align-items: flex-start;
+      align-self: stretch;
+
+      .swatch13 {
+        flex-grow: 1;
+        background: #00374a;
+        height: 30px;
+      }
+
+      .swatch14 {
+        flex-grow: 1;
+        background: #011d57;
+        height: 30px;
+      }
+
+      .swatch15 {
+        flex-grow: 1;
+        background: #11053b;
+        height: 30px;
+      }
+
+      .swatch16 {
+        flex-grow: 1;
+        background: #2e063d;
+        height: 30px;
+      }
+
+      .swatch17 {
+        flex-grow: 1;
+        background: #3c071b;
+        height: 30px;
+      }
+
+      .swatch18 {
+        flex-grow: 1;
+        background: #5c0701;
+        height: 30px;
+      }
+
+      .swatch19 {
+        flex-grow: 1;
+        background: #5a1c00;
+        height: 30px;
+      }
+
+      .swatch20 {
+        flex-grow: 1;
+        background: #583300;
+        height: 30px;
+      }
+
+      .swatch21 {
+        flex-grow: 1;
+        background: #563d00;
+        height: 30px;
+      }
+
+      .swatch22 {
+        flex-grow: 1;
+        background: #666100;
+        height: 30px;
+      }
+
+      .swatch23 {
+        flex-grow: 1;
+        background: #4f5504;
+        height: 30px;
+      }
+
+      .swatch24 {
+        flex-grow: 1;
+        background: #263e0f;
+        height: 30px;
+      }
+    }
+
+    .row3 {
+      display: flex;
+      flex-shrink: 0;
+      align-items: flex-start;
+      align-self: stretch;
+
+      .swatch25 {
+        flex-grow: 1;
+        background: #004d65;
+        height: 30px;
+      }
+
+      .swatch26 {
+        flex-grow: 1;
+        background: #012f7b;
+        height: 30px;
+      }
+
+      .swatch27 {
+        flex-grow: 1;
+        background: #1a0a52;
+        height: 30px;
+      }
+
+      .swatch28 {
+        flex-grow: 1;
+        background: #450d59;
+        height: 30px;
+      }
+
+      .swatch29 {
+        flex-grow: 1;
+        background: #551029;
+        height: 30px;
+      }
+
+      .swatch30 {
+        flex-grow: 1;
+        background: #831100;
+        height: 30px;
+      }
+
+      .swatch31 {
+        flex-grow: 1;
+        background: #7b2900;
+        height: 30px;
+      }
+
+      .swatch32 {
+        flex-grow: 1;
+        background: #7a4a00;
+        height: 30px;
+      }
+
+      .swatch33 {
+        flex-grow: 1;
+        background: #785800;
+        height: 30px;
+      }
+
+      .swatch34 {
+        flex-grow: 1;
+        background: #8d8602;
+        height: 30px;
+      }
+
+      .swatch35 {
+        flex-grow: 1;
+        background: #6f760a;
+        height: 30px;
+      }
+
+      .swatch36 {
+        flex-grow: 1;
+        background: #38571a;
+        height: 30px;
+      }
+    }
+
+    .row4 {
+      display: flex;
+      flex-shrink: 0;
+      align-items: flex-start;
+      align-self: stretch;
+
+      .swatch37 {
+        flex-grow: 1;
+        background: #016e8f;
+        height: 30px;
+      }
+
+      .swatch38 {
+        flex-grow: 1;
+        background: #0042a9;
+        height: 30px;
+      }
+
+      .swatch39 {
+        flex-grow: 1;
+        background: #2c0977;
+        height: 30px;
+      }
+
+      .swatch40 {
+        flex-grow: 1;
+        background: #61187c;
+        height: 30px;
+      }
+
+      .swatch41 {
+        flex-grow: 1;
+        background: #791a3d;
+        height: 30px;
+      }
+
+      .swatch42 {
+        flex-grow: 1;
+        background: #b51a00;
+        height: 30px;
+      }
+
+      .swatch43 {
+        flex-grow: 1;
+        background: #ad3e00;
+        height: 30px;
+      }
+
+      .swatch44 {
+        flex-grow: 1;
+        background: #a96800;
+        height: 30px;
+      }
+
+      .swatch45 {
+        flex-grow: 1;
+        background: #a67b01;
+        height: 30px;
+      }
+
+      .swatch46 {
+        flex-grow: 1;
+        background: #c4bc00;
+        height: 30px;
+      }
+
+      .swatch47 {
+        flex-grow: 1;
+        background: #9ba50e;
+        height: 30px;
+      }
+
+      .swatch48 {
+        flex-grow: 1;
+        background: #4e7a27;
+        height: 30px;
+      }
+    }
+
+    .row5 {
+      display: flex;
+      flex-shrink: 0;
+      align-items: flex-start;
+      align-self: stretch;
+
+      .swatch49 {
+        flex-grow: 1;
+        background: #008cb4;
+        height: 30px;
+      }
+
+      .swatch50 {
+        flex-grow: 1;
+        background: #0056d6;
+        height: 30px;
+      }
+
+      .swatch51 {
+        flex-grow: 1;
+        background: #371a94;
+        height: 30px;
+      }
+
+      .swatch52 {
+        flex-grow: 1;
+        background: #7a219e;
+        height: 30px;
+      }
+
+      .swatch53 {
+        flex-grow: 1;
+        background: #99244f;
+        height: 30px;
+      }
+
+      .swatch54 {
+        flex-grow: 1;
+        background: #e22400;
+        height: 30px;
+      }
+
+      .swatch55 {
+        flex-grow: 1;
+        background: #da5100;
+        height: 30px;
+      }
+
+      .swatch56 {
+        flex-grow: 1;
+        background: #d38301;
+        height: 30px;
+      }
+
+      .swatch57 {
+        flex-grow: 1;
+        background: #d19d01;
+        height: 30px;
+      }
+
+      .swatch58 {
+        flex-grow: 1;
+        background: #f5ec00;
+        height: 30px;
+      }
+
+      .swatch59 {
+        flex-grow: 1;
+        background: #c3d117;
+        height: 30px;
+      }
+
+      .swatch60 {
+        flex-grow: 1;
+        background: #669d34;
+        height: 30px;
+      }
+    }
+
+    .row6 {
+      display: flex;
+      flex-shrink: 0;
+      align-items: flex-start;
+      align-self: stretch;
+
+      .swatch61 {
+        flex-grow: 1;
+        background: #00a1d8;
+        height: 30px;
+      }
+
+      .swatch62 {
+        flex-grow: 1;
+        background: #0061fd;
+        height: 30px;
+      }
+
+      .swatch63 {
+        flex-grow: 1;
+        background: #4d22b2;
+        height: 30px;
+      }
+
+      .swatch64 {
+        flex-grow: 1;
+        background: #982abc;
+        height: 30px;
+      }
+
+      .swatch65 {
+        flex-grow: 1;
+        background: #b92d5d;
+        height: 30px;
+      }
+
+      .swatch66 {
+        flex-grow: 1;
+        background: #ff4015;
+        height: 30px;
+      }
+
+      .swatch67 {
+        flex-grow: 1;
+        background: #ff6a00;
+        height: 30px;
+      }
+
+      .swatch68 {
+        flex-grow: 1;
+        background: #ffab01;
+        height: 30px;
+      }
+
+      .swatch69 {
+        flex-grow: 1;
+        background: #fcc700;
+        height: 30px;
+      }
+
+      .swatch70 {
+        flex-grow: 1;
+        background: #fefb41;
+        height: 30px;
+      }
+
+      .swatch71 {
+        flex-grow: 1;
+        background: #d9ec37;
+        height: 30px;
+      }
+
+      .swatch72 {
+        flex-grow: 1;
+        background: #76bb40;
+        height: 30px;
+      }
+    }
+
+    .row7 {
+      display: flex;
+      flex-shrink: 0;
+      align-items: flex-start;
+      align-self: stretch;
+
+      .swatch73 {
+        flex-grow: 1;
+        background: #01c7fc;
+        height: 30px;
+      }
+
+      .swatch74 {
+        flex-grow: 1;
+        background: #3a87fd;
+        height: 30px;
+      }
+
+      .swatch75 {
+        flex-grow: 1;
+        background: #5e30eb;
+        height: 30px;
+      }
+
+      .swatch76 {
+        flex-grow: 1;
+        border: 3px solid #ffffff;
+        background: #be38f3;
+        height: 30px;
+      }
+
+      .swatch77 {
+        flex-grow: 1;
+        background: #e63b7a;
+        height: 30px;
+      }
+
+      .swatch78 {
+        flex-grow: 1;
+        background: #fe6250;
+        height: 30px;
+      }
+
+      .swatch79 {
+        flex-grow: 1;
+        background: #fe8648;
+        height: 30px;
+      }
+
+      .swatch80 {
+        flex-grow: 1;
+        background: #feb43f;
+        height: 30px;
+      }
+
+      .swatch81 {
+        flex-grow: 1;
+        background: #fecb3e;
+        height: 30px;
+      }
+
+      .swatch82 {
+        flex-grow: 1;
+        background: #fff76b;
+        height: 30px;
+      }
+
+      .swatch83 {
+        flex-grow: 1;
+        background: #e4ef65;
+        height: 30px;
+      }
+
+      .swatch84 {
+        flex-grow: 1;
+        background: #96d35f;
+        height: 30px;
+      }
+    }
+
+    .row8 {
+      display: flex;
+      flex-shrink: 0;
+      align-items: flex-start;
+      align-self: stretch;
+
+      .swatch85 {
+        flex-grow: 1;
+        background: #52d6fc;
+        height: 30px;
+      }
+
+      .swatch86 {
+        flex-grow: 1;
+        background: #74a7ff;
+        height: 30px;
+      }
+
+      .swatch87 {
+        flex-grow: 1;
+        background: #864ffd;
+        height: 30px;
+      }
+
+      .swatch88 {
+        flex-grow: 1;
+        background: #d357fe;
+        height: 30px;
+      }
+
+      .swatch89 {
+        flex-grow: 1;
+        background: #ee719e;
+        height: 30px;
+      }
+
+      .swatch90 {
+        flex-grow: 1;
+        background: #ff8c82;
+        height: 30px;
+      }
+
+      .swatch91 {
+        flex-grow: 1;
+        background: #fea57d;
+        height: 30px;
+      }
+
+      .swatch92 {
+        flex-grow: 1;
+        background: #fec777;
+        height: 30px;
+      }
+
+      .swatch93 {
+        flex-grow: 1;
+        background: #fed977;
+        height: 30px;
+      }
+
+      .swatch94 {
+        flex-grow: 1;
+        background: #fff994;
+        height: 30px;
+      }
+
+      .swatch95 {
+        flex-grow: 1;
+        background: #eaf28f;
+        height: 30px;
+      }
+
+      .swatch96 {
+        flex-grow: 1;
+        background: #b1dd8b;
+        height: 30px;
+      }
+    }
+
+    .row9 {
+      display: flex;
+      flex-shrink: 0;
+      align-items: flex-start;
+      align-self: stretch;
+
+      .swatch97 {
+        flex-grow: 1;
+        background: #93e3fc;
+        height: 30px;
+      }
+
+      .swatch98 {
+        flex-grow: 1;
+        background: #a7c6ff;
+        height: 30px;
+      }
+
+      .swatch99 {
+        flex-grow: 1;
+        background: #b18cfe;
+        height: 30px;
+      }
+
+      .swatch100 {
+        flex-grow: 1;
+        background: #e292fe;
+        height: 30px;
+      }
+
+      .swatch101 {
+        flex-grow: 1;
+        background: #f4a4c0;
+        height: 30px;
+      }
+
+      .swatch102 {
+        flex-grow: 1;
+        background: #ffb5af;
+        height: 30px;
+      }
+
+      .swatch103 {
+        flex-grow: 1;
+        background: #ffc5ab;
+        height: 30px;
+      }
+
+      .swatch104 {
+        flex-grow: 1;
+        background: #fed9a8;
+        height: 30px;
+      }
+
+      .swatch105 {
+        flex-grow: 1;
+        background: #fde4a8;
+        height: 30px;
+      }
+
+      .swatch106 {
+        flex-grow: 1;
+        background: #fffbb9;
+        height: 30px;
+      }
+
+      .swatch107 {
+        flex-grow: 1;
+        background: #f1f7b7;
+        height: 30px;
+      }
+
+      .swatch108 {
+        flex-grow: 1;
+        background: #cde8b5;
+        height: 30px;
+      }
+    }
+
+    .row10 {
+      display: flex;
+      flex-shrink: 0;
+      align-items: flex-start;
+      align-self: stretch;
+
+      .swatch109 {
+        flex-grow: 1;
+        background: #cbf0ff;
+        height: 30px;
+      }
+
+      .swatch110 {
+        flex-grow: 1;
+        background: #d2e2fe;
+        height: 30px;
+      }
+
+      .swatch111 {
+        flex-grow: 1;
+        background: #d8c9fe;
+        height: 30px;
+      }
+
+      .swatch112 {
+        flex-grow: 1;
+        background: #efcafe;
+        height: 30px;
+      }
+
+      .swatch113 {
+        flex-grow: 1;
+        background: #f9d3e0;
+        height: 30px;
+      }
+
+      .swatch114 {
+        flex-grow: 1;
+        background: #ffdad8;
+        height: 30px;
+      }
+
+      .swatch115 {
+        flex-grow: 1;
+        background: #ffe2d6;
+        height: 30px;
+      }
+
+      .swatch116 {
+        flex-grow: 1;
+        background: #feecd4;
+        height: 30px;
+      }
+
+      .swatch117 {
+        flex-grow: 1;
+        background: #fef1d5;
+        height: 30px;
+      }
+
+      .swatch118 {
+        flex-grow: 1;
+        background: #fdfbdd;
+        height: 30px;
+      }
+
+      .swatch119 {
+        flex-grow: 1;
+        background: #f6fadb;
+        height: 30px;
+      }
+
+      .swatch120 {
+        flex-grow: 1;
+        background: #deeed4;
+        height: 30px;
+      }
+    }
+  }
+
+  .titleAndControls2 {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    align-self: stretch;
+    justify-content: space-between;
+  }
+
+  .opactiyMeter {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    align-items: flex-start;
+    align-self: stretch;
+    border-width: 0px 0px 1px;
+    border-style: solid;
+    border-color: var(--Separators-Opaque, #c6c6c8);
+    padding-top: 26px;
+    padding-bottom: 2px;
+
+    .opacity {
+      flex-shrink: 0;
+      width: 67px;
+      line-height: 20px;
+      letter-spacing: 0;
+      color: var(--Labels-Primary, #000000);
+      font-family: "SF Pro", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", SimHei, Arial, Helvetica, sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .sliderAndTextField {
+      display: flex;
+      flex-shrink: 0;
+      align-items: center;
+      align-self: stretch;
+      justify-content: center;
+      column-gap: 11px;
+      padding-top: 3px;
+      padding-bottom: 22px;
+
+      .slider {
+        display: flex;
+        flex-grow: 1;
+        align-items: center;
+        justify-content: flex-end;
+        column-gap: 10px;
+        border-radius: 100px;
+        padding: 2px;
+        overflow: hidden;
+        background-image: linear-gradient(90deg, #af52de00 12%, #af52de 87.98%),
+          url(../image/mhvf1eku-ddygso8.png);
+        background-position: left top;
+        background-size: 27px 27px;
+        background-repeat: repeat;
+
+        .knob {
+          flex-shrink: 0;
+          border: 3px solid #ffffff;
+          border-radius: 100px;
+          box-shadow: 0px 0px 3px 0px #0000001a;
+          width: 36px;
+          height: 36px;
+        }
+      }
+
+      .percentage {
+        display: inline-flex;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        column-gap: 10px;
+        border-radius: 8px;
+        background: var(--Fills-Primary, #78787833);
+        padding: 9px 14px;
+        overflow: hidden;
+
+        .a100 {
+          flex-shrink: 0;
+          line-height: 22px;
+          letter-spacing: -0.43px;
+          color: var(--Labels-Primary, #000000);
+          font-family: "SF Pro", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", SimHei, Arial, Helvetica, sans-serif;
+          font-size: 17px;
+          font-weight: 600;
+        }
+      }
+    }
+  }
+
+  .titleAndControls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 8px;
+    padding-bottom: 10px;
+    min-width: 402px;
+  }
+
+  .aToolbarIPad {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 8px;
+    padding-bottom: 10px;
+    width: 402px;
+    row-gap: 5px;
+  }
+
+  .aButton {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border: 1px dashed var(--Component-Stroke, #6b5dff);
+    background: var(--Subcomponent-Fill, #aaaaaa);
+    padding: 19px;
+    width: 84px;
+    overflow: hidden;
+
+    .modeLight {
+      display: inline-flex;
+      align-items: center;
+      align-self: stretch;
+      justify-content: center;
+      column-gap: 12px;
+      border-radius: 100px;
+      background: var(--Fills---Vibrant-Secondary, #e0e0e0);
+      padding-right: 4px;
+      padding-left: 4px;
+    }
+
+    .modeDark {
+      display: inline-flex;
+      align-items: center;
+      align-self: stretch;
+      justify-content: center;
+      column-gap: 12px;
+      margin-top: 20px;
+      border-radius: 100px;
+      background: var(--Fills---Vibrant-Secondary, #1f1f1f);
+      padding-right: 4px;
+      padding-left: 4px;
+    }
+  }
+
+  .pickerButton {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    border: 1px dashed #9747ff;
+    padding: 19px 45px 35px 19px;
+    min-width: 152px;
+    overflow: hidden;
+
+    .autoWrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      align-self: stretch;
+
+      .gradient {
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+      }
+
+      .sizeSmallSelectedTru {
+        margin-top: 20px;
+        width: 28px;
+        height: 28px;
+      }
+    }
+
+    .autoWrapper2 {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      align-self: stretch;
+
+      .gradient2 {
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+      }
+
+      .sizeLargeSelectedTru {
+        margin-top: 12px;
+        width: 36px;
+        height: 36px;
+      }
+    }
+  }
+
+  .popoversIPadOnly {
+    display: flex;
+    align-items: center;
+    background-image: url(../image/mhvf1ekl-96ha0an.svg);
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    backdrop-filter: blur(65px);
+    filter: drop-shadow(0px 10px 100px #0000004d);
+
+    .panelContents {
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+      align-items: flex-start;
+      padding-right: 16px;
+      padding-left: 16px;
+      height: 691px;
+      overflow: hidden;
+
+      .aToolbarIPad2 {
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+        align-items: center;
+        align-self: stretch;
+        padding-top: 8px;
+        padding-bottom: 10px;
+        row-gap: 5px;
+      }
+
+      .segmentedControl2 {
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+        align-items: center;
+        align-self: stretch;
+        padding-bottom: 24px;
+
+        .segmentedControl {
+          display: flex;
+          flex-shrink: 0;
+          align-items: center;
+          align-self: stretch;
+          justify-content: space-between;
+          border-radius: 100px;
+          background: var(--Fills-Tertiary, #7676801f);
+          padding: 4px 8px;
+          height: 36px;
+          overflow: hidden;
+
+          .button1 {
+            position: relative;
+            border-radius: 7px;
+            width: 117px;
+            height: 28px;
+
+            .button {
+              display: flex;
+              position: absolute;
+              top: 0;
+              right: -4px;
+              bottom: 0;
+              left: -4px;
+              align-items: center;
+              border-radius: 20px;
+              box-shadow: 0px 2px 20px 0px #0000000f;
+              background: var(
+                --Miscellaneous-Segmented-Control---Selected-Fill,
+                #ffffff
+              );
+              padding: 5px 14px;
+              width: 125px;
+              height: 28px;
+
+              .label {
+                width: 97px;
+                height: 18px;
+                overflow: hidden;
+                text-align: center;
+                text-overflow: ellipsis;
+                line-height: 18px;
+                letter-spacing: -0.08px;
+                white-space: nowrap;
+                color: var(--Labels-Primary, #000000);
+                font-family: "SF Pro", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", SimHei, Arial, Helvetica, sans-serif;
+                font-size: 14px;
+                font-weight: 600;
+              }
+            }
+          }
+
+          .autoWrapper3 {
+            position: relative;
+            width: 117px;
+            height: 28px;
+
+            .button2 {
+              display: flex;
+              position: absolute;
+              top: 0;
+              left: 0;
+              align-items: center;
+              padding: 3px 10px;
+              width: 117px;
+              height: 28px;
+            }
+          }
+
+          .button3 {
+            display: flex;
+            align-items: center;
+            padding: 3px 10px;
+            width: 117px;
+            height: 28px;
+          }
+        }
+      }
+
+      .swatches2 {
+        display: flex;
+        flex-shrink: 0;
+        align-items: flex-start;
+        align-self: stretch;
+        column-gap: 30px;
+        padding-top: 26px;
+
+        .swatches {
+          display: flex;
+          flex-direction: column;
+          flex-grow: 1;
+          align-items: flex-start;
+          row-gap: 22px;
+
+          .pageControl {
+            display: flex;
+            flex-shrink: 0;
+            align-items: center;
+            align-self: stretch;
+            padding-right: 106px;
+            padding-left: 104px;
+            height: 10px;
+          }
+        }
+      }
+    }
+  }
+
+  .colorPickerIPhone {
+    position: relative;
+    width: 402px;
+    height: 706px;
+
+    .shadow {
+      display: flex;
+      position: absolute;
+      top: -26px;
+      right: -20px;
+      bottom: -26px;
+      left: -20px;
+      align-items: center;
+      padding: 26px;
+      width: 442px;
+      height: 758px;
+      background-image: url(../image/mhvf1ekl-8ekuf4k.svg);
+      background-position: center;
+      background-size: cover;
+      background-repeat: no-repeat;
+
+      .fill {
+        display: flex;
+        flex-grow: 1;
+        align-items: center;
+        border-radius: 34px 34px 58px 58px;
+        background-color: #262626;
+        background-image: linear-gradient(#f5f5f599, #f5f5f599);
+
+        .panelContents2 {
+          display: flex;
+          flex-direction: column;
+          flex-grow: 1;
+          align-items: flex-start;
+          border-radius: 34px;
+          background: #00000000;
+          padding: 0px 16px 20px;
+          height: 706px;
+
+          .titleAndControls3 {
+            display: flex;
+            flex-shrink: 0;
+            align-items: center;
+            align-self: stretch;
+            justify-content: space-between;
+            padding-top: 16px;
+            padding-bottom: 10px;
+          }
+
+          .segmentedControl4 {
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            align-items: center;
+            align-self: stretch;
+            padding-bottom: 24px;
+
+            .segmentedControl3 {
+              display: flex;
+              flex-shrink: 0;
+              align-items: center;
+              align-self: stretch;
+              justify-content: space-between;
+              border-radius: 100px;
+              background: var(--Fills-Tertiary, #7676801f);
+              padding: 4px 8px;
+              height: 36px;
+              overflow: hidden;
+
+              .button12 {
+                display: flex;
+                position: relative;
+                align-items: center;
+                border-radius: 7px;
+                padding: 3px 10px;
+                width: 113px;
+                height: 28px;
+
+                .button4 {
+                  display: flex;
+                  position: absolute;
+                  top: 0;
+                  right: -4px;
+                  bottom: 0;
+                  left: -4px;
+                  flex-shrink: 0;
+                  align-items: center;
+                  border-radius: 20px;
+                  box-shadow: 0px 2px 20px 0px #0000000f;
+                  background: var(
+                    --Miscellaneous-Segmented-Control---Selected-Fill,
+                    #ffffff
+                  );
+                  padding: 3px 10px;
+                  width: 121px;
+                  height: 28px;
+                }
+
+                .label3 {
+                  flex-grow: 1;
+                  z-index: 1;
+                  height: 18px;
+                  overflow: hidden;
+                  text-align: center;
+                  text-overflow: ellipsis;
+                  line-height: 18px;
+                  letter-spacing: -0.08px;
+                  white-space: nowrap;
+                  color: var(--Labels-Primary, #000000);
+                  font-family: "SF Pro", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", SimHei, Arial, Helvetica, sans-serif;
+                  font-size: 14px;
+                  font-weight: 600;
+                }
+              }
+
+              .autoWrapper4 {
+                position: relative;
+                width: 113px;
+                height: 28px;
+
+                .button22 {
+                  display: flex;
+                  position: absolute;
+                  top: 0;
+                  left: 0;
+                  align-items: center;
+                  padding: 3px 10px;
+                  width: 113px;
+                  height: 28px;
+                }
+              }
+
+              .button32 {
+                display: flex;
+                align-items: center;
+                padding: 3px 10px;
+                width: 113px;
+                height: 28px;
+              }
+            }
+          }
+
+          .swatches4 {
+            display: flex;
+            flex-shrink: 0;
+            align-items: flex-start;
+            align-self: stretch;
+            column-gap: 30px;
+            padding-top: 26px;
+
+            .swatches3 {
+              display: flex;
+              flex-direction: column;
+              flex-grow: 1;
+              align-items: flex-start;
+              row-gap: 22px;
+
+              .pageControl2 {
+                display: flex;
+                flex-shrink: 0;
+                align-items: center;
+                align-self: stretch;
+                padding-right: 100px;
+                padding-left: 98px;
+                height: 10px;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  .aTitle {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    border: 1px dashed var(--Component-Stroke, #6b5dff);
+    background: var(--Subcomponent-Fill, #aaaaaa);
+    padding: 19px 27px 27px 19px;
+    overflow: hidden;
+
+    .title2 {
+      line-height: 22px;
+      letter-spacing: -0.43px;
+      color: var(--Labels---Vibrant-Primary, #333333);
+      font-family: "SF Pro", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", SimHei, Arial, Helvetica, sans-serif;
+      font-size: 17px;
+      font-weight: 600;
+    }
+
+    .title3 {
+      margin: 28px 0px 0px;
+      line-height: 22px;
+      letter-spacing: -0.43px;
+      color: var(--Labels---Vibrant-Primary, #ffffff);
+      font-family: "SF Pro", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", SimHei, Arial, Helvetica, sans-serif;
+      font-size: 17px;
+      font-weight: 600;
+    }
+  }
+}
