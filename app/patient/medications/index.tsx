@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link, useRouter } from 'expo-router';
 import { RootState, AppDispatch } from '../../../src/store';
@@ -47,16 +48,7 @@ export default function MedicationsIndex() {
   );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Mis Medicamentos</Text>
-        <Button
-          variant="primary"
-          onPress={() => router.push('/patient/medications/add')}
-        >
-          <Ionicons name="add" size={24} color="white" />
-        </Button>
-      </View>
+    <SafeAreaView edges={['bottom']} style={styles.container}>
       {loading ? (
         <ActivityIndicator size="large" color="#3B82F6" style={styles.loading} />
       ) : error ? (
@@ -74,7 +66,7 @@ export default function MedicationsIndex() {
           )}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -82,19 +74,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F3F4F6',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB'
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
   },
   loading: {
       marginTop: 50

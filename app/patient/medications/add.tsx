@@ -1,16 +1,17 @@
 import React from 'react';
 import { ScrollView, View, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import MedicationForm from '../../../src/components/patient/MedicationForm';
 
 export default function AddMedicationScreen() {
   return (
-    <View style={styles.container}>
-        <ScrollView>
-            <View style={styles.content}>
-                <MedicationForm mode="add" />
-            </View>
-        </ScrollView>
-    </View>
+    <SafeAreaView edges={['bottom']} style={styles.container}>
+      <ScrollView>
+        <View style={styles.content}>
+          <MedicationForm mode="add" />
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

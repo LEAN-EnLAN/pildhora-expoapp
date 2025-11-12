@@ -12,7 +12,7 @@ import {
   limit,
 } from 'firebase/firestore';
 import { getDbInstance } from './index';
-import { User } from '../../types';
+import { Patient, User } from '../../types';
 
 // This is a simplified user type for adding a new user.
 // In a real app, you might have a more complex user creation process,
@@ -66,7 +66,7 @@ export const deleteMedication = async (medicationId: string): Promise<void> => {
  * @param deviceId - The ID of the device to search for.
  * @returns The user document if found, otherwise null.
  */
-export const findPatientByDevice = async (deviceId: string): Promise<User | null> => {
+export const findPatientByDevice = async (deviceId: string): Promise<Patient | null> => {
   const db = await getDbInstance();
   const usersRef = collection(db, 'users');
   const q = query(
@@ -83,7 +83,7 @@ export const findPatientByDevice = async (deviceId: string): Promise<User | null
   }
 
   const userDoc = querySnapshot.docs[0];
-  return { id: userDoc.id, ...userDoc.data() } as User;
+  return { id: userDoc.id, ...userDoc.data() } as Patient;
 };
 
 /**
@@ -141,7 +141,7 @@ export const addMedication = async (medicationData: any): Promise<string> => {
  * @param caregiverId - The ID of the caregiver.
  * @returns A promise that resolves to an array of patient user documents.
  */
-export const getCaregiverPatients = async (caregiverId: string): Promise<User[]> => {
+export const getCaregiverPatients = async (caregiverId: string): Promise<Patient[]> => {
   const db = await getDbInstance();
   const caregiverDocRef = doc(db, 'users', caregiverId);
   const caregiverDoc = await getDoc(caregiverDocRef);
@@ -158,7 +158,7 @@ export const getCaregiverPatients = async (caregiverId: string): Promise<User[]>
   const patientsQuery = query(collection(db, 'users'), where('__name__', 'in', patientIds));
   const querySnapshot = await getDocs(patientsQuery);
 
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as User[];
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Patient[];
 };
 
 /**
@@ -166,7 +166,7 @@ export const getCaregiverPatients = async (caregiverId: string): Promise<User[]>
  * @param patientId - The ID of the patient to retrieve.
  * @returns The user document if found, otherwise null.
  */
-export const getPatientById = async (patientId: string): Promise<User | null> => {
+export const getPatientById = async (patientId: string): Promise<Patient | null> => {
   const db = await getDbInstance();
   const userDocRef = doc(db, 'users', patientId);
   const userDoc = await getDoc(userDocRef);
@@ -175,5 +175,5 @@ export const getPatientById = async (patientId: string): Promise<User | null> =>
     return null;
   }
 
-  return { id: userDoc.id, ...userDoc.data() } as User;
+  return { id: userDoc.id, ...userDoc.data() } as Patient;
 };

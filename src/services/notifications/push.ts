@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { rdb } from '../firebase';
+import { getRdbInstance } from '../firebase';
 import { ref, set, update } from 'firebase/database';
 
 /**
@@ -30,9 +30,11 @@ export async function ensurePushTokensRegistered(userId: string): Promise<void> 
     try {
       const deviceToken = await Notifications.getDevicePushTokenAsync();
       if (deviceToken?.type === 'fcm' && deviceToken.data) {
+        const rdb = await getRdbInstance();
         await set(ref(rdb, `users/${userId}/fcmTokens/${deviceToken.data}`), true);
       } else if (deviceToken?.type && deviceToken.data) {
         // Store non-FCM device tokens for reference
+        const rdb = await getRdbInstance();
         await set(ref(rdb, `users/${userId}/devicePushTokens/${deviceToken.type}/${deviceToken.data}`), true);
       }
     } catch (e) {
@@ -44,6 +46,7 @@ export async function ensurePushTokensRegistered(userId: string): Promise<void> 
     try {
       const expoToken = await Notifications.getExpoPushTokenAsync();
       if (expoToken?.data) {
+        const rdb = await getRdbInstance();
         await set(ref(rdb, `users/${userId}/expoPushTokens/${expoToken.data}`), true);
       }
     } catch (e) {
@@ -52,6 +55,7 @@ export async function ensurePushTokensRegistered(userId: string): Promise<void> 
     }
 
     // Mark last registration metadata
+    const rdb = await getRdbInstance();
     await update(ref(rdb, `users/${userId}/notifications/meta`), {
       lastRegisteredAt: Date.now(),
       platform: Platform.OS,
@@ -67,6 +71,7 @@ export async function ensurePushTokensRegistered(userId: string): Promise<void> 
 export async function unregisterFcmToken(userId: string, token: string): Promise<void> {
   try {
     if (!userId || !token) return;
+    const rdb = await getRdbInstance();
     await set(ref(rdb, `users/${userId}/fcmTokens/${token}`), null);
   } catch (e) {
     console.warn('[Notifications] Failed to unregister FCM token:', e);

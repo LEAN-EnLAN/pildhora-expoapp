@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Text, View, FlatList, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { PHTextField } from '../../src/components/ui/PHTextField';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -64,7 +65,7 @@ export default function ChatScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView edges={['bottom']} style={styles.container}>
       <FlatList
         data={messages}
         keyExtractor={(item) => item.id}
@@ -83,7 +84,7 @@ export default function ChatScreen() {
           <Ionicons name="send" size={24} color="#3b82f6" />
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 

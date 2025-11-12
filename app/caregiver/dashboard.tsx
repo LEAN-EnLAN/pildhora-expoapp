@@ -7,7 +7,10 @@ import {
   Alert,
   ScrollView,
   Linking,
-  ActivityIndicator
+  ActivityIndicator,
+  Modal,
+  ActionSheetIOS,
+  Platform
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
@@ -27,6 +30,7 @@ import {
 } from '../../src/services/firebase';
 import AdherenceProgressChart from '../../src/components/AdherenceProgressChart';
 import { Card, Button, Container } from '../../src/components/ui';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Patient, PatientWithDevice, Task, DoseSegment, IntakeRecord, IntakeStatus } from '../../src/types';
 
 export default function CaregiverDashboard() {
@@ -36,6 +40,7 @@ export default function CaregiverDashboard() {
   const { state: deviceState, listening } = useSelector((state: RootState) => state.device);
   const [patientsWithDevices, setPatientsWithDevices] = useState<PatientWithDevice[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
+  const [accountMenuVisible, setAccountMenuVisible] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<PatientWithDevice | null>(null);
 
   const [patientIntakes, setPatientIntakes] = useState<IntakeRecord[]>([]);
@@ -169,6 +174,61 @@ export default function CaregiverDashboard() {
     setSelectedPatient(patient);
   };
 
+  const handleHistory = () => router.push('/patient/history');
+  const handleEmergency = () => handleEmergencyPress();
+  const callEmergency = (number: string) => {
+    try {
+      Linking.openURL(`tel:${number}`);
+    } catch (e) {}
+    setModalVisible(false);
+  };
+  const handleEmergencyPress = () => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancelar', 'Llamar 911', 'Llamar 112'],
+          cancelButtonIndex: 0,
+          destructiveButtonIndex: 1,
+          userInterfaceStyle: 'light',
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) callEmergency('911');
+          else if (buttonIndex === 2) callEmergency('112');
+        }
+      );
+    } else {
+      setModalVisible(true);
+    }
+  };
+  const handleLogout = async () => {
+    try {
+      await dispatch(logout());
+      router.replace('/auth/signup');
+    } catch (error) {
+      router.replace('/auth/signup');
+    }
+  };
+  const handleAccountMenu = () => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancelar', 'Salir de sesión', 'Configuraciones', 'Mi dispositivo'],
+          cancelButtonIndex: 0,
+          userInterfaceStyle: 'light',
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) handleLogout();
+          else if (buttonIndex === 2) handleConfiguraciones();
+          else if (buttonIndex === 3) handleMiDispositivo();
+        }
+      );
+    } else {
+      setAccountMenuVisible(!accountMenuVisible);
+    }
+  };
+  const handleConfiguraciones = () => Alert.alert('Próximamente', 'La página de configuraciones estará disponible pronto.');
+  const handleMiDispositivo = () => router.push('/patient/link-device');
+
   if (initializationError) {
     return (
       <Container style={styles.flex1}>
@@ -231,7 +291,59 @@ export default function CaregiverDashboard() {
   }
 
   return (
-    <Container style={styles.flex1}>
+    <SafeAreaView edges={['bottom']} style={styles.flex1}>
+      <Container style={styles.flex1}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>PILDHORA</Text>
+          <Text style={styles.headerSubtitle}>Hola, {displayName}</Text>
+        </View>
+        <View style={styles.headerActions}>
+          <Button variant="danger" onPress={handleEmergency}>
+            <Ionicons name="alert" size={20} color="#FFFFFF" />
+          </Button>
+          <Button variant="secondary" onPress={handleAccountMenu}>
+            <Ionicons name="person" size={20} color="#374151" />
+          </Button>
+        </View>
+      </View>
+
+      {Platform.OS !== 'ios' && (
+        <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalView}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Emergencia</Text>
+                <Text style={styles.modalSubtitle}>Selecciona una opción:</Text>
+                <View style={styles.modalActions}>
+                  <Button variant="danger" onPress={() => callEmergency('911')}>Llamar 911</Button>
+                  <Button variant="secondary" onPress={() => callEmergency('112')}>Llamar 112</Button>
+                  <Button variant="secondary" onPress={() => setModalVisible(false)}>Cancelar</Button>
+                </View>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {Platform.OS !== 'ios' && (
+        <Modal visible={accountMenuVisible} transparent animationType="fade" onRequestClose={() => setAccountMenuVisible(false)}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalView}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Cuenta</Text>
+                <Text style={styles.modalSubtitle}>Selecciona una opción:</Text>
+                <View style={styles.modalActions}>
+                  <Button variant="danger" onPress={() => { setAccountMenuVisible(false); handleLogout(); }}>Salir de sesión</Button>
+                  <Button variant="secondary" onPress={() => { setAccountMenuVisible(false); handleConfiguraciones(); }}>Configuraciones</Button>
+                  <Button variant="secondary" onPress={() => { setAccountMenuVisible(false); handleMiDispositivo(); }}>Mi dispositivo</Button>
+                  <Button variant="secondary" onPress={() => setAccountMenuVisible(false)}>Cancelar</Button>
+                </View>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
       {patientsLoading && (
         <View style={styles.loadingIndicator}>
           <ActivityIndicator size="small" color="#3B82F6" />
@@ -321,7 +433,8 @@ export default function CaregiverDashboard() {
       >
         <Ionicons name="add-outline" size={32} color="white" />
       </Button>
-    </Container>
+      </Container>
+    </SafeAreaView>
   );
 }
 
@@ -330,6 +443,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
   headerTitle: { fontSize: 24, fontWeight: '800', color: '#111827' },
   headerSubtitle: { fontSize: 14, color: '#6B7280' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   content: { padding: 16 },
   errorCard: { backgroundColor: '#FEE2E2', borderWidth: 1, borderColor: '#FECACA', borderRadius: 16, padding: 16 },
   errorTitle: { color: '#991B1B', textAlign: 'center', fontWeight: '600', marginBottom: 8 },
@@ -358,4 +472,10 @@ const styles = StyleSheet.create({
   emptyText: { color: '#4B5563', marginTop: 16, textAlign: 'center' },
   emptySubtext: { color: '#6B7280', fontSize: 14, textAlign: 'center', marginTop: 4 },
   fab: { position: 'absolute', bottom: 24, right: 24, borderRadius: 32, width: 64, height: 64, justifyContent: 'center', alignItems: 'center' },
+  modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
+  modalView: { backgroundColor: 'white', width: '100%', maxWidth: 384, borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 20, elevation: 5 },
+  modalContent: { padding: 24 },
+  modalTitle: { fontSize: 24, fontWeight: 'bold', color: '#1F2937', marginBottom: 8 },
+  modalSubtitle: { color: '#4B5563', marginBottom: 24, textAlign: 'center' },
+  modalActions: { gap: 12 },
 });

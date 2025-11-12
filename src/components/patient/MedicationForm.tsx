@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, Alert, StyleSheet } from 'react-native';
+import { ScrollView, Alert, StyleSheet, View } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../store';
-import { addMedication, updateMedication } from '../../store/slices/medicationsSlice';
+import { addMedication, updateMedication, deleteMedication } from '../../store/slices/medicationsSlice';
 import { Medication, DOSE_UNITS, QUANTITY_TYPES } from '../../types';
 import { useRouter } from 'expo-router';
 import MedicationNameInput from './medication-form/MedicationNameInput';
@@ -17,6 +17,7 @@ type Mode = 'add' | 'edit';
 interface Props {
   mode: Mode;
   medication?: Medication | undefined;
+  onDelete?: () => void;
 }
 
 interface FormState {
@@ -37,7 +38,7 @@ interface FormErrors {
   reminderDays?: string;
 }
 
-export default function MedicationForm({ mode, medication }: Props) {
+export default function MedicationForm({ mode, medication, onDelete }: Props) {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const { user } = useSelector((state: RootState) => state.auth);
@@ -187,6 +188,26 @@ export default function MedicationForm({ mode, medication }: Props) {
     router.back();
   };
 
+  const handleDelete = async () => {
+    if (mode !== 'edit' || !medication?.id) return;
+    Alert.alert(
+      'Eliminar Medicamento',
+      '¿Estás seguro de que quieres eliminar este medicamento?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            await dispatch(deleteMedication(medication.id));
+            if (onDelete) onDelete();
+            router.back();
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <Container>
       <ScrollView>
@@ -229,15 +250,27 @@ export default function MedicationForm({ mode, medication }: Props) {
             error={errors.reminderDays}
           />
 
-          {/* Submit Button */}
-          <Button
-            onPress={submitForm}
-            variant="primary"
-            size="lg"
-            style={styles.submitButton}
-          >
-            {mode === 'add' ? 'Guardar' : 'Actualizar'}
-          </Button>
+          {/* Actions */}
+          <View style={styles.actionsRow}>
+            <Button
+              onPress={submitForm}
+              variant="primary"
+              size="lg"
+              style={styles.actionButton}
+            >
+              {mode === 'add' ? 'Guardar' : 'Actualizar'}
+            </Button>
+            {mode === 'edit' && medication?.id && (
+              <Button
+                onPress={handleDelete}
+                variant="danger"
+                size="lg"
+                style={styles.actionButton}
+              >
+                Eliminar
+              </Button>
+            )}
+          </View>
         </Card>
       </ScrollView>
     </Container>
@@ -247,5 +280,13 @@ export default function MedicationForm({ mode, medication }: Props) {
 const styles = StyleSheet.create({
   submitButton: {
     marginTop: 12,
+  },
+  actionsRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionButton: {
+    flex: 1,
   },
 });

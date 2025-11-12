@@ -1,61 +1,38 @@
-import React, { useState, useEffect } from 'react';
-import {
-  Text,
-  View,
-  TouchableOpacity,
-  FlatList,
-  ActivityIndicator,
-  Alert,
-  StyleSheet,
-} from 'react-native';
+import React, { useState } from 'react';
+import { Text, View, TextInput, ActivityIndicator, Alert, StyleSheet, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { AppDispatch, RootState } from '../../src/store';
-import { initializeBLE, scanForDevices } from '../../src/store/slices/bleSlice';
-import { Device } from 'react-native-ble-plx';
-import { findPatientByDevice } from '../../src/services/firebase/user';
+import { doc, getDoc } from 'firebase/firestore';
+import { getDbInstance } from '../../src/services/firebase';
+import { startDeviceListener } from '../../src/store/slices/deviceSlice';
 
-type Step = 'initializing' | 'scanning' | 'selectDevice' | 'linking' | 'success' | 'error';
+type Step = 'enterId' | 'linking' | 'success' | 'error';
 
 export default function AddPatientScreen() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
-  const { devices, scanning, error: bleError } = useSelector((state: RootState) => state.ble);
+  const { user } = useSelector((state: RootState) => state.auth);
   
-  const [step, setStep] = useState<Step>('initializing');
+  const [step, setStep] = useState<Step>('enterId');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [foundPatientName, setFoundPatientName] = useState<string>('');
+  const [deviceId, setDeviceId] = useState('');
 
-  useEffect(() => {
-    dispatch(initializeBLE()).then(() => {
-      dispatch(scanForDevices());
-    });
-  }, [dispatch]);
-
-  useEffect(() => {
-    if (scanning) {
-      setStep('scanning');
-    } else if (devices.length > 0) {
-      setStep('selectDevice');
-    }
-    if (bleError) {
-      setStep('error');
-      setErrorMessage(bleError);
-    }
-  }, [scanning, devices, bleError]);
-
-  const handleSelectDevice = async (device: Device) => {
+  const handleLink = async () => {
     setStep('linking');
     try {
-      const patient = await findPatientByDevice(device.id);
-      if (patient) {
-        setFoundPatientName(patient.name);
-        setStep('success');
-      } else {
-        setErrorMessage('Este dispositivo no está registrado a ningún paciente.');
-        setStep('error');
+      const db = await getDbInstance();
+      const deviceRef = doc(db, 'devices', deviceId.trim());
+      const snap = await getDoc(deviceRef);
+      if (!snap.exists()) {
+        Alert.alert('Aviso', 'No se encontró el dispositivo en la base de datos. Asegúrate de que el ESP8266 esté conectado a Wi‑Fi y enviando su estado.');
       }
+      dispatch(startDeviceListener(deviceId.trim()));
+      setFoundPatientName('');
+      setStep('success');
     } catch (error: any) {
       console.error("Error finding patient by device:", error);
       setErrorMessage(error.message || 'Ocurrió un error al verificar el dispositivo.');
@@ -65,33 +42,22 @@ export default function AddPatientScreen() {
 
   const renderContent = () => {
     switch (step) {
-      case 'initializing':
-      case 'scanning':
+      case 'enterId':
         return (
           <View style={styles.center}>
-            <ActivityIndicator size="large" color="#3b82f6" />
-            <Text style={styles.statusText}>
-              {step === 'initializing' ? 'Iniciando Bluetooth...' : 'Buscando dispositivos...'}
-            </Text>
+            <Text style={styles.title}>Vincular ESP8266 por Wi‑Fi</Text>
+            <Text style={styles.subtitle}>Ingresa el ID del dispositivo (por ejemplo, el MAC o identificador asignado).</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ejemplo: esp8266-ABC123"
+              value={deviceId}
+              onChangeText={setDeviceId}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity onPress={handleLink} style={styles.button} disabled={!deviceId.trim()}>
+              <Text style={styles.buttonText}>Vincular</Text>
+            </TouchableOpacity>
           </View>
-        );
-      case 'selectDevice':
-        return (
-          <FlatList
-            data={devices}
-            keyExtractor={(item) => item.id}
-            ListHeaderComponent={<Text style={styles.listHeader}>Selecciona un Dispositivo</Text>}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                onPress={() => handleSelectDevice(item)}
-                style={styles.deviceItem}
-              >
-                <Text style={styles.deviceName}>{item.name || 'Dispositivo Desconocido'}</Text>
-                <Text style={styles.deviceId}>{item.id}</Text>
-                <Ionicons name="chevron-forward" size={24} color="gray" />
-              </TouchableOpacity>
-            )}
-          />
         );
       case 'linking':
         return (
@@ -106,7 +72,7 @@ export default function AddPatientScreen() {
             <Ionicons name="checkmark-circle" size={80} color="green" />
             <Text style={styles.title}>Dispositivo Vinculado</Text>
             <Text style={styles.subtitle}>
-              El dispositivo ha sido vinculado correctamente al paciente {foundPatientName}.
+              El dispositivo ha sido vinculado y se iniciará la lectura de estado.
             </Text>
             <TouchableOpacity onPress={() => router.back()} style={styles.button}>
               <Text style={styles.buttonText}>Hecho</Text>
@@ -132,10 +98,10 @@ export default function AddPatientScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView edges={['bottom']} style={styles.container}>
       <Stack.Screen options={{ headerShown: true, title: 'Vincular Dispositivo' }} />
       {renderContent()}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -155,29 +121,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#4B5563',
   },
-  listHeader: {
-    padding: 16,
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  deviceItem: {
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    marginHorizontal: 8,
-    marginVertical: 4,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  deviceName: {
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  deviceId: {
-    color: '#6B7280',
-    fontSize: 12,
-  },
   title: {
     marginTop: 16,
     fontSize: 24,
@@ -188,6 +131,17 @@ const styles = StyleSheet.create({
     color: '#4B5563',
     textAlign: 'center',
     marginTop: 8,
+  },
+  input: {
+    width: '100%',
+    maxWidth: 480,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#D1D5DB',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 16,
   },
   button: {
     backgroundColor: '#3B82F6',

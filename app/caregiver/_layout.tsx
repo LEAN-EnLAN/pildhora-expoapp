@@ -1,21 +1,54 @@
-import { Tabs, useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { Tabs, useRouter, usePathname } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../../src/store';
 import { logout } from '../../src/store/slices/authSlice';
 import { Ionicons } from '@expo/vector-icons';
 import CaregiverHeader from '../../src/components/CaregiverHeader';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { getDbInstance } from '../../src/services/firebase';
 
 export default function CaregiverLayout() {
   const router = useRouter();
+  const pathname = usePathname();
   const dispatch = useDispatch<AppDispatch>();
   const { isAuthenticated, user } = useSelector((state: RootState) => state.auth);
+  const [checkedPatients, setCheckedPatients] = useState(false);
+  const [hasPatients, setHasPatients] = useState<boolean>(true);
 
   useEffect(() => {
     if (!isAuthenticated || user?.role !== 'caregiver') {
       router.replace('/');
     }
   }, [isAuthenticated, user?.role]);
+
+  useEffect(() => {
+    const checkPatients = async () => {
+      if (!user?.id) return;
+      try {
+        const db = await getDbInstance();
+        const q = query(
+          collection(db, 'users'),
+          where('role', '==', 'patient'),
+          where('caregiverId', '==', user.id)
+        );
+        const snap = await getDocs(q);
+        const any = !snap.empty;
+        setHasPatients(any);
+        setCheckedPatients(true);
+        if (!any && !pathname.endsWith('/add-device')) {
+          router.replace('/caregiver/add-device');
+        }
+      } catch {
+        setHasPatients(false);
+        setCheckedPatients(true);
+        if (!pathname.endsWith('/add-device')) {
+          router.replace('/caregiver/add-device');
+        }
+      }
+    };
+    checkPatients();
+  }, [user?.id, pathname]);
 
   const handleLogout = async () => {
     await dispatch(logout());
@@ -65,8 +98,8 @@ export default function CaregiverLayout() {
         }}
       />
       {/* This screen is not in the tab bar and will be pushed as a modal */}
-      <Tabs.Screen name="chat" options={{ href: null, presentation: 'modal' }} />
-      <Tabs.Screen name="add-device" options={{ href: null, presentation: 'modal', title: 'Vincular Dispositivo' }} />
+      <Tabs.Screen name="chat" options={{ href: null }} />
+      <Tabs.Screen name="add-device" options={{ href: null, title: 'Vincular Dispositivo' }} />
     </Tabs>
   );
 }

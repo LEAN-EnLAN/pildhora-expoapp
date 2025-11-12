@@ -40,15 +40,11 @@ const getChatId = (userId1: string, userId2: string): string => {
  */
 export const sendMessage = async (messageData: NewMessagePayload): Promise<void> => {
   const db = await getDbInstance();
-  const sender = await user.getPatientById(messageData.senderId);
-  if (!sender) {
-    throw new Error('Sender not found.');
-  }
-
-  const [caregiverId, patientId] =
-    sender.role === 'caregiver'
-      ? [messageData.senderId, messageData.receiverId]
-      : [messageData.receiverId, messageData.senderId];
+  const patientsForSender = await user.getCaregiverPatients(messageData.senderId);
+  const isSenderCaregiver = patientsForSender.some(p => p.id === messageData.receiverId);
+  const [caregiverId, patientId] = isSenderCaregiver
+    ? [messageData.senderId, messageData.receiverId]
+    : [messageData.receiverId, messageData.senderId];
 
   const patients = await user.getCaregiverPatients(caregiverId);
   if (!patients.some(p => p.id === patientId)) {

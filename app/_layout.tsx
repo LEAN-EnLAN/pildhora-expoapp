@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider, useSelector } from 'react-redux';
 // @ts-ignore – redux-persist lacks bundled types
 import { PersistGate } from 'redux-persist/integration/react';
@@ -41,11 +42,13 @@ export default function RootLayout() {
       <PersistGate loading={null} persistor={persistor}>
         {/* Bootstrap notifications token registration */}
         <NotificationsBootstrapper />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="auth/login" />
-          <Stack.Screen name="auth/signup" />
-        </Stack>
+        <SafeAreaProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="auth/login" />
+            <Stack.Screen name="auth/signup" />
+          </Stack>
+        </SafeAreaProvider>
       </PersistGate>
     </Provider>
   );

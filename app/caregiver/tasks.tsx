@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Text, View, FlatList, Modal, Alert, StyleSheet, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { PHTextField } from '../../src/components/ui/PHTextField';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
@@ -78,7 +79,7 @@ export default function TasksScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView edges={['bottom']} style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Tareas</Text>
         <Button
@@ -142,7 +143,7 @@ export default function TasksScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Switch, Modal } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { PHTextField } from '../../src/components/ui/PHTextField';
 import Slider from '@react-native-community/slider';
 import ColorPickerScaffold from '../../src/components/ColorPickerScaffold';
@@ -298,7 +299,8 @@ export default function LinkDeviceScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaView edges={['top','bottom']} style={styles.container}>
+      <ScrollView>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Enlazar Dispositivo</Text>
         <Text style={styles.infoText}>Agrega tu Pillbox para habilitar estado en tiempo real y notificaciones.</Text>
@@ -434,6 +436,7 @@ export default function LinkDeviceScreen() {
           Volver
         </Button>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

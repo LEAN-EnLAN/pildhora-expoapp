@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Text, View, TouchableOpacity, ActivityIndicator, Image, StyleSheet, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../src/store';
@@ -135,15 +136,15 @@ export default function WelcomeScreen() {
 
   if (loading || initializing) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView edges={['top','bottom']} style={styles.container}>
         <ActivityIndicator size="large" color="#007AFF" />
         <Text style={styles.loadingText}>Cargando...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView edges={['top','bottom']} style={styles.container}>
       {/* Logo/Icon */}
       <View style={styles.logoContainer}>
         <Text style={styles.logoText}>P</Text>
@@ -175,6 +176,6 @@ export default function WelcomeScreen() {
           <Text style={styles.signInText}>¿Ya tienes una cuenta? Inicia sesión</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }

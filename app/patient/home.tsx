@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, FlatList, Alert, Modal, Linking, ScrollView, ActionSheetIOS, Platform, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Container } from '../../src/components/ui';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link, useRouter } from 'expo-router';
@@ -230,7 +231,8 @@ export default function PatientHome() {
   };
 
   return (
-    <Container style={styles.container}>
+    <SafeAreaView edges={['top','bottom']} style={styles.container}>
+      <Container style={styles.container}>
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>PILDHORA</Text>
@@ -257,6 +259,25 @@ export default function PatientHome() {
                   <Button variant="danger" size="lg" onPress={() => callEmergency('911')}>Llamar 911</Button>
                   <Button variant="secondary" size="lg" onPress={() => callEmergency('112')}>Llamar 112</Button>
                   <Button variant="secondary" size="lg" onPress={() => setModalVisible(false)}>Cancelar</Button>
+                </View>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {Platform.OS !== 'ios' && (
+        <Modal visible={accountMenuVisible} transparent animationType="fade" onRequestClose={() => setAccountMenuVisible(false)}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalView}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Cuenta</Text>
+                <Text style={styles.modalSubtitle}>Selecciona una opción:</Text>
+                <View style={styles.modalActions}>
+                  <Button variant="danger" size="lg" onPress={() => { setAccountMenuVisible(false); handleLogout(); }}>Salir de sesión</Button>
+                  <Button variant="secondary" size="lg" onPress={() => { setAccountMenuVisible(false); handleConfiguraciones(); }}>Configuraciones</Button>
+                  <Button variant="secondary" size="lg" onPress={() => { setAccountMenuVisible(false); handleMiDispositivo(); }}>Mi dispositivo</Button>
+                  <Button variant="secondary" size="lg" onPress={() => setAccountMenuVisible(false)}>Cancelar</Button>
                 </View>
               </View>
             </View>
@@ -348,7 +369,8 @@ export default function PatientHome() {
           </View>
         )}
       />
-    </Container>
+      </Container>
+    </SafeAreaView>
   );
 }
 

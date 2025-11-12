@@ -15,11 +15,11 @@ const AdherenceProgressChart: React.FC<AdherenceProgressChartProps> = ({ progres
   const chartConfig = {
     backgroundGradientFrom: "#ffffff",
     backgroundGradientTo: "#ffffff",
-    color: (opacity = 1, index) => {
-        const p = chartData.data[index];
-        if (p < 0.5) return `rgba(239, 68, 68, ${opacity})`; // red
-        if (p < 0.8) return `rgba(245, 158, 11, ${opacity})`; // amber
-        return `rgba(34, 197, 94, ${opacity})`; // green
+    color: (opacity: number, index?: number) => {
+        const p = chartData.data[index ?? 0];
+        if (p < 0.5) return `rgba(239, 68, 68, ${opacity})`;
+        if (p < 0.8) return `rgba(245, 158, 11, ${opacity})`;
+        return `rgba(34, 197, 94, ${opacity})`;
     },
   };
 

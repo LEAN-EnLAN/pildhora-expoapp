@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { Text, View, FlatList, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../src/store';
 import { useCollectionSWR } from '../../src/hooks/useCollectionSWR';
 import { getAuditLogQuery } from '../../src/services/firebase/audit';
 import { AuditLog } from '../../src/types';
+import { useRouter } from 'expo-router';
+import { getCaregiverPatients } from '../../src/services/firebase/user';
 
 export default function AuditScreen() {
+  const router = useRouter();
   const { user } = useSelector((state: RootState) => state.auth);
   const [auditQuery, setAuditQuery] = useState<any>(null);
+  const [dummyAudit, setDummyAudit] = useState<AuditLog[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -17,15 +22,38 @@ export default function AuditScreen() {
     }
   }, [user]);
 
-  const { data: auditLog = [] } = useCollectionSWR<AuditLog>(auditQuery);
+  useEffect(() => {
+    const checkPatients = async () => {
+      if (!user?.id) return;
+      const patients = await getCaregiverPatients(user.id);
+      if (!patients || patients.length === 0) {
+        router.replace('/caregiver/add-device');
+      }
+    };
+    checkPatients();
+  }, [user]);
+
+  useEffect(() => {
+    const now = new Date().toISOString();
+    setDummyAudit([
+      { id: 'dummy-a1', action: 'Ejemplo: paciente tomó medicación', timestamp: now, userId: 'dummy', caregiverId: user?.id ?? 'dummy' },
+    ]);
+  }, [user]);
+
+  const cacheKey = user?.id ? `audit:${user.id}` : null;
+  const { data: fetchedAudit = [], isLoading } = useCollectionSWR<AuditLog>({
+    cacheKey,
+    query: auditQuery,
+    initialData: dummyAudit,
+  });
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView edges={['bottom']} style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Registro de Actividad</Text>
       </View>
       <FlatList
-        data={auditLog}
+        data={fetchedAudit}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <View style={styles.logItem}>
@@ -40,11 +68,11 @@ export default function AuditScreen() {
         )}
         ListEmptyComponent={() => (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No hay registros de actividad.</Text>
+              <Text style={styles.emptyText}>No hay datos disponibles.</Text>
             </View>
         )}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 

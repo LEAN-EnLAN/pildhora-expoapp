@@ -161,8 +161,6 @@ const styles = StyleSheet.create({
     flex: 1.5,
   },
   textInput: {},
-  inputError: {},
-  inputBorder: {},
   errorText: {
     color: '#EF4444',
     marginTop: 4,
@@ -170,6 +168,16 @@ const styles = StyleSheet.create({
   unitButton: {
     height: 48,
     justifyContent: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+  },
+  inputBorder: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  inputError: {
+    borderWidth: 1,
+    borderColor: '#EF4444',
   },
   unitButtonContent: {
     flexDirection: 'row',

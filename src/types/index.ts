@@ -29,16 +29,16 @@ export interface Medication {
 
 // Dose units enumeration
 export const DOSE_UNITS = [
-  { id: 'mg', label: 'mg (milligrams)' },
-  { id: 'g', label: 'g (grams)' },
-  { id: 'mcg', label: 'mcg (micrograms)' },
-  { id: 'ml', label: 'ml (milliliters)' },
-  { id: 'l', label: 'l (liters)' },
-  { id: 'units', label: 'units' },
-  { id: 'drops', label: 'drops' },
+  { id: 'mg', label: 'mg (miligramos)' },
+  { id: 'g', label: 'g (gramos)' },
+  { id: 'mcg', label: 'mcg (microgramos)' },
+  { id: 'ml', label: 'ml (mililitros)' },
+  { id: 'l', label: 'l (litros)' },
+  { id: 'units', label: 'unidades' },
+  { id: 'drops', label: 'gotas' },
   { id: 'sprays', label: 'sprays' },
-  { id: 'puffs', label: 'puffs' },
-  { id: 'custom', label: 'Custom unit' }
+  { id: 'puffs', label: 'inhalaciones' },
+  { id: 'custom', label: 'Unidad personalizada' }
 ] as const;
 
 // Quantity types enumeration

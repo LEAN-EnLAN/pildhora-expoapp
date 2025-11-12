@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Text, View, Alert, Image, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { signIn, logout } from '../../src/store/slices/authSlice';
@@ -70,7 +71,8 @@ export default function LoginScreen() {
   };
 
   return (
-    <Container style={styles.flex1}>
+    <SafeAreaView edges={['top','bottom']} style={styles.flex1}>
+      <Container style={styles.flex1}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
@@ -141,7 +143,8 @@ export default function LoginScreen() {
 
         </Card>
       </KeyboardAvoidingView>
-    </Container>
+      </Container>
+    </SafeAreaView>
   );
 }
 
@@ -235,6 +238,7 @@ const styles = StyleSheet.create({
   signupContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
     marginTop: 16,
   },
   signupText: {

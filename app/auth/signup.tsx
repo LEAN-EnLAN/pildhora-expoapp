@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Text, View, Alert, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { Text, View, Alert, KeyboardAvoidingView, Platform, StyleSheet, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { signUp } from '../../src/store/slices/authSlice';
@@ -80,11 +81,17 @@ export default function SignupScreen() {
   };
 
   return (
-    <Container style={styles.flex1}>
+    <SafeAreaView edges={['top','bottom']} style={styles.flex1}>
+      <Container style={styles.flex1}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         <Card style={styles.card}>
           <View style={styles.header}>
             <View style={styles.logoContainer}>
@@ -178,8 +185,10 @@ export default function SignupScreen() {
             </Button>
           </View>
         </Card>
+        </ScrollView>
       </KeyboardAvoidingView>
-    </Container>
+      </Container>
+    </SafeAreaView>
   );
 }
 
@@ -192,6 +201,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 16,
+    width: '100%',
   },
   card: {
     width: '100%',
@@ -265,16 +281,19 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   patientSelected: {
-    backgroundColor: '#D1FAE5',
+    backgroundColor: '#10B981',
     borderColor: '#10B981',
+    borderWidth: 2,
   },
   caregiverSelected: {
-    backgroundColor: '#DBEAFE',
+    backgroundColor: '#3B82F6',
     borderColor: '#3B82F6',
+    borderWidth: 2,
   },
   roleUnselected: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#D1D5DB',
+    backgroundColor: '#F3F4F6',
+    borderColor: '#9CA3AF',
+    borderWidth: 1,
   },
   signupButton: {
     width: '100%',
@@ -282,6 +301,7 @@ const styles = StyleSheet.create({
   loginContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
     marginTop: 16,
   },
   loginText: {
