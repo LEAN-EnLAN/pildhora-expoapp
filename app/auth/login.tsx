@@ -69,35 +69,35 @@ export default function LoginScreen() {
   };
 
   return (
-    <Container className="flex-1">
+    <Container style={styles.flex1}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1 justify-center items-center p-4"
+        style={styles.container}
       >
-        <Card className="w-full max-w-sm p-6">
+        <Card style={styles.card}>
           {isAuthenticated && user && (
-            <View className="bg-yellow-100 border border-yellow-200 p-3 rounded-lg mb-4">
-              <Text className="text-yellow-800 text-center">
+            <View style={styles.loggedInContainer}>
+              <Text style={styles.loggedInText}>
                 Ya iniciaste sesión como {user.email || user.name}.
               </Text>
-              <Button onPress={handleLogout} variant="secondary" size="sm" className="mt-2">
+              <Button onPress={handleLogout} variant="secondary" size="sm" style={styles.logoutButton}>
                 Cerrar Sesión
               </Button>
             </View>
           )}
 
-          <View className="items-center mb-8">
-            <View className="w-24 h-24 bg-blue-500 rounded-full justify-center items-center mb-4 shadow-lg">
-              <Text className="text-white text-5xl font-bold">P</Text>
+          <View style={styles.header}>
+            <View style={styles.logoContainer}>
+              <Text style={styles.logoText}>P</Text>
             </View>
-            <Text className="text-3xl font-bold text-gray-800">Bienvenido de nuevo</Text>
-            <Text className="text-gray-500 mt-1">Inicia sesión en tu cuenta de Pildhora</Text>
+            <Text style={styles.title}>Bienvenido de nuevo</Text>
+            <Text style={styles.subtitle}>Inicia sesión en tu cuenta de Pildhora</Text>
           </View>
 
-          <View className="mb-4">
-            <Text className="text-sm font-medium text-gray-700 mb-2">Correo electrónico</Text>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Correo electrónico</Text>
             <TextInput
-              className="border border-gray-300 rounded-xl p-4 bg-white text-base shadow-sm"
+              style={styles.input}
               placeholder="Ingresa tu correo"
               value={email}
               onChangeText={setEmail}
@@ -106,10 +106,10 @@ export default function LoginScreen() {
             />
           </View>
 
-          <View className="mb-6">
-            <Text className="text-sm font-medium text-gray-700 mb-2">Contraseña</Text>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Contraseña</Text>
             <TextInput
-              className="border border-gray-300 rounded-xl p-4 bg-white text-base shadow-sm"
+              style={styles.input}
               placeholder="Ingresa tu contraseña"
               value={password}
               onChangeText={setPassword}
@@ -122,20 +122,20 @@ export default function LoginScreen() {
             disabled={loading}
             variant="primary"
             size="lg"
-            className="w-full"
+            style={styles.loginButton}
           >
             {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
           </Button>
 
-          <View className="flex-row justify-center mt-4">
-            <Text className="text-gray-500">¿No tienes una cuenta? </Text>
-            <Button onPress={navigateToSignup} className="p-0">
+          <View style={styles.signupContainer}>
+            <Text style={styles.signupText}>¿No tienes una cuenta? </Text>
+            <Button onPress={navigateToSignup} style={styles.signupButton}>
               Regístrate
             </Button>
           </View>
 
-          <View className="mt-4">
-            <Button onPress={() => router.back()} className="p-0">
+          <View style={styles.backButtonContainer}>
+            <Button onPress={() => router.back()} style={styles.backButton}>
               ← Volver a la selección de rol
             </Button>
           </View>
@@ -145,3 +145,109 @@ export default function LoginScreen() {
     </Container>
   );
 }
+
+const styles = StyleSheet.create({
+  flex1: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  card: {
+    width: '100%',
+    maxWidth: 384,
+    padding: 24,
+  },
+  loggedInContainer: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  loggedInText: {
+    color: '#92400E',
+    textAlign: 'center',
+  },
+  logoutButton: {
+    marginTop: 8,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  logoContainer: {
+    width: 96,
+    height: 96,
+    backgroundColor: '#3B82F6',
+    borderRadius: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  logoText: {
+    color: '#FFFFFF',
+    fontSize: 64,
+    fontWeight: 'bold',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  subtitle: {
+    color: '#6B7280',
+    marginTop: 4,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    fontSize: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  loginButton: {
+    width: '100%',
+  },
+  signupContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 16,
+  },
+  signupText: {
+    color: '#6B7280',
+  },
+  signupButton: {
+    padding: 0,
+  },
+  backButtonContainer: {
+    marginTop: 16,
+  },
+  backButton: {
+    padding: 0,
+  },
+});

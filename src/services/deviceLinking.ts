@@ -11,9 +11,16 @@ export async function linkDeviceToUser(userId: string, deviceId: string): Promis
   console.log('[DEBUG] linkDeviceToUser called with:', { userId, deviceId });
   
   if (!userId || !deviceId) throw new Error('linkDeviceToUser requires userId and deviceId');
+
+  // Wait for auth to be initialized
+  const currentUser = await new Promise((resolve, reject) => {
+    const unsubscribe = auth.onAuthStateChanged(user => {
+      unsubscribe();
+      resolve(user);
+    }, reject);
+    setTimeout(() => reject(new Error("Auth state change timeout")), 5000);
+  });
   
-  // Verify authentication state
-  const currentUser = auth.currentUser;
   console.log('[DEBUG] Firebase Auth current user:', {
     isAuthenticated: !!currentUser,
     uid: currentUser?.uid,
@@ -71,7 +78,13 @@ export async function checkDevelopmentRuleStatus(): Promise<void> {
   console.log('[DEBUG] Development rule expires: 2025-12-31T23:59:59.999Z');
   
   // Check authentication state first
-  const currentUser = auth.currentUser;
+  const currentUser = await new Promise((resolve, reject) => {
+    const unsubscribe = auth.onAuthStateChanged(user => {
+      unsubscribe();
+      resolve(user);
+    }, reject);
+    setTimeout(() => reject(new Error("Auth state change timeout")), 5000);
+  });
   console.log('[DEBUG] Authentication state:', {
     isAuthenticated: !!currentUser,
     uid: currentUser?.uid,
@@ -130,7 +143,13 @@ export async function unlinkDeviceFromUser(userId: string, deviceId: string): Pr
   if (!userId || !deviceId) throw new Error('unlinkDeviceFromUser requires userId and deviceId');
   
   // Verify authentication state
-  const currentUser = auth.currentUser;
+  const currentUser = await new Promise((resolve, reject) => {
+    const unsubscribe = auth.onAuthStateChanged(user => {
+      unsubscribe();
+      resolve(user);
+    }, reject);
+    setTimeout(() => reject(new Error("Auth state change timeout")), 5000);
+  });
   if (!currentUser) {
     throw new Error('User not authenticated in Firebase Auth');
   }

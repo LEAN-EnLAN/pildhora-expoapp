@@ -25,7 +25,7 @@ import {
   getInitializationError,
   reinitializeFirebase
 } from '../../src/services/firebase';
-import DoseRing from '../../src/components/DoseRing';
+import AdherenceProgressChart from '../../src/components/AdherenceProgressChart';
 import { Card, Button, Container } from '../../src/components/ui';
 import { Patient, PatientWithDevice, Task, DoseSegment, IntakeRecord, IntakeStatus } from '../../src/types';
 
@@ -38,7 +38,6 @@ export default function CaregiverDashboard() {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<PatientWithDevice | null>(null);
 
-  // State for patient-specific data
   const [patientIntakes, setPatientIntakes] = useState<IntakeRecord[]>([]);
   const [patientIntakesLoading, setPatientIntakesLoading] = useState(false);
   const [patientIntakesError, setPatientIntakesError] = useState<Error | null>(null);
@@ -49,118 +48,62 @@ export default function CaregiverDashboard() {
 
   const displayName = user?.name || (user?.email ? user.email.split('@')[0] : 'Cuidador');
 
-  const generateMockDoseSegments = (adherence: number): DoseSegment[] => {
-    // This is a mock implementation. In a real app, you'd generate
-    // segments based on actual medication schedules and intake records.
-    return [
-      { startHour: 8, endHour: 9, status: adherence > 25 ? 'DOSE_TAKEN' : 'PENDING' },
-      { startHour: 13, endHour: 14, status: adherence > 50 ? 'DOSE_TAKEN' : 'PENDING' },
-      { startHour: 20, endHour: 21, status: adherence > 75 ? 'DOSE_TAKEN' : 'PENDING' },
-    ];
-  };
-
-  // State for queries and initialization
   const [patientsQuery, setPatientsQuery] = useState<any>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [initializationError, setInitializationError] = useState<Error | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
-  // Initialize Firebase and create queries with improved error handling
   useEffect(() => {
     const initializeQueries = async () => {
       try {
-        console.log('[CaregiverDashboard] Starting Firebase initialization...');
         setInitializationError(null);
-
-        // Wait for Firebase initialization with timeout
         const initPromise = waitForFirebaseInitialization();
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Firebase initialization timeout')), 10000)
         );
-
         await Promise.race([initPromise, timeoutPromise]);
-        console.log('[CaregiverDashboard] Firebase initialized successfully');
-
         const db = await getDbInstance();
         if (!db) {
           throw new Error('Database instance not available after initialization');
         }
-
         if (user) {
-          console.log('[CaregiverDashboard] Creating queries for user:', user.id);
-
-          // Use user's Firebase UID for queries
           const patientsQ = query(
             collection(db, 'users'),
             where('role', '==', 'patient'),
             where('caregiverId', '==', user.id),
             orderBy('createdAt', 'desc')
           );
-          console.log('[CaregiverDashboard] Patients query created');
           setPatientsQuery(patientsQ);
-        } else {
-          console.warn('[CaregiverDashboard] No user available for query creation');
         }
-
         setIsInitialized(true);
       } catch (error: any) {
-        console.error('[CaregiverDashboard] Error initializing queries:', error);
         setInitializationError(error);
-        setIsInitialized(true); // Set to true even on error to avoid infinite loading
+        setIsInitialized(true);
       }
     };
-
     initializeQueries();
   }, [user, retryCount]);
 
-  // Function to retry initialization
   const handleRetryInitialization = async () => {
-    console.log('[CaregiverDashboard] Retrying Firebase initialization...');
     setRetryCount(prev => prev + 1);
     setIsInitialized(false);
     setInitializationError(null);
-
     try {
       await reinitializeFirebase();
     } catch (error) {
-      console.error('[CaregiverDashboard] Error during reinitialization:', error);
+      console.error('Error during reinitialization:', error);
     }
   };
 
   const cacheKey = user?.id ? `patients:${user.id}` : null;
-  const {
-    data: patients = [],
-    source: patientsSource,
-    isLoading: patientsLoading,
-    error: patientsError
-  } = useCollectionSWR<Patient>({
+  const { data: patients = [], source: patientsSource, isLoading: patientsLoading, error: patientsError } = useCollectionSWR<Patient>({
     cacheKey,
     query: isInitialized && !initializationError && cacheKey ? patientsQuery : null,
   });
 
-  // Log patients query results
-  useEffect(() => {
-    console.log('[CaregiverDashboard] Patients query state:', {
-      isLoading: patientsLoading,
-      error: patientsError,
-      dataCount: patients.length,
-      source: patientsSource,
-      isInitialized,
-      hasInitializationError: !!initializationError
-    });
-    if (patientsError) {
-      console.error('[CaregiverDashboard] Patients query error details:', patientsError);
-    }
-  }, [patientsLoading, patientsError, patients.length, patientsSource, isInitialized, initializationError]);
-
-
-
-  // Fetch patient intakes and adherence when a patient is selected
   useEffect(() => {
     if (selectedPatient && isInitialized) {
       const functions = getFunctions();
-
-      // Fetch Intakes
       const fetchPatientIntakes = async () => {
         setPatientIntakesLoading(true);
         setPatientIntakesError(null);
@@ -168,7 +111,6 @@ export default function CaregiverDashboard() {
           const getPatientIntakeRecords = httpsCallable(functions, 'getPatientIntakeRecords');
           const result = await getPatientIntakeRecords({ patientId: selectedPatient.id });
           const data = result.data as { intakes: IntakeRecord[] };
-          // Convert ISO strings back to Date objects
           const intakesWithDates = data.intakes.map(intake => ({
             ...intake,
             scheduledTime: new Date(intake.scheduledTime),
@@ -176,14 +118,11 @@ export default function CaregiverDashboard() {
           }));
           setPatientIntakes(intakesWithDates);
         } catch (error: any) {
-          console.error('Error fetching patient intakes:', error);
           setPatientIntakesError(error);
         } finally {
           setPatientIntakesLoading(false);
         }
       };
-
-      // Fetch Adherence
       const fetchAdherence = async () => {
         setAdherenceLoading(true);
         setAdherenceError(null);
@@ -193,40 +132,32 @@ export default function CaregiverDashboard() {
           const data = result.data as { adherence: number, doseSegments: DoseSegment[] };
           setAdherence(data);
         } catch (error: any) {
-          console.error('Error fetching adherence:', error);
           setAdherenceError(error);
         } finally {
           setAdherenceLoading(false);
         }
       };
-
       fetchPatientIntakes();
       fetchAdherence();
     }
   }, [selectedPatient, isInitialized]);
 
-  // Combine patients with device states and dose segments
   useEffect(() => {
     const enhancedPatients = patients.map((patient: Patient) => ({
       ...patient,
       deviceState: patient.deviceId ? deviceState : undefined,
-      doseSegments: adherence?.doseSegments || [], // Use real or empty segments
     } as PatientWithDevice));
     setPatientsWithDevices(enhancedPatients);
-
-    // Auto-select first patient if none selected
     if (enhancedPatients.length > 0 && !selectedPatient) {
       setSelectedPatient(enhancedPatients[0]);
     }
   }, [patients, deviceState, adherence]);
 
-  // Start device listener for the first patient with a device
   useEffect(() => {
     const firstPatientWithDevice = patients.find(p => p.deviceId);
     if (firstPatientWithDevice?.deviceId && !listening) {
       dispatch(startDeviceListener(firstPatientWithDevice.deviceId));
     }
-
     return () => {
       if (listening) {
         dispatch(stopDeviceListener());
@@ -234,50 +165,17 @@ export default function CaregiverDashboard() {
     };
   }, [patients, dispatch, listening]);
 
-  const handleEmergency = () => {
-    setModalVisible(true);
-  };
-
-  const callEmergency = (number: string) => {
-    try {
-      Linking.openURL(`tel:${number}`);
-    } catch (e) {
-      // noop; on web this may not work
-    }
-    setModalVisible(false);
-  };
-
   const handlePatientSelect = (patient: PatientWithDevice) => {
     setSelectedPatient(patient);
   };
 
-  const formatTime = (date: Date | string) => {
-    const d = new Date(date);
-    return d.toLocaleTimeString("default", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const formatDate = (date: Date | string) => {
-    const d = new Date(date);
-    return d.toLocaleDateString("default", {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-    });
-  };
-
-
-
-  // Show initialization error with retry option
   if (initializationError) {
     return (
-      <Container className="flex-1 bg-gray-100">
-        <View className="flex-row items-center justify-between bg-white px-4 py-3 border-b border-gray-200">
+      <Container style={styles.flex1}>
+        <View style={styles.header}>
           <View>
-            <Text className="text-2xl font-extrabold text-gray-900">PILDHORA</Text>
-            <Text className="text-sm text-gray-500">Hola, {displayName}</Text>
+            <Text style={styles.headerTitle}>PILDHORA</Text>
+            <Text style={styles.headerSubtitle}>Hola, {displayName}</Text>
           </View>
           <Button
             variant="secondary"
@@ -289,36 +187,25 @@ export default function CaregiverDashboard() {
             Salir
           </Button>
         </View>
-        <View className="p-4">
-          <Card className="bg-red-100 border border-red-200 rounded-2xl p-4">
-            <Text className="text-red-800 text-center font-semibold mb-2">
-              Error de inicialización de Firebase
-            </Text>
-            <Text className="text-red-700 text-center text-sm mb-4">
-              {initializationError.message || 'No se pudo conectar con los servicios de Firebase'}
-            </Text>
-            <Button
-              variant="primary"
-              onPress={handleRetryInitialization}
-            >
-              Reintentar
-            </Button>
+        <View style={styles.content}>
+          <Card style={styles.errorCard}>
+            <Text style={styles.errorTitle}>Error de inicialización de Firebase</Text>
+            <Text style={styles.errorMessage}>{initializationError.message || 'No se pudo conectar con los servicios de Firebase'}</Text>
+            <Button variant="primary" onPress={handleRetryInitialization}>Reintentar</Button>
           </Card>
         </View>
       </Container>
     );
   }
 
-  // Show error if patients failed to load
   if (patientsError) {
     const isIndexError = patientsError?.message?.includes('requires an index');
-
     return (
-      <Container className="flex-1 bg-gray-100">
-        <View className="flex-row items-center justify-between bg-white px-4 py-3 border-b border-gray-200">
+      <Container style={styles.flex1}>
+        <View style={styles.header}>
           <View>
-            <Text className="text-2xl font-extrabold text-gray-900">PILDHORA</Text>
-            <Text className="text-sm text-gray-500">Hola, {displayName}</Text>
+            <Text style={styles.headerTitle}>PILDHORA</Text>
+            <Text style={styles.headerSubtitle}>Hola, {displayName}</Text>
           </View>
           <Button
             variant="secondary"
@@ -330,41 +217,29 @@ export default function CaregiverDashboard() {
             <Ionicons name="log-out" size={20} color="#374151" />
           </Button>
         </View>
-        <View className="p-4">
-          <Card className="bg-orange-100 border border-orange-200 rounded-2xl p-4">
-            <Text className="text-orange-800 text-center font-semibold mb-2">
-              {isIndexError ? 'Configuración en progreso' : 'Error al cargar datos'}
+        <View style={styles.content}>
+          <Card style={styles.warningCard}>
+            <Text style={styles.warningTitle}>{isIndexError ? 'Configuración en progreso' : 'Error al cargar datos'}</Text>
+            <Text style={styles.warningMessage}>
+              {isIndexError ? 'Los índices de la base de datos se están configurando. Esto puede tardar unos minutos. Por favor, intenta nuevamente en breve.' : (patientsError?.message || 'Verifica tu conexión e intenta nuevamente.')}
             </Text>
-            <Text className="text-orange-700 text-center text-sm mb-4">
-              {isIndexError
-                ? 'Los índices de la base de datos se están configurando. Esto puede tardar unos minutos. Por favor, intenta nuevamente en breve.'
-                : (patientsError?.message || 'Verifica tu conexión e intenta nuevamente.')
-              }
-            </Text>
-            <Button
-              variant="primary"
-              size="medium"
-              onPress={handleRetryInitialization}
-              accessibilityLabel="Reintentar"
-              accessibilityHint="Intentar cargar datos nuevamente"
-            />
+            <Button variant="primary" size="medium" onPress={handleRetryInitialization} accessibilityLabel="Reintentar" accessibilityHint="Intentar cargar datos nuevamente" />
+          </Card>
         </View>
-      </View>
-      </Container >
+      </Container>
     );
   }
 
   return (
-    <Container className="flex-1">
-      {/* Patient Selector */}
+    <Container style={styles.flex1}>
       {patientsLoading && (
-        <View className="p-4 items-center">
+        <View style={styles.loadingIndicator}>
           <ActivityIndicator size="small" color="#3B82F6" />
         </View>
       )}
       {patientsWithDevices.length > 0 && (
-        <View className="px-4 py-3 bg-white border-b border-gray-200">
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row gap-3">
+        <View style={styles.patientSelector}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.patientScrollView}>
             {patientsWithDevices.map((patient) => (
               <Button
                 key={patient.id}
@@ -378,51 +253,49 @@ export default function CaregiverDashboard() {
         </View>
       )}
 
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 20 }}>
+      <ScrollView style={styles.flex1} contentContainerStyle={styles.scrollContent}>
         {patientsLoading ? (
-          <View className="flex-1 justify-center items-center py-20">
+          <View style={styles.centered}>
             <ActivityIndicator size="large" color="#3B82F6" />
-            <Text className="text-gray-600 mt-4">Cargando pacientes...</Text>
+            <Text style={styles.loadingText}>Cargando pacientes...</Text>
           </View>
         ) : selectedPatient ? (
-          <View className="p-4">
-            <Card className="bg-white rounded-2xl p-4 items-center">
-              <Text className="text-2xl font-bold mb-4">Adherencia Diaria</Text>
+          <View style={styles.content}>
+            <Card style={styles.card}>
+              <Text style={styles.cardTitle}>Adherencia Diaria</Text>
               {adherenceLoading ? (
                 <ActivityIndicator size="large" color="#3B82F6" />
               ) : (
-                <DoseRing
+                <AdherenceProgressChart
+                  progress={adherence ? adherence.adherence / 100 : 0}
                   size={250}
-                  strokeWidth={20}
-                  segments={adherence?.doseSegments || []}
-                  accessibilityLabel={`Anillo de dosis de ${selectedPatient.name}`}
                 />
               )}
-            </View>
+            </Card>
 
-            <Card className="bg-white rounded-2xl p-4 mt-4">
-              <Text className="text-xl font-bold mb-4">Dispositivo</Text>
+            <Card style={styles.deviceCard}>
+              <Text style={styles.deviceTitle}>Dispositivo</Text>
               {selectedPatient.deviceState ? (
                 <>
-                  <View className="flex-row justify-between items-center">
-                    <View className="flex-row items-center">
+                  <View style={styles.deviceRow}>
+                    <View style={styles.deviceInfo}>
                       <Ionicons name="watch-outline" size={24} color="gray" />
-                      <Text className="text-lg ml-2">Nivel de Batería</Text>
+                      <Text style={styles.deviceLabel}>Nivel de Batería</Text>
                     </View>
-                    <Text className="text-lg font-semibold">{selectedPatient.deviceState.battery_level}%</Text>
+                    <Text style={styles.deviceValue}>{selectedPatient.deviceState.battery_level}%</Text>
                   </View>
-                  <View className="flex-row justify-between items-center mt-4">
-                    <View className="flex-row items-center">
+                  <View style={styles.deviceRowSpaced}>
+                    <View style={styles.deviceInfo}>
                       <Ionicons name="wifi-outline" size={24} color="gray" />
-                      <Text className="text-lg ml-2">Estado</Text>
+                      <Text style={styles.deviceLabel}>Estado</Text>
                     </View>
-                    <Text className={`text-lg font-semibold ${selectedPatient.deviceState.is_online ? 'text-green-500' : 'text-red-500'}`}>
+                    <Text style={[styles.deviceValue, selectedPatient.deviceState.is_online ? styles.online : styles.offline]}>
                       {selectedPatient.deviceState.is_online ? 'En Línea' : 'Desconectado'}
                     </Text>
                   </View>
                 </>
               ) : (
-                <Text className="text-gray-500">No hay dispositivo vinculado.</Text>
+                <Text style={styles.noDevice}>No hay dispositivo vinculado.</Text>
               )}
               <Button
                 variant="primary"
@@ -432,32 +305,57 @@ export default function CaregiverDashboard() {
               </Button>
             </Card>
           </View>
-      ) : (
-      <View className="flex-1 justify-center items-center py-20">
-        <Ionicons name="people-outline" size={48} color="#9CA3AF" />
-        <Text className="text-gray-600 mt-4 text-center">
-          No hay pacientes asignados a tu cuenta
-        </Text>
-        <Text className="text-gray-500 text-sm text-center mt-1">
-          Usa el botón de abajo para vincular un nuevo dispositivo.
-        </Text>
-        <Button
-          variant="primary"
-          onPress={() => router.push('/caregiver/add-device')}
-        >
-          Vincular Dispositivo
-        </Button>
-      </View>
+        ) : (
+          <View style={styles.centered}>
+            <Ionicons name="people-outline" size={48} color="#9CA3AF" />
+            <Text style={styles.emptyText}>No hay pacientes asignados a tu cuenta</Text>
+            <Text style={styles.emptySubtext}>Usa el botón de abajo para vincular un nuevo dispositivo.</Text>
+            <Button variant="primary" onPress={() => router.push('/caregiver/add-device')}>Vincular Dispositivo</Button>
+          </View>
         )}
-    </ScrollView>
-      {/* Add Patient FAB */ }
-  <Button
-    variant="primary"
-    className="absolute bottom-6 right-6 rounded-full w-16 h-16 justify-center items-center"
-    onPress={() => router.push('/caregiver/add-device')}
-  >
-    <Ionicons name="add-outline" size={32} color="white" />
-  </Button>
-    </Container >
+      </ScrollView>
+      <Button
+        variant="primary"
+        style={styles.fab}
+        onPress={() => router.push('/caregiver/add-device')}
+      >
+        <Ionicons name="add-outline" size={32} color="white" />
+      </Button>
+    </Container>
   );
 }
+
+const styles = StyleSheet.create({
+  flex1: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  headerTitle: { fontSize: 24, fontWeight: '800', color: '#111827' },
+  headerSubtitle: { fontSize: 14, color: '#6B7280' },
+  content: { padding: 16 },
+  errorCard: { backgroundColor: '#FEE2E2', borderWidth: 1, borderColor: '#FECACA', borderRadius: 16, padding: 16 },
+  errorTitle: { color: '#991B1B', textAlign: 'center', fontWeight: '600', marginBottom: 8 },
+  errorMessage: { color: '#B91C1C', textAlign: 'center', fontSize: 14, marginBottom: 16 },
+  warningCard: { backgroundColor: '#FFEDD5', borderWidth: 1, borderColor: '#FED7AA', borderRadius: 16, padding: 16 },
+  warningTitle: { color: '#9A3412', textAlign: 'center', fontWeight: '600', marginBottom: 8 },
+  warningMessage: { color: '#C2410C', textAlign: 'center', fontSize: 14, marginBottom: 16 },
+  loadingIndicator: { padding: 16, alignItems: 'center' },
+  patientSelector: { paddingHorizontal: 16, paddingVertical: 12, backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  patientScrollView: { gap: 12 },
+  scrollContent: { paddingBottom: 20 },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 80 },
+  loadingText: { color: '#4B5563', marginTop: 16 },
+  card: { backgroundColor: 'white', borderRadius: 16, padding: 16, alignItems: 'center' },
+  cardTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 16 },
+  deviceCard: { backgroundColor: 'white', borderRadius: 16, padding: 16, marginTop: 16 },
+  deviceTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 16 },
+  deviceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  deviceRowSpaced: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 },
+  deviceInfo: { flexDirection: 'row', alignItems: 'center' },
+  deviceLabel: { fontSize: 18, marginLeft: 8 },
+  deviceValue: { fontSize: 18, fontWeight: '600' },
+  online: { color: '#10B981' },
+  offline: { color: '#EF4444' },
+  noDevice: { color: '#6B7280' },
+  emptyText: { color: '#4B5563', marginTop: 16, textAlign: 'center' },
+  emptySubtext: { color: '#6B7280', fontSize: 14, textAlign: 'center', marginTop: 4 },
+  fab: { position: 'absolute', bottom: 24, right: 24, borderRadius: 32, width: 64, height: 64, justifyContent: 'center', alignItems: 'center' },
+});

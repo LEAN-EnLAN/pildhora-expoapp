@@ -1,5 +1,22 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Medication, ApiResponse, User } from '../../types';
+
+// Helper to convert Firestore Timestamps to ISO strings for Redux state
+const convertTimestamps = (data: any): any => {
+  if (data instanceof Timestamp) {
+    return data.toDate().toISOString();
+  }
+  if (Array.isArray(data)) {
+    return data.map(convertTimestamps);
+  }
+  if (data !== null && typeof data === 'object') {
+    return Object.keys(data).reduce((acc, key) => {
+      acc[key] = convertTimestamps(data[key]);
+      return acc;
+    }, {} as { [key: string]: any });
+  }
+  return data;
+};
 import { getDbInstance, waitForFirebaseInitialization } from '../../services/firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, orderBy, getDoc, Timestamp } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
@@ -173,7 +190,7 @@ export const fetchMedications = createAsyncThunk(
         const migratedMedication = migrateDosageFormat(medicationData);
         medications.push(migratedMedication);
       });
-      return medications;
+      return convertTimestamps(medications);
     } catch (error: any) {
       const medicationError = handleMedicationError(error);
       return rejectWithValue(medicationError);
@@ -239,7 +256,7 @@ export const addMedication = createAsyncThunk(
         };
         
         // Ensure the response has the new structure
-        return migrateDosageFormat(savedMedication);
+        return convertTimestamps(migrateDosageFormat(savedMedication));
       }
       
       // Normalize medication data for saving (creates legacy dosage if needed)
@@ -260,7 +277,7 @@ export const addMedication = createAsyncThunk(
       };
       
       // Ensure the response has the new structure
-      return migrateDosageFormat(savedMedication);
+      return convertTimestamps(migrateDosageFormat(savedMedication));
     } catch (error: any) {
       const medicationError = handleMedicationError(error);
       return rejectWithValue(medicationError);
@@ -332,7 +349,7 @@ export const updateMedication = createAsyncThunk(
         });
         
         // Return the updates with both new and legacy fields
-        return { id, updates: normalizedUpdates };
+        return convertTimestamps({ id, updates: normalizedUpdates });
       }
       
       // Normalize updates for saving (creates legacy dosage if needed)
@@ -344,7 +361,7 @@ export const updateMedication = createAsyncThunk(
       });
       
       // Return the updates with both new and legacy fields
-      return { id, updates: normalizedUpdates };
+      return convertTimestamps({ id, updates: normalizedUpdates });
     } catch (error: any) {
       const medicationError = handleMedicationError(error);
       return rejectWithValue(medicationError);

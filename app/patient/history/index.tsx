@@ -6,6 +6,7 @@ import {
   ScrollView,
   Alert,
   SafeAreaView,
+  StyleSheet
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,7 +16,6 @@ import { fetchMedications } from "../../../src/store/slices/medicationsSlice";
 import { startIntakesSubscription, stopIntakesSubscription, deleteAllIntakes, updateIntakeStatus } from "../../../src/store/slices/intakesSlice";
 import { IntakeRecord, IntakeStatus } from "../../../src/types";
 import { waitForFirebaseInitialization } from "../../../src/services/firebase";
-// Real-time data is now handled by Redux intakesSlice
 
 type EnrichedIntakeRecord = IntakeRecord & {
   medication?: {
@@ -37,14 +37,12 @@ export default function HistoryScreen() {
 
   const patientId = user?.id;
 
-  // Wait for Firebase initialization before starting subscriptions
   useEffect(() => {
     const initializeApp = async () => {
       try {
         await waitForFirebaseInitialization();
         setIsInitialized(true);
       } catch (error: any) {
-        console.error('[History] Firebase initialization error:', error);
         Alert.alert(
           "Error de Conexión",
           "No se pudo conectar con la base de datos. Por favor, verifica tu conexión a internet e intenta nuevamente.",
@@ -52,11 +50,9 @@ export default function HistoryScreen() {
         );
       }
     };
-
     initializeApp();
   }, []);
 
-  // Subscribe to real-time intakes via Redux slice (server-side ordered)
   useEffect(() => {
     if (!patientId || !isInitialized) return;
     dispatch(startIntakesSubscription(patientId));
@@ -70,8 +66,6 @@ export default function HistoryScreen() {
       dispatch(fetchMedications(patientId));
     }
   }, [patientId, isInitialized, dispatch]);
-
-  // No longer load mock history; real-time subscription via Redux handles updates
 
   const groupHistoryByDate = () => {
     const enriched = intakes.map((record) => {
@@ -110,10 +104,7 @@ export default function HistoryScreen() {
       "Limpiar todos los datos",
       "¿Estás seguro de que quieres limpiar todos los datos del historial? Esta acción no se puede deshacer.",
       [
-        {
-          text: "Cancelar",
-          style: "cancel",
-        },
+        { text: "Cancelar", style: "cancel" },
         {
           text: "Limpiar todo",
           style: "destructive",
@@ -123,7 +114,6 @@ export default function HistoryScreen() {
               const result = await dispatch(deleteAllIntakes(patientId)).unwrap();
               Alert.alert("Éxito", `Se han eliminado ${result.deleted} registros del historial`);
             } catch (error: any) {
-              console.error("Error clearing data:", error);
               const errorMessage = error?.message || "No se pudieron eliminar los datos";
               Alert.alert("Error", errorMessage);
             }
@@ -138,236 +128,104 @@ export default function HistoryScreen() {
       await dispatch(updateIntakeStatus({ id: recordId, status: IntakeStatus.MISSED })).unwrap();
       Alert.alert("Actualizado", "El registro ha sido marcado como olvidado.");
     } catch (error: any) {
-      console.error("Error updating intake status:", error);
       const errorMessage = error?.message || "No se pudo actualizar el estado del registro.";
       Alert.alert("Error", errorMessage);
     }
   };
 
-  const formatTime = (date: Date | string) => {
-    const d = new Date(date);
-    return d.toLocaleTimeString("default", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const formatDate = (date: Date | string) => {
-    const d = new Date(date);
-    return d.toLocaleDateString("default", {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-    });
-  };
+  const formatTime = (date: Date | string) => new Date(date).toLocaleTimeString("default", { hour: "2-digit", minute: "2-digit" });
+  const formatDate = (date: Date | string) => new Date(date).toLocaleDateString("default", { weekday: "long", month: "long", day: "numeric" });
 
   if (loading || !isInitialized) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-100 justify-center items-center">
-        <Text className="text-gray-600">
+      <SafeAreaView style={styles.centered}>
+        <Text style={styles.infoText}>
           {!isInitialized ? "Inicializando aplicación..." : "Cargando historial..."}
         </Text>
       </SafeAreaView>
     );
   }
 
-  // Show error state if there's an error
   if (error) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-100 justify-center items-center px-6">
+      <SafeAreaView style={styles.centered}>
         <Ionicons name="warning-outline" size={48} color="#EF4444" />
-        <Text className="text-red-600 mt-4 text-center font-semibold">
-          Error de Conexión
-        </Text>
-        <Text className="text-gray-600 mt-2 text-center">
-          {error}
-        </Text>
-        <TouchableOpacity
-          className="mt-6 bg-blue-600 px-6 py-3 rounded-lg"
-          onPress={() => {
-            // Reset the initialization state to trigger a retry
-            setIsInitialized(false);
-            // This will trigger the initialization useEffect again
-          }}
-        >
-          <Text className="text-white font-semibold">Reintentar</Text>
+        <Text style={styles.errorTitle}>Error de Conexión</Text>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => setIsInitialized(false)}>
+          <Text style={styles.retryButtonText}>Reintentar</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-100">
-      {/* Header */}
-      <View className="flex-row items-center justify-between bg-white px-4 py-3 border-b border-gray-200">
-        <View className="flex-row items-center">
-          <TouchableOpacity
-            onPress={() => router.back()}
-            className="w-10 h-10 rounded-full bg-gray-200 items-center justify-center mr-3"
-          >
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="chevron-back" size={20} color="#374151" />
           </TouchableOpacity>
-          <Text className="text-2xl font-extrabold text-gray-900">Historial</Text>
+          <Text style={styles.headerTitle}>Historial</Text>
         </View>
       </View>
 
-      {/* Filters */}
-      <View className="px-4 py-3 bg-white border-b border-gray-200">
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="flex-row gap-2"
-        >
+      <View style={styles.filterBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScrollView}>
           <TouchableOpacity
-            className={`px-4 py-2 rounded-full ${
-              selectedFilter === "all"
-                ? "bg-green-600"
-                : "bg-gray-200 border border-gray-300"
-            }`}
+            style={[styles.filterButton, selectedFilter === "all" && styles.filterButtonAll]}
             onPress={() => setSelectedFilter("all")}
-            activeOpacity={selectedFilter === "all" ? 0.8 : 1}
-            accessibilityRole="button"
-            accessibilityLabel="Mostrar todos los registros"
-            accessibilityState={selectedFilter === "all" ? { selected: true } : undefined}
           >
-            <Text
-              className={`font-semibold ${
-                selectedFilter === "all" ? "text-white" : "text-gray-700"
-              }`}
-            >
-              Todos
-            </Text>
+            <Text style={[styles.filterText, selectedFilter === "all" && styles.filterTextSelected]}>Todos</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            className={`px-4 py-2 rounded-full ${
-              selectedFilter === "taken"
-                ? "bg-green-600"
-                : "bg-gray-200 border border-gray-300"
-            }`}
+            style={[styles.filterButton, selectedFilter === "taken" && styles.filterButtonTaken]}
             onPress={() => setSelectedFilter("taken")}
-            activeOpacity={selectedFilter === "taken" ? 0.8 : 1}
-            accessibilityRole="button"
-            accessibilityLabel="Mostrar solo medicamentos tomados"
-            accessibilityState={selectedFilter === "taken" ? { selected: true } : undefined}
           >
-            <Text
-              className={`font-semibold ${
-                selectedFilter === "taken" ? "text-white" : "text-gray-700"
-              }`}
-            >
-              Tomados
-            </Text>
+            <Text style={[styles.filterText, selectedFilter === "taken" && styles.filterTextSelected]}>Tomados</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            className={`px-4 py-2 rounded-full ${
-              selectedFilter === "missed"
-                ? "bg-red-600"
-                : "bg-gray-200 border border-gray-300"
-            }`}
+            style={[styles.filterButton, selectedFilter === "missed" && styles.filterButtonMissed]}
             onPress={() => setSelectedFilter("missed")}
-            activeOpacity={selectedFilter === "missed" ? 0.8 : 1}
-            accessibilityRole="button"
-            accessibilityLabel="Mostrar solo medicamentos olvidados"
-            accessibilityState={selectedFilter === "missed" ? { selected: true } : undefined}
           >
-            <Text
-              className={`font-semibold ${
-                selectedFilter === "missed" ? "text-white" : "text-gray-700"
-              }`}
-            >
-              Olvidados
-            </Text>
+            <Text style={[styles.filterText, selectedFilter === "missed" && styles.filterTextSelected]}>Olvidados</Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
 
-      {/* History List */}
-      <ScrollView className="flex-1 px-4 py-4">
+      <ScrollView style={styles.historyList}>
         {filteredHistory.length === 0 ? (
-          <View className="flex-1 justify-center items-center py-20">
+          <View style={styles.centered}>
             <Ionicons name="time-outline" size={48} color="#9CA3AF" />
-            <Text className="text-gray-500 mt-4 text-center">
-              {selectedFilter === "all"
-                ? "No hay registros en el historial"
-                : selectedFilter === "taken"
-                ? "No hay medicamentos tomados"
-                : "No hay medicamentos olvidados"}
+            <Text style={styles.infoText}>
+              {selectedFilter === "all" ? "No hay registros en el historial" : selectedFilter === "taken" ? "No hay medicamentos tomados" : "No hay medicamentos olvidados"}
             </Text>
           </View>
         ) : (
           groupedHistory.map(([date, records]) => (
-            <View key={date} className="mb-6">
-              <Text className="text-sm font-semibold text-gray-600 mb-3">
-                {formatDate(date)}
-              </Text>
+            <View key={date} style={styles.dateGroup}>
+              <Text style={styles.dateHeader}>{formatDate(date)}</Text>
               {records.map((record) => (
-                <View
-                  key={record.id}
-                  className="bg-white rounded-xl p-4 mb-3 border border-gray-200"
-                >
-                  <View className="flex-row items-center">
-                    {/* Status indicator */}
-                    <View
-                      className={`w-1 h-12 rounded-full mr-3 ${
-                        record.status === IntakeStatus.TAKEN
-                          ? "bg-green-500"
-                          : "bg-red-500"
-                      }`}
-                    />
-                    
-                    {/* Medication info */}
-                    <View className="flex-1">
-                      <Text className="font-semibold text-gray-900 text-base">
-                        {record.medication?.name || record.medicationName}
-                      </Text>
-                      <Text className="text-gray-600 text-sm">
-                        {record.medication?.dosage || record.dosage}
-                      </Text>
-                      <Text className="text-gray-500 text-sm">
-                        {formatTime(record.scheduledTime)}
-                      </Text>
+                <View key={record.id} style={styles.recordCard}>
+                  <View style={styles.recordMain}>
+                    <View style={[styles.statusIndicator, record.status === IntakeStatus.TAKEN ? styles.statusTaken : styles.statusMissed]} />
+                    <View style={styles.recordDetails}>
+                      <Text style={styles.medName}>{record.medication?.name || record.medicationName}</Text>
+                      <Text style={styles.medDosage}>{record.medication?.dosage || record.dosage}</Text>
+                      <Text style={styles.medTime}>{formatTime(record.scheduledTime)}</Text>
                     </View>
-                    
-                    {/* Status badge */}
-                    <View
-                      className={`px-3 py-1 rounded-full flex-row items-center ${
-                        record.status === IntakeStatus.TAKEN
-                          ? "bg-green-100"
-                          : "bg-red-100"
-                      }`}
-                    >
-                      <Ionicons
-                        name={record.status === IntakeStatus.TAKEN ? "checkmark-circle" : "close-circle"}
-                        size={16}
-                        color={record.status === IntakeStatus.TAKEN ? "#10B981" : "#EF4444"}
-                      />
-                      <Text
-                        className={`ml-1 text-sm font-medium ${
-                          record.status === IntakeStatus.TAKEN ? "text-green-700" : "text-red-700"
-                        }`}
-                      >
+                    <View style={[styles.statusBadge, record.status === IntakeStatus.TAKEN ? styles.badgeTaken : styles.badgeMissed]}>
+                      <Ionicons name={record.status === IntakeStatus.TAKEN ? "checkmark-circle" : "close-circle"} size={16} color={record.status === IntakeStatus.TAKEN ? "#10B981" : "#EF4444"} />
+                      <Text style={[styles.badgeText, record.status === IntakeStatus.TAKEN ? styles.textTaken : styles.textMissed]}>
                         {record.status === IntakeStatus.TAKEN ? "Tomado" : "Olvidado"}
                       </Text>
                     </View>
                   </View>
-                  
-                  {/* Taken time if available */}
-                  {record.takenAt && (
-                    <Text className="text-gray-500 text-xs mt-2 ml-4">
-                      Tomado a las {formatTime(record.takenAt)}
-                    </Text>
-                  )}
-
-                  {/* Actions */}
+                  {record.takenAt && <Text style={styles.takenAtText}>Tomado a las {formatTime(record.takenAt)}</Text>}
                   {record.status !== IntakeStatus.MISSED && (
-                    <View className="flex-row justify-end mt-3">
-                      <TouchableOpacity
-                        className="px-3 py-1 rounded-full border border-red-300"
-                        onPress={() => handleMarkAsMissed(record.id)}
-                      >
-                        <Text className="text-red-600 font-semibold text-sm">
-                          Marcar como olvidado
-                        </Text>
+                    <View style={styles.recordActions}>
+                      <TouchableOpacity style={styles.missedButton} onPress={() => handleMarkAsMissed(record.id)}>
+                        <Text style={styles.missedButtonText}>Marcar como olvidado</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -376,18 +234,11 @@ export default function HistoryScreen() {
             </View>
           ))
         )}
-
-        {/* Clear data button */}
         {intakes.length > 0 && (
-          <View className="py-6">
-            <TouchableOpacity
-              className="bg-red-50 border border-red-200 rounded-xl p-4 flex-row items-center justify-center"
-              onPress={handleClearAllData}
-            >
+          <View style={styles.clearAllSection}>
+            <TouchableOpacity style={styles.clearAllButton} onPress={handleClearAllData}>
               <Ionicons name="trash-outline" size={20} color="#EF4444" />
-              <Text className="text-red-600 font-semibold ml-2">
-                Limpiar todo el historial
-              </Text>
+              <Text style={styles.clearAllText}>Limpiar todo el historial</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -395,3 +246,50 @@ export default function HistoryScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+    centered: { flex: 1, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', padding: 24 },
+    infoText: { color: '#4B5563', marginTop: 16, textAlign: 'center' },
+    errorTitle: { color: '#B91C1C', marginTop: 16, textAlign: 'center', fontWeight: '600' },
+    errorText: { color: '#4B5563', marginTop: 8, textAlign: 'center' },
+    retryButton: { marginTop: 24, backgroundColor: '#3B82F6', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
+    retryButtonText: { color: 'white', fontWeight: '600' },
+    container: { flex: 1, backgroundColor: '#F3F4F6' },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+    headerLeft: { flexDirection: 'row', alignItems: 'center' },
+    backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+    headerTitle: { fontSize: 24, fontWeight: '800', color: '#111827' },
+    filterBar: { paddingHorizontal: 16, paddingVertical: 12, backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+    filterScrollView: { gap: 8 },
+    filterButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#D1D5DB', backgroundColor: '#F3F4F6' },
+    filterButtonAll: { backgroundColor: '#16A34A', borderColor: '#16A34A' },
+    filterButtonTaken: { backgroundColor: '#16A34A', borderColor: '#16A34A' },
+    filterButtonMissed: { backgroundColor: '#DC2626', borderColor: '#DC2626' },
+    filterText: { fontWeight: '600', color: '#374151' },
+    filterTextSelected: { color: 'white' },
+    historyList: { flex: 1, padding: 16 },
+    dateGroup: { marginBottom: 24 },
+    dateHeader: { fontSize: 14, fontWeight: '600', color: '#4B5563', marginBottom: 12 },
+    recordCard: { backgroundColor: 'white', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#E5E7EB' },
+    recordMain: { flexDirection: 'row', alignItems: 'center' },
+    statusIndicator: { width: 4, height: 48, borderRadius: 2, marginRight: 12 },
+    statusTaken: { backgroundColor: '#22C55E' },
+    statusMissed: { backgroundColor: '#EF4444' },
+    recordDetails: { flex: 1 },
+    medName: { fontWeight: '600', color: '#111827', fontSize: 16 },
+    medDosage: { color: '#4B5563', fontSize: 14 },
+    medTime: { color: '#6B7280', fontSize: 14 },
+    statusBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 16, flexDirection: 'row', alignItems: 'center' },
+    badgeTaken: { backgroundColor: '#D1FAE5' },
+    badgeMissed: { backgroundColor: '#FEE2E2' },
+    badgeText: { marginLeft: 4, fontSize: 14, fontWeight: '500' },
+    textTaken: { color: '#065F46' },
+    textMissed: { color: '#991B1B' },
+    takenAtText: { color: '#6B7280', fontSize: 12, marginTop: 8, marginLeft: 16 },
+    recordActions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 },
+    missedButton: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 16, borderWidth: 1, borderColor: '#FCA5A5' },
+    missedButtonText: { color: '#B91C1C', fontWeight: '600', fontSize: 14 },
+    clearAllSection: { paddingVertical: 24 },
+    clearAllButton: { backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA', borderRadius: 12, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+    clearAllText: { color: '#B91C1C', fontWeight: '600', marginLeft: 8 },
+});

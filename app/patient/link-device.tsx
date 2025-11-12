@@ -28,6 +28,7 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: '#D1D5DB', backgroundColor: '#FAFAFA' },
   chipActive: { borderColor: '#007AFF', backgroundColor: '#E6F0FF' },
+  chipText: { color: '#1C1C1E' },
   swatchesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   swatch: { width: 24, height: 24, borderRadius: 12, borderWidth: 1, borderColor: '#D1D5DB' },
   controlRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -313,10 +314,10 @@ export default function LinkDeviceScreen() {
                       {['off', 'sound', 'led', 'both'].map((mode) => (
                         <Button
                           key={mode}
-                          className={`chip ${stats?.alarmMode === mode ? 'chipActive' : ''}`}
+                          style={[styles.chip, stats?.alarmMode === mode ? styles.chipActive : null]}
                           onPress={() => setAlarmMode(id, mode as any)}
                         >
-                          <Text style={{ color: '#1C1C1E' }}>
+                          <Text style={styles.chipText}>
                             {mode === 'off' ? 'Apagado' : mode === 'sound' ? 'Sonido' : mode === 'led' ? 'Luz' : 'Ambos'}
                           </Text>
                         </Button>

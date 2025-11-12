@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Text, View, FlatList, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { Text, View, FlatList, TextInput, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
@@ -46,13 +46,12 @@ export default function ChatScreen() {
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isCaregiver = item.senderId === user?.id;
-    // Convert Firestore Timestamp to JS Date for display if needed
     const messageDate = item.createdAt instanceof Timestamp ? item.createdAt.toDate() : new Date();
 
     return (
-      <View className={`p-3 m-2 rounded-lg max-w-[80%] ${isCaregiver ? 'bg-blue-500 self-end' : 'bg-white self-start'}`}>
-        <Text className={`${isCaregiver ? 'text-white' : 'text-black'}`}>{item.text}</Text>
-        <Text className={`text-xs mt-1 ${isCaregiver ? 'text-blue-100' : 'text-gray-500'} self-end`}>
+      <View style={[styles.messageContainer, isCaregiver ? styles.caregiverMessage : styles.patientMessage]}>
+        <Text style={isCaregiver ? styles.caregiverText : styles.patientText}>{item.text}</Text>
+        <Text style={[styles.timestamp, isCaregiver ? styles.caregiverTimestamp : styles.patientTimestamp]}>
           {messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </Text>
       </View>
@@ -60,25 +59,84 @@ export default function ChatScreen() {
   };
 
   return (
-    <View className="flex-1 bg-gray-100">
+    <View style={styles.container}>
       <FlatList
         data={messages}
         keyExtractor={(item) => item.id}
         renderItem={renderMessage}
         inverted
-        className="p-2"
+        style={styles.list}
       />
-      <View className="flex-row items-center p-2 border-t border-gray-200 bg-white">
+      <View style={styles.inputContainer}>
         <TextInput
           placeholder="Escribe un mensaje..."
           value={newMessage}
           onChangeText={setNewMessage}
-          className="flex-1 bg-gray-200 rounded-full px-4 py-2"
+          style={styles.input}
         />
-        <TouchableOpacity onPress={handleSend} className="ml-2">
+        <TouchableOpacity onPress={handleSend} style={styles.sendButton}>
           <Ionicons name="send" size={24} color="#3b82f6" />
         </TouchableOpacity>
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+  },
+  list: {
+    padding: 8,
+  },
+  messageContainer: {
+    padding: 12,
+    marginVertical: 4,
+    borderRadius: 8,
+    maxWidth: '80%',
+  },
+  caregiverMessage: {
+    backgroundColor: '#3B82F6',
+    alignSelf: 'flex-end',
+  },
+  patientMessage: {
+    backgroundColor: '#FFFFFF',
+    alignSelf: 'flex-start',
+  },
+  caregiverText: {
+    color: '#FFFFFF',
+  },
+  patientText: {
+    color: '#000000',
+  },
+  timestamp: {
+    fontSize: 10,
+    marginTop: 4,
+    alignSelf: 'flex-end',
+  },
+  caregiverTimestamp: {
+    color: '#DBEAFE',
+  },
+  patientTimestamp: {
+    color: '#6B7280',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+  },
+  input: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  sendButton: {
+    marginLeft: 8,
+  },
+});

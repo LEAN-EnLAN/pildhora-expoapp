@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, Text, TextStyle } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
 
 interface ButtonProps {
   children: React.ReactNode;
@@ -7,7 +7,7 @@ interface ButtonProps {
   variant?: 'primary' | 'secondary' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   disabled?: boolean;
-  className?: string;
+  style?: ViewStyle;
 }
 
 export const Button: React.FC<ButtonProps> = ({ 
@@ -16,41 +16,86 @@ export const Button: React.FC<ButtonProps> = ({
   variant = 'primary', 
   size = 'md', 
   disabled = false,
-  className = "" 
+  style
 }) => {
-  const baseClasses = "rounded-xl justify-center items-center";
-  const variantClasses = {
-    primary: "bg-blue-500",
-    secondary: "bg-gray-200",
-    danger: "bg-red-500"
-  };
-  const sizeClasses = {
-    sm: "px-3 py-2",
-    md: "px-4 py-3",
-    lg: "px-5 py-4"
-  };
-  const textClasses = {
-    primary: "text-white",
-    secondary: "text-gray-800",
-    danger: "text-white"
-  };
-  const textSizeClasses = {
-    sm: "text-base",
-    md: "text-lg",
-    lg: "text-xl"
-  };
+  const buttonStyle = [
+    styles.base,
+    styles[variant],
+    styles[size],
+    disabled && styles.disabled,
+    style
+  ];
+
+  const textStyle = [
+    styles.text,
+    styles[`${variant}Text`],
+    styles[`${size}Text`]
+  ];
   
   const content = typeof children === 'string'
-    ? <Text className={`${textClasses[variant]} ${textSizeClasses[size]} font-semibold`}>{children}</Text>
+    ? <Text style={textStyle}>{children}</Text>
     : children;
 
   return (
     <TouchableOpacity
       onPress={onPress}
       disabled={disabled}
-      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${disabled ? 'opacity-50' : ''} ${className}`}
+      style={buttonStyle}
     >
       {content}
     </TouchableOpacity>
   );
 };
+
+const styles = StyleSheet.create({
+  base: {
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  primary: {
+    backgroundColor: '#007AFF',
+  },
+  secondary: {
+    backgroundColor: '#E5E7EB',
+  },
+  danger: {
+    backgroundColor: '#FF3B30',
+  },
+  sm: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  md: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  lg: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  disabled: {
+    opacity: 0.5,
+  },
+  text: {
+    fontWeight: '600',
+  },
+  primaryText: {
+    color: '#FFFFFF',
+  },
+  secondaryText: {
+    color: '#1F2937',
+  },
+  dangerText: {
+    color: '#FFFFFF',
+  },
+  smText: {
+    fontSize: 16,
+  },
+  mdText: {
+    fontSize: 18,
+  },
+  lgText: {
+    fontSize: 20,
+  },
+});

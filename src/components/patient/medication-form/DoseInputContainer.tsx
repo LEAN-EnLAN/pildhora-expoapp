@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, TextInput, Modal, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, Modal, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { DOSE_UNITS } from '../../../types';
 import { Button } from '../../ui/Button';
@@ -59,41 +59,41 @@ export default function DoseInputContainer({
   };
 
   return (
-    <View className="mb-4">
-      <Text className="text-lg font-bold mb-2 text-gray-800">Dosis</Text>
-      <View className="flex-row gap-2">
-        <View className="flex-1">
+    <View style={styles.container}>
+      <Text style={styles.title}>Dosis</Text>
+      <View style={styles.inputRow}>
+        <View style={styles.flex1}>
           <TextInput
-            className={`border rounded-lg p-3 bg-white text-base h-12 ${doseValueError ? 'border-red-500' : 'border-gray-300'}`}
+            style={[styles.textInput, doseValueError ? styles.inputError : styles.inputBorder]}
             placeholder="500"
             value={doseValue}
             onChangeText={handleDoseValueChange}
             keyboardType="numeric"
           />
-          {doseValueError && <Text className="text-red-500 mt-1">{doseValueError}</Text>}
+          {doseValueError && <Text style={styles.errorText}>{doseValueError}</Text>}
         </View>
         
-        <View className="flex-1.5">
+        <View style={styles.flex1_5}>
           <Button
             onPress={() => setShowUnitPicker(true)}
-            className={`h-12 justify-center ${doseUnitError ? 'border-red-500' : 'border-gray-300'}`}
+            style={[styles.unitButton, doseUnitError ? styles.inputError : styles.inputBorder]}
             variant="secondary"
           >
-            <View className="flex-row justify-between items-center w-full">
-              <Text className={`text-base ${doseUnit ? 'text-gray-800' : 'text-gray-400'}`}>
+            <View style={styles.unitButtonContent}>
+              <Text style={[styles.unitButtonText, doseUnit ? styles.textGray800 : styles.textGray400]}>
                 {getSelectedUnitLabel()}
               </Text>
               <Ionicons name="chevron-down" size={20} color="#6B7280" />
             </View>
           </Button>
-          {doseUnitError && <Text className="text-red-500 mt-1">{doseUnitError}</Text>}
+          {doseUnitError && <Text style={styles.errorText}>{doseUnitError}</Text>}
         </View>
       </View>
       
       {showCustomUnit && (
-        <View className="mt-2">
+        <View style={styles.marginTop2}>
           <TextInput
-            className="border border-gray-300 rounded-lg p-3 bg-white text-base h-12"
+            style={styles.textInput}
             placeholder="Ingrese unidad personalizada"
             value={customUnit}
             onChangeText={setCustomUnit}
@@ -108,19 +108,19 @@ export default function DoseInputContainer({
         animationType="slide"
         onRequestClose={() => setShowUnitPicker(false)}
       >
-        <View className="flex-1 bg-black/50 justify-center items-center p-4">
-          <Card className="w-full max-w-md max-h-[80%]">
-            <Text className="text-xl font-bold mb-4 text-center">Seleccionar Unidad</Text>
-            <ScrollView className="mb-4">
+        <View style={styles.modalContainer}>
+          <Card style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Seleccionar Unidad</Text>
+            <ScrollView style={styles.marginBottom4}>
               {DOSE_UNITS.map((unit) => (
                 <Button
                   key={unit.id}
                   onPress={() => handleUnitChange(unit.id)}
-                  className={`mb-2 ${doseUnit === unit.id ? 'bg-blue-100' : 'bg-gray-50'}`}
+                  style={[styles.unitOptionButton, doseUnit === unit.id ? styles.selectedUnit : styles.unselectedUnit]}
                   variant="secondary"
                 >
-                  <View className="flex-row justify-between items-center w-full">
-                    <Text className="text-gray-800">{unit.label}</Text>
+                  <View style={styles.unitOptionContent}>
+                    <Text style={styles.textGray800}>{unit.label}</Text>
                     {doseUnit === unit.id && (
                       <Ionicons name="checkmark" size={20} color="#3B82F6" />
                     )}
@@ -140,3 +140,101 @@ export default function DoseInputContainer({
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#1F2937',
+  },
+  inputRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  flex1: {
+    flex: 1,
+  },
+  flex1_5: {
+    flex: 1.5,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    backgroundColor: '#FFFFFF',
+    fontSize: 16,
+    height: 48,
+  },
+  inputError: {
+    borderColor: '#EF4444',
+  },
+  inputBorder: {
+    borderColor: '#D1D5DB',
+  },
+  errorText: {
+    color: '#EF4444',
+    marginTop: 4,
+  },
+  unitButton: {
+    height: 48,
+    justifyContent: 'center',
+  },
+  unitButtonContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+  },
+  unitButtonText: {
+    fontSize: 16,
+  },
+  textGray800: {
+    color: '#1F2937',
+  },
+  textGray400: {
+    color: '#9CA3AF',
+  },
+  marginTop2: {
+    marginTop: 8,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  marginBottom4: {
+    marginBottom: 16,
+  },
+  unitOptionButton: {
+    marginBottom: 8,
+  },
+  selectedUnit: {
+    backgroundColor: '#DBEAFE',
+  },
+  unselectedUnit: {
+    backgroundColor: '#F9FAFB',
+  },
+  unitOptionContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+  },
+});

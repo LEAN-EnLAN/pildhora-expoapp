@@ -3,8 +3,6 @@ module.exports = function (api) {
   return {
     presets: ["babel-preset-expo"],
     plugins: [
-      // NativeWind plugin MUST come first for proper transformation
-      'nativewind/babel',
       // Add module resolver plugin to handle import aliases
       [
         'module-resolver',
