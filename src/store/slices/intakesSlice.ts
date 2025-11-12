@@ -313,7 +313,8 @@ export const updateIntakeStatus = createAsyncThunk(
         status,
         takenAt: status === IntakeStatus.TAKEN ? (takenAt || new Date()) : null,
       });
-      return { id, status, takenAt: status === IntakeStatus.TAKEN ? (takenAt || new Date()).toISOString() : null };
+      const updatedTakenAt = status === IntakeStatus.TAKEN ? (takenAt || new Date()).toISOString() : null;
+      return { id, status, takenAt: updatedTakenAt };
     } catch (error: any) {
       const intakeError = handleIntakeError(error);
       return rejectWithValue(intakeError);

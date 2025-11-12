@@ -314,7 +314,7 @@ export default function LinkDeviceScreen() {
                       {['off', 'sound', 'led', 'both'].map((mode) => (
                         <Button
                           key={mode}
-                          style={Object.assign({}, styles.chip, stats?.alarmMode === mode ? styles.chipActive : {})}
+                          style={[styles.chip, stats?.alarmMode === mode ? styles.chipActive : null]}
                           onPress={() => setAlarmMode(id, mode as any)}
                         >
                           <Text style={styles.chipText}>

@@ -57,7 +57,7 @@ export default function ReportsScreen() {
         caregiverId: user.id,
       });
 
-      // Data will be updated automatically through the real-time listener
+      mutate();
       Alert.alert("Éxito", "El reporte se ha subido correctamente.");
 
     } catch (error) {
