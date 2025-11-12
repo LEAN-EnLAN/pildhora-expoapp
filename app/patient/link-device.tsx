@@ -44,6 +44,7 @@ const styles = StyleSheet.create({
 
 type DeviceStatsLocal = Record<string, {
   battery: number | null;
+  status: string | null;
   alarmMode: 'off' | 'sound' | 'led' | 'both';
   ledIntensity: number;
   ledColor: [number, number, number];
@@ -127,9 +128,19 @@ export default function LinkDeviceScreen() {
             const parsed = parseFloat(rawBattery);
             battery = isNaN(parsed) ? null : Math.round(parsed);
           }
-          statsMap[id] = { battery, alarmMode, ledIntensity, ledColor: ledColorArr, saving: false, saveError: null };
+          let status: string | null = null;
+          try {
+            const rdbInst = await getRdbInstance();
+            if (rdbInst) {
+              const snap = await get(ref(rdbInst, `devices/${id}/status`));
+              status = snap.val() || 'N/D';
+            }
+          } catch (e) {
+            console.error('Error fetching status from RTDB', e);
+          }
+          statsMap[id] = { battery, status, alarmMode, ledIntensity, ledColor: ledColorArr, saving: false, saveError: null };
         } catch (e) {
-          statsMap[id] = { battery: null, alarmMode: 'off', ledIntensity: 512, ledColor: [255, 0, 0], saving: false, saveError: 'No se pudo leer datos del dispositivo (Firestore).' };
+          statsMap[id] = { battery: null, status: null, alarmMode: 'off', ledIntensity: 512, ledColor: [255, 0, 0], saving: false, saveError: 'No se pudo leer datos del dispositivo (Firestore).' };
         }
       }
       setDeviceStats(statsMap);
@@ -186,6 +197,18 @@ export default function LinkDeviceScreen() {
       setError(e.message || 'No se pudo enlazar el dispositivo');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDispense = async (id: string) => {
+    try {
+      const rdb = await getRdbInstance();
+      if (!rdb) {
+        throw new Error('Realtime Database not available');
+      }
+      await set(ref(rdb, `devices/${id}/dispense`), true);
+    } catch (e: any) {
+      setError(e.message || 'No se pudo dispensar');
     }
   };
 
@@ -346,6 +369,10 @@ export default function LinkDeviceScreen() {
                     <Text style={styles.infoText}>Batería</Text>
                     <Text style={{ fontWeight: '600', color: '#1C1C1E' }}>{stats?.battery != null ? `${stats?.battery}%` : 'N/D'}</Text>
                   </View>
+                  <View style={styles.statsRow}>
+                    <Text style={styles.infoText}>Estado</Text>
+                    <Text style={{ fontWeight: '600', color: '#1C1C1E' }}>{stats?.status ?? 'N/D'}</Text>
+                  </View>
                   <View>
                     <Text style={styles.infoText}>Modo de alarma</Text>
                     <View style={styles.chipRow}>
@@ -414,6 +441,9 @@ export default function LinkDeviceScreen() {
                     </Button>
                   </View>
                   {stats?.saveError ? <Text style={{ color: '#FF3B30' }}>{stats?.saveError}</Text> : null}
+                </View>
+                <View style={{ marginTop: 16 }}>
+                  <Button onPress={() => handleDispense(id)}>Dispensar</Button>
                 </View>
               </View>
             );

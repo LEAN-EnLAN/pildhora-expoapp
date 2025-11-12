@@ -17,12 +17,15 @@
     "devices": {
       "$deviceID": {
         "state": {
-          ".read": "auth != null && root.child('users').child(auth.uid).child('devices').child($deviceID).val() === true",
           ".write": false
         },
-        "config": {
-          ".read": "auth != null && root.child('users').child(auth.uid).child('devices').child($deviceID).val() === true",
-          ".write": "auth != null && root.child('users').child(auth.uid).child('devices').child($deviceID).val() === true"
+        "dispense": {
+            ".read": "auth != null && root.child('users').child(auth.uid).child('devices').child($deviceID).val() === true",
+            ".write": "auth != null && root.child('users').child(auth.uid).child('devices').child($deviceID).val() === true"
+        },
+        "status": {
+            ".read": "auth != null && root.child('users').child(auth.uid).child('devices').child($deviceID).val() === true",
+            ".write": "auth != null"
         }
       }
     },
