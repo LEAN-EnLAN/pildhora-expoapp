@@ -133,8 +133,12 @@ export default function LinkDeviceScreen() {
           try {
             const rdbInst = await getRdbInstance();
             if (rdbInst) {
-              const snap = await get(ref(rdbInst, `devices/${id}/status`));
-              status = snap.val() || 'N/D';
+              const snap = await get(ref(rdbInst, `devices/${id}/state`));
+              const stateVal = snap.val() || {};
+              status = stateVal?.current_status || 'N/D';
+              if (typeof stateVal?.battery_level === 'number') {
+                battery = Math.round(stateVal.battery_level);
+              }
             }
           } catch (e) {
             console.error('Error fetching status from RTDB', e);

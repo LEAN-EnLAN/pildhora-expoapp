@@ -11,9 +11,11 @@ import { fetchMedications } from '../../src/store/slices/medicationsSlice';
 import { startIntakesSubscription, stopIntakesSubscription } from '../../src/store/slices/intakesSlice';
 import AdherenceProgressChart from '../../src/components/AdherenceProgressChart';
 import { Card, Button } from '../../src/components/ui';
+import { startDeviceListener, stopDeviceListener } from '../../src/store/slices/deviceSlice';
 import { Medication, DoseSegment, IntakeStatus } from '../../src/types';
-import { getDbInstance } from '../../src/services/firebase';
+import { getDbInstance, getRdbInstance } from '../../src/services/firebase';
 import { addDoc, collection, Timestamp } from 'firebase/firestore';
+import { ref, get as rdbGet } from 'firebase/database';
 
 const DAY_ABBREVS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const getTodayAbbrev = () => DAY_ABBREVS[new Date().getDay()];
@@ -49,6 +51,7 @@ export default function PatientHome() {
   const { medications, loading } = useSelector((state: RootState) => state.medications);
   const { intakes } = useSelector((state: RootState) => state.intakes);
   const deviceSlice = useSelector((state: RootState) => (state as any).device);
+  const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null);
 
   const displayName = user?.name || (user?.email ? user.email.split('@')[0] : 'Paciente');
   const patientId = user?.id;
@@ -68,6 +71,31 @@ export default function PatientHome() {
       }
     };
   }, [patientId, dispatch]);
+
+  useEffect(() => {
+    const initDevice = async () => {
+      try {
+        if (!patientId) return;
+        const rdb = await getRdbInstance();
+        if (!rdb) return;
+        const snap = await rdbGet(ref(rdb, `users/${patientId}/devices`));
+        const val = snap.val() || {};
+        const ids = Object.keys(val);
+        if (ids.length) {
+          setActiveDeviceId(ids[0]);
+          if (!deviceSlice?.listening) {
+            dispatch(startDeviceListener(ids[0]));
+          }
+        }
+      } catch {}
+    };
+    initDevice();
+    return () => {
+      if (deviceSlice?.listening) {
+        dispatch(stopDeviceListener());
+      }
+    };
+  }, [patientId]);
 
   const adherencePercentage = useMemo(() => {
     const todaysMeds = medications.filter(isScheduledToday);
@@ -254,6 +282,21 @@ export default function PatientHome() {
                 </View>
               </View>
             </View>
+
+            {deviceSlice?.state ? (
+              <View style={styles.contentPadding}>
+                <Card>
+                  <Text style={styles.cardTitle}>Mi dispositivo</Text>
+                  <View style={styles.upcomingContainer}>
+                    <View>
+                      <Text style={styles.upcomingMedInfo}>Estado: {deviceSlice.state.current_status || 'N/D'}</Text>
+                      <Text style={styles.upcomingMedInfo}>Batería: {typeof deviceSlice.state.battery_level === 'number' ? `${deviceSlice.state.battery_level}%` : 'N/D'}</Text>
+                      <Text style={styles.upcomingMedInfo}>Conexión: {deviceSlice.state.is_online ? 'En línea' : 'Desconectado'}</Text>
+                    </View>
+                  </View>
+                </Card>
+              </View>
+            ) : null}
           </View>
         </Modal>
       )}
