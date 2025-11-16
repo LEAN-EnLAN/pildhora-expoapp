@@ -1,5 +1,5 @@
 import { getAuthInstance, getDbInstance, getRdbInstance } from './firebase';
-import { doc, setDoc, deleteDoc, serverTimestamp, collection, query, where, getDocs, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { ref, set, remove } from 'firebase/database';
 
 // Error types for better error handling
@@ -26,11 +26,12 @@ function validateDeviceId(deviceId: string): void {
     );
   }
 
-  if (deviceId.trim().length < 3) {
+  // Requirement 1.2: Minimum 5 characters for device ID
+  if (deviceId.trim().length < 5) {
     throw new DeviceLinkingError(
-      'Invalid device ID: must be at least 3 characters',
+      'Invalid device ID: must be at least 5 characters',
       'DEVICE_ID_TOO_SHORT',
-      'El ID del dispositivo debe tener al menos 3 caracteres.',
+      'El ID del dispositivo debe tener al menos 5 caracteres.',
       false
     );
   }
@@ -204,15 +205,20 @@ function handleFirebaseError(error: any, operation: string): never {
 }
 
 /**
- * Link a device to the authenticated user by updating the mapping under users/{uid}/devices.
- * Note: Writing devices/{deviceID}/ownerUserId should be done server-side for security.
- * The Cloud Function will resolve ownership by scanning users/{uid}/devices.
+ * Link a device to the authenticated user by creating a deviceLink document in Firestore
+ * and updating the mapping under users/{uid}/devices in RTDB.
+ * 
+ * Requirements 1.2, 1.3:
+ * - Validates deviceID input (minimum 5 characters)
+ * - Creates deviceLink document in Firestore
+ * - Updates RTDB users/{uid}/devices node
+ * - Handles linking errors with user-friendly messages
  */
 export async function linkDeviceToUser(userId: string, deviceId: string): Promise<void> {
   console.log('[DeviceLinking] linkDeviceToUser called', { userId, deviceId: deviceId.substring(0, 8) + '...' });
   
   try {
-    // Input validation
+    // Input validation (includes minimum 5 character check)
     validateUserId(userId);
     validateDeviceId(deviceId);
     
@@ -220,7 +226,18 @@ export async function linkDeviceToUser(userId: string, deviceId: string): Promis
     await validateAuthentication(userId);
     
     // Get Firebase instances
+    const db = await getDbInstance();
     const rdb = await getRdbInstance();
+    
+    if (!db) {
+      throw new DeviceLinkingError(
+        'Firebase Firestore not initialized',
+        'FIRESTORE_NOT_INITIALIZED',
+        'Error de conexión. Por favor, reinicia la aplicación.',
+        true
+      );
+    }
+    
     if (!rdb) {
       throw new DeviceLinkingError(
         'Firebase Realtime Database not initialized',
@@ -230,7 +247,78 @@ export async function linkDeviceToUser(userId: string, deviceId: string): Promis
       );
     }
     
-    // Write to RTDB with retry logic
+    // Get user role to determine if this is a patient or caregiver
+    const userDoc = await retryOperation(async () => {
+      const docRef = doc(db, 'users', userId);
+      return await getDoc(docRef);
+    });
+    
+    if (!userDoc.exists()) {
+      throw new DeviceLinkingError(
+        'User document not found',
+        'USER_NOT_FOUND',
+        'No se encontró el usuario. Por favor, cierra sesión e inicia sesión nuevamente.',
+        false
+      );
+    }
+    
+    const userData = userDoc.data();
+    const userRole = userData?.role as 'patient' | 'caregiver' | undefined;
+    
+    if (!userRole || (userRole !== 'patient' && userRole !== 'caregiver')) {
+      throw new DeviceLinkingError(
+        'Invalid user role',
+        'INVALID_USER_ROLE',
+        'Rol de usuario no válido. Por favor, contacta al soporte.',
+        false
+      );
+    }
+    
+    // If this is a patient, persist the linked deviceId on the user document
+    // so caregiver dashboards can look up patients by deviceId.
+    if (userRole === 'patient') {
+      await retryOperation(async () => {
+        console.log('[DeviceLinking] Updating patient user with deviceId', { userId, deviceId });
+        await setDoc(
+          doc(db, 'users', userId),
+          { deviceId },
+          { merge: true }
+        );
+      });
+    }
+
+    // Check if device link already exists
+    const deviceLinkId = `${deviceId}_${userId}`;
+    const deviceLinkRef = doc(db, 'deviceLinks', deviceLinkId);
+    
+    const existingLink = await retryOperation(async () => {
+      return await getDoc(deviceLinkRef);
+    });
+    
+    if (existingLink.exists() && existingLink.data()?.status === 'active') {
+      throw new DeviceLinkingError(
+        'Device already linked to this user',
+        'ALREADY_LINKED',
+        'Este dispositivo ya está vinculado a tu cuenta.',
+        false
+      );
+    }
+    
+    // Create deviceLink document in Firestore
+    await retryOperation(async () => {
+      console.log('[DeviceLinking] Creating deviceLink document:', deviceLinkId);
+      await setDoc(deviceLinkRef, {
+        deviceId: deviceId,
+        userId: userId,
+        role: userRole,
+        status: 'active',
+        linkedAt: serverTimestamp(),
+        linkedBy: userId,
+      });
+      console.log('[DeviceLinking] Successfully created deviceLink document');
+    });
+    
+    // Update RTDB users/{uid}/devices node
     const deviceRef = ref(rdb, `users/${userId}/devices/${deviceId}`);
     
     await retryOperation(async () => {
@@ -239,7 +327,7 @@ export async function linkDeviceToUser(userId: string, deviceId: string): Promis
       console.log('[DeviceLinking] Successfully wrote device link to RTDB');
     });
     
-    // The Cloud Function will handle mirroring this to Firestore
+    console.log('[DeviceLinking] Device linking completed successfully');
   } catch (error: any) {
     handleFirebaseError(error, 'linkDeviceToUser');
   }
@@ -317,7 +405,8 @@ export async function checkDevelopmentRuleStatus(): Promise<void> {
 }
 
 /**
- * Unlink a device from the user by removing the mapping.
+ * Unlink a device from the user by removing the deviceLink document from Firestore
+ * and removing the mapping from RTDB.
  */
 export async function unlinkDeviceFromUser(userId: string, deviceId: string): Promise<void> {
   console.log('[DeviceLinking] unlinkDeviceFromUser called', { userId, deviceId: deviceId.substring(0, 8) + '...' });
@@ -331,7 +420,18 @@ export async function unlinkDeviceFromUser(userId: string, deviceId: string): Pr
     await validateAuthentication(userId);
     
     // Get Firebase instances
+    const db = await getDbInstance();
     const rdb = await getRdbInstance();
+    
+    if (!db) {
+      throw new DeviceLinkingError(
+        'Firebase Firestore not initialized',
+        'FIRESTORE_NOT_INITIALIZED',
+        'Error de conexión. Por favor, reinicia la aplicación.',
+        true
+      );
+    }
+    
     if (!rdb) {
       throw new DeviceLinkingError(
         'Firebase Realtime Database not initialized',
@@ -341,7 +441,17 @@ export async function unlinkDeviceFromUser(userId: string, deviceId: string): Pr
       );
     }
     
-    // Remove the device from RTDB with retry logic
+    // Remove deviceLink document from Firestore
+    const deviceLinkId = `${deviceId}_${userId}`;
+    const deviceLinkRef = doc(db, 'deviceLinks', deviceLinkId);
+    
+    await retryOperation(async () => {
+      console.log('[DeviceLinking] Removing deviceLink document:', deviceLinkId);
+      await deleteDoc(deviceLinkRef);
+      console.log('[DeviceLinking] Successfully removed deviceLink document');
+    });
+    
+    // Remove the device from RTDB
     const deviceRef = ref(rdb, `users/${userId}/devices/${deviceId}`);
     
     await retryOperation(async () => {
@@ -350,7 +460,7 @@ export async function unlinkDeviceFromUser(userId: string, deviceId: string): Pr
       console.log('[DeviceLinking] Successfully removed device link from RTDB');
     });
     
-    // The Cloud Function will handle updating the mirrored Firestore document
+    console.log('[DeviceLinking] Device unlinking completed successfully');
   } catch (error: any) {
     handleFirebaseError(error, 'unlinkDeviceFromUser');
   }

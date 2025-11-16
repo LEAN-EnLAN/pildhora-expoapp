@@ -346,28 +346,40 @@ export class InventoryService {
    * Parse dose amount from medication data
    * @param medication - The medication object
    * @returns The numeric dose amount (default: 1)
+   * 
+   * IMPORTANT: This returns the number of UNITS to decrement per dose,
+   * NOT the dose value (mg, ml, etc.). For countable items like tablets
+   * and capsules, this should always be 1 unless specified otherwise.
+   * 
+   * The doseValue field represents the STRENGTH of the medication (e.g., "50" for 50mg),
+   * NOT the number of units to take. Inventory tracking counts discrete units (tablets, bottles, etc.)
    */
   parseDoseAmount(medication: Medication): number {
-    // Try to parse from doseValue
-    if (medication.doseValue) {
-      const parsed = parseFloat(medication.doseValue);
-      if (!isNaN(parsed) && parsed > 0) {
-        return parsed;
-      }
+    // For countable quantity types, always decrement by 1 unit
+    const countableTypes = ['tablets', 'capsules', 'pills', 'drops', 'sprays', 'puffs', 'inhalations', 'applications'];
+    
+    if (medication.quantityType && countableTypes.includes(medication.quantityType.toLowerCase())) {
+      return 1;
     }
 
-    // Try to parse from legacy dosage field
-    if (medication.dosage) {
-      const match = medication.dosage.match(/(\d+\.?\d*)/);
-      if (match) {
-        const parsed = parseFloat(match[1]);
-        if (!isNaN(parsed) && parsed > 0) {
-          return parsed;
-        }
-      }
+    // For liquid medications, check if there's a specific amount per dose
+    // This would need to be stored separately from doseValue
+    // For now, default to 1 unit (e.g., 1 bottle, 1 container)
+    if (medication.quantityType === 'liquid' || medication.quantityType === 'cream') {
+      // TODO: Add support for tracking partial containers
+      // For now, assume each dose doesn't decrement inventory
+      // (user tracks full containers, not individual doses)
+      return 0;
     }
 
-    // Default to 1 dose
+    // CRITICAL FIX: If quantityType is not set, check if inventory tracking is enabled
+    // If inventory tracking is enabled, it means the user is tracking discrete units
+    // Therefore, we should ALWAYS decrement by 1, not by the doseValue
+    if (medication.trackInventory) {
+      return 1;
+    }
+
+    // Default to 1 dose for unknown types
     return 1;
   }
 }

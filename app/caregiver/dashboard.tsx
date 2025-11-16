@@ -1,483 +1,534 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
-  Text,
   View,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
   ScrollView,
-  Linking,
-  ActivityIndicator,
-  Modal,
-  ActionSheetIOS,
-  Platform
+  StyleSheet,
+  Text,
+  Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useDispatch, useSelector } from 'react-redux';
-import { Ionicons } from '@expo/vector-icons';
-import { collection, query, where, orderBy, doc, getDoc } from 'firebase/firestore';
+import { useSelector } from 'react-redux';
 import { getAuth } from 'firebase/auth';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { AppDispatch, RootState } from '../../src/store';
-import { logout } from '../../src/store/slices/authSlice';
-import { startDeviceListener, stopDeviceListener } from '../../src/store/slices/deviceSlice';
-import { useCollectionSWR } from '../../src/hooks/useCollectionSWR';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { RootState } from '../../src/store';
+import { useLinkedPatients } from '../../src/hooks/useLinkedPatients';
+import { useNetworkStatus } from '../../src/hooks/useNetworkStatus';
 import {
-  getDbInstance,
   waitForFirebaseInitialization,
-  isFirebaseReady,
-  getInitializationError,
   reinitializeFirebase
 } from '../../src/services/firebase';
-import AdherenceProgressChart from '../../src/components/AdherenceProgressChart';
-import { Card, Button, Container } from '../../src/components/ui';
+import { Button, Container } from '../../src/components/ui';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Patient, PatientWithDevice, Task, DoseSegment, IntakeRecord, IntakeStatus } from '../../src/types';
+import { PatientWithDevice } from '../../src/types';
+import PatientSelector from '../../src/components/caregiver/PatientSelector';
+import { DeviceConnectivityCard } from '../../src/components/caregiver/DeviceConnectivityCard';
+import { LastMedicationStatusCard } from '../../src/components/caregiver/LastMedicationStatusCard';
+import QuickActionsPanel from '../../src/components/caregiver/QuickActionsPanel';
+import {
+  DeviceConnectivityCardSkeleton,
+  LastMedicationStatusCardSkeleton,
+  QuickActionsPanelSkeleton,
+  PatientSelectorSkeleton,
+} from '../../src/components/caregiver/skeletons';
+import { ErrorBoundary } from '../../src/components/shared/ErrorBoundary';
+import { ErrorState } from '../../src/components/caregiver/ErrorState';
+import { OfflineIndicator } from '../../src/components/caregiver/OfflineIndicator';
+import { patientDataCache } from '../../src/services/patientDataCache';
+import { categorizeError } from '../../src/utils/errorHandling';
+import { colors, spacing, typography } from '../../src/theme/tokens';
+import { Ionicons } from '@expo/vector-icons';
 
-export default function CaregiverDashboard() {
+const SELECTED_PATIENT_KEY = '@caregiver_selected_patient';
+
+function CaregiverDashboardContent() {
   const router = useRouter();
-  const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
-  const { state: deviceState, listening } = useSelector((state: RootState) => state.device);
-  const [patientsWithDevices, setPatientsWithDevices] = useState<PatientWithDevice[]>([]);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [accountMenuVisible, setAccountMenuVisible] = useState(false);
-  const [selectedPatient, setSelectedPatient] = useState<PatientWithDevice | null>(null);
-
-  const [patientIntakes, setPatientIntakes] = useState<IntakeRecord[]>([]);
-  const [patientIntakesLoading, setPatientIntakesLoading] = useState(false);
-  const [patientIntakesError, setPatientIntakesError] = useState<Error | null>(null);
-
-  const [adherence, setAdherence] = useState<{ adherence: number; doseSegments: DoseSegment[] } | null>(null);
-  const [adherenceLoading, setAdherenceLoading] = useState(false);
-  const [adherenceError, setAdherenceError] = useState<Error | null>(null);
-
-  const displayName = user?.name || (user?.email ? user.email.split('@')[0] : 'Cuidador');
-
-  const [patientsQuery, setPatientsQuery] = useState<any>(null);
+  
+  // State management
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [initializationError, setInitializationError] = useState<Error | null>(null);
+  const [initializationError, setInitializationError] = useState<any | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [cachedPatients, setCachedPatients] = useState<PatientWithDevice[]>([]);
+  const [usingCachedData, setUsingCachedData] = useState(false);
+  
+  // Network status
+  const networkStatus = useNetworkStatus();
+  const isOnline = networkStatus.isOnline;
+  
+  // Fade-in animation for content
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  
+  // Per-patient state cache to maintain data when switching between patients
+  // This improves UX by showing cached data immediately while fresh data loads
+  const [patientStateCache] = useState<Map<string, {
+    lastViewed: Date;
+    deviceId?: string;
+  }>>(new Map());
 
+  // Get caregiver UID
+  const caregiverUid = getAuth()?.currentUser?.uid || user?.id || null;
+
+
+
+  /**
+   * Load cached patient data on mount
+   */
   useEffect(() => {
-    const initializeQueries = async () => {
+    const loadCachedData = async () => {
+      if (!caregiverUid) return;
+
+      try {
+        // Try to load cached patients
+        const cached = await AsyncStorage.getItem(`@cached_patients_${caregiverUid}`);
+        if (cached) {
+          const patients = JSON.parse(cached);
+          setCachedPatients(patients);
+        }
+      } catch (error) {
+        // Silently fail - cached data is optional
+      }
+    };
+
+    loadCachedData();
+  }, [caregiverUid]);
+
+  /**
+   * Initialize Firebase
+   */
+  useEffect(() => {
+    const initializeFirebase = async () => {
       try {
         setInitializationError(null);
+        
+        // Wait for Firebase initialization with timeout
         const initPromise = waitForFirebaseInitialization();
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Firebase initialization timeout')), 10000)
         );
         await Promise.race([initPromise, timeoutPromise]);
-        const db = await getDbInstance();
-        if (!db) {
-          throw new Error('Database instance not available after initialization');
-        }
-        const caregiverUid = getAuth()?.currentUser?.uid || user?.id || null;
-        if (caregiverUid) {
-          const patientsQ = query(
-            collection(db, 'users'),
-            where('role', '==', 'patient'),
-            where('caregiverId', '==', caregiverUid),
-            orderBy('createdAt', 'desc')
-          );
-          setPatientsQuery(patientsQ);
-        }
+        
         setIsInitialized(true);
       } catch (error: any) {
-        setInitializationError(error);
+        const categorized = categorizeError(error);
+        setInitializationError(categorized);
         setIsInitialized(true);
+        
+        // If we have cached data, allow offline mode
+        if (cachedPatients.length > 0) {
+          setUsingCachedData(true);
+        }
       }
     };
-    initializeQueries();
-  }, [user, retryCount]);
+    
+    initializeFirebase();
+  }, [retryCount, cachedPatients.length]);
 
-  const handleRetryInitialization = async () => {
+  /**
+   * Load last selected patient from AsyncStorage
+   */
+  useEffect(() => {
+    const loadSelectedPatient = async () => {
+      try {
+        const savedPatientId = await AsyncStorage.getItem(SELECTED_PATIENT_KEY);
+        if (savedPatientId) {
+          setSelectedPatientId(savedPatientId);
+        }
+      } catch (error) {
+        // Silently fail - will auto-select first patient
+      }
+    };
+
+    loadSelectedPatient();
+  }, []);
+
+  /**
+   * Handle retry initialization
+   */
+  const handleRetryInitialization = useCallback(async () => {
     setRetryCount(prev => prev + 1);
     setIsInitialized(false);
     setInitializationError(null);
     try {
       await reinitializeFirebase();
     } catch (error) {
-      console.error('Error during reinitialization:', error);
+      // Error will be caught by initialization effect
     }
-  };
+  }, []);
 
-  const cacheKey = (getAuth()?.currentUser?.uid || user?.id) ? `patients:${getAuth()?.currentUser?.uid || user?.id}` : null;
-  const { data: patients = [], source: patientsSource, isLoading: patientsLoading, error: patientsError } = useCollectionSWR<Patient>({
-    cacheKey,
-    query: isInitialized && !initializationError && cacheKey ? patientsQuery : null,
+  /**
+   * Fetch linked patients via deviceLinks collection
+   * Uses custom hook with SWR pattern and real-time updates
+   */
+  const {
+    patients: linkedPatients,
+    isLoading: patientsLoading,
+    error: patientsError,
+    refetch: refetchPatients,
+  } = useLinkedPatients({
+    caregiverId: caregiverUid,
+    enabled: isInitialized && !initializationError && isOnline,
   });
 
+  /**
+   * Cache patient data when loaded
+   */
   useEffect(() => {
-    if (selectedPatient && isInitialized) {
-      const functions = getFunctions();
-      const fetchPatientIntakes = async () => {
-        setPatientIntakesLoading(true);
-        setPatientIntakesError(null);
+    const cacheData = async () => {
+      if (linkedPatients.length > 0 && caregiverUid) {
         try {
-          const getPatientIntakeRecords = httpsCallable(functions, 'getPatientIntakeRecords');
-          const result = await getPatientIntakeRecords({ patientId: selectedPatient.id });
-          const data = result.data as { intakes: IntakeRecord[] };
-          const intakesWithDates = data.intakes.map(intake => ({
-            ...intake,
-            scheduledTime: new Date(intake.scheduledTime),
-            takenAt: intake.takenAt ? new Date(intake.takenAt) : undefined,
-          }));
-          setPatientIntakes(intakesWithDates);
-        } catch (error: any) {
-          setPatientIntakesError(error);
-        } finally {
-          setPatientIntakesLoading(false);
-        }
-      };
-      const fetchAdherence = async () => {
-        setAdherenceLoading(true);
-        setAdherenceError(null);
-        try {
-          const getPatientAdherence = httpsCallable(functions, 'getPatientAdherence');
-          const result = await getPatientAdherence({ patientId: selectedPatient.id });
-          const data = result.data as { adherence: number, doseSegments: DoseSegment[] };
-          setAdherence(data);
-        } catch (error: any) {
-          setAdherenceError(error);
-        } finally {
-          setAdherenceLoading(false);
-        }
-      };
-      fetchPatientIntakes();
-      fetchAdherence();
-    }
-  }, [selectedPatient, isInitialized]);
+          // Cache the patients list
+          await AsyncStorage.setItem(
+            `@cached_patients_${caregiverUid}`,
+            JSON.stringify(linkedPatients)
+          );
 
-  useEffect(() => {
-    const enhancedPatients = patients.map((patient: Patient) => ({
-      ...patient,
-      deviceState: patient.deviceId ? deviceState : undefined,
-    } as PatientWithDevice));
-    setPatientsWithDevices(enhancedPatients);
-    if (enhancedPatients.length > 0 && !selectedPatient) {
-      setSelectedPatient(enhancedPatients[0]);
-    }
-  }, [patients, deviceState, adherence]);
+          // Cache individual patient data
+          for (const patient of linkedPatients) {
+            await patientDataCache.cachePatient(patient);
+          }
 
-  useEffect(() => {
-    const firstPatientWithDevice = patients.find(p => p.deviceId);
-    if (firstPatientWithDevice?.deviceId && !listening) {
-      dispatch(startDeviceListener(firstPatientWithDevice.deviceId));
-    }
-    return () => {
-      if (listening) {
-        dispatch(stopDeviceListener());
+          setUsingCachedData(false);
+        } catch (error) {
+          // Silently fail - caching is optional
+        }
       }
     };
-  }, [patients, dispatch, listening]);
 
-  const handlePatientSelect = (patient: PatientWithDevice) => {
-    setSelectedPatient(patient);
-  };
+    cacheData();
+  }, [linkedPatients, caregiverUid]);
 
-  const handleHistory = () => router.push('/patient/history');
-  const handleEmergency = () => handleEmergencyPress();
-  const callEmergency = (number: string) => {
-    try {
-      Linking.openURL(`tel:${number}`);
-    } catch (e) {}
-    setModalVisible(false);
-  };
-  const handleEmergencyPress = () => {
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: ['Cancelar', 'Llamar 911', 'Llamar 112'],
-          cancelButtonIndex: 0,
-          destructiveButtonIndex: 1,
-          userInterfaceStyle: 'light',
-        },
-        (buttonIndex) => {
-          if (buttonIndex === 1) callEmergency('911');
-          else if (buttonIndex === 2) callEmergency('112');
-        }
-      );
+  /**
+   * Memoize patients with device state
+   * Use cached data if offline or error occurred
+   */
+  const patientsWithDevices = useMemo<PatientWithDevice[]>(() => {
+    if (linkedPatients.length > 0) {
+      return linkedPatients;
+    }
+    
+    // Fallback to cached data if offline or error
+    if ((usingCachedData || !isOnline || patientsError) && cachedPatients.length > 0) {
+      return cachedPatients;
+    }
+    
+    return [];
+  }, [linkedPatients, cachedPatients, usingCachedData, isOnline, patientsError]);
+
+  /**
+   * Auto-select first patient if none selected
+   */
+  useEffect(() => {
+    if (!selectedPatientId && patientsWithDevices.length > 0) {
+      const firstPatientId = patientsWithDevices[0].id;
+      setSelectedPatientId(firstPatientId);
+      AsyncStorage.setItem(SELECTED_PATIENT_KEY, firstPatientId).catch(() => {
+        // Silently fail - selection will persist in memory
+      });
+    }
+  }, [selectedPatientId, patientsWithDevices]);
+
+  /**
+   * Fade in content when data is loaded
+   */
+  useEffect(() => {
+    if (!patientsLoading && patientsWithDevices.length > 0) {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }).start();
     } else {
-      setModalVisible(true);
+      fadeAnim.setValue(0);
     }
-  };
-  const handleLogout = async () => {
-    try {
-      await dispatch(logout());
-      router.replace('/auth/signup');
-    } catch (error) {
-      router.replace('/auth/signup');
-    }
-  };
-  const handleAccountMenu = () => {
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: ['Cancelar', 'Salir de sesión', 'Configuraciones', 'Mi dispositivo'],
-          cancelButtonIndex: 0,
-          userInterfaceStyle: 'light',
-        },
-        (buttonIndex) => {
-          if (buttonIndex === 1) handleLogout();
-          else if (buttonIndex === 2) handleConfiguraciones();
-          else if (buttonIndex === 3) handleMiDispositivo();
-        }
-      );
-    } else {
-      setAccountMenuVisible(!accountMenuVisible);
-    }
-  };
-  const handleConfiguraciones = () => Alert.alert('Próximamente', 'La página de configuraciones estará disponible pronto.');
-  const handleMiDispositivo = () => router.push('/patient/link-device');
+  }, [patientsLoading, patientsWithDevices.length, fadeAnim]);
 
-  if (initializationError) {
+  /**
+   * Get selected patient object
+   */
+  const selectedPatient = useMemo(() => {
+    if (!selectedPatientId) return null;
+    return patientsWithDevices.find(p => p.id === selectedPatientId) || null;
+  }, [selectedPatientId, patientsWithDevices]);
+
+  /**
+   * Handle patient selection
+   * Updates selected patient ID, persists to storage, and triggers data refresh
+   */
+  const handlePatientSelect = useCallback((patientId: string) => {
+    // Only update if different patient
+    if (patientId === selectedPatientId) {
+      return;
+    }
+    
+    // Update patient state cache with last viewed time
+    patientStateCache.set(patientId, {
+      lastViewed: new Date(),
+      deviceId: patientsWithDevices.find(p => p.id === patientId)?.deviceId,
+    });
+    
+    setSelectedPatientId(patientId);
+    
+    // Persist selection to AsyncStorage
+    AsyncStorage.setItem(SELECTED_PATIENT_KEY, patientId).catch(() => {
+      // Silently fail - selection will persist in memory
+    });
+  }, [selectedPatientId, patientStateCache, patientsWithDevices]);
+
+  /**
+   * Handle data refresh when patient changes
+   */
+  const handleRefreshData = useCallback(() => {
+    refetchPatients();
+  }, [refetchPatients]);
+
+  /**
+   * Handle navigation to different screens
+   */
+  const handleNavigate = useCallback((screen: 'events' | 'medications' | 'tasks' | 'add-device') => {
+    router.push(`/caregiver/${screen}`);
+  }, [router]);
+
+  /**
+   * Render initialization error state (only if no cached data available)
+   */
+  if (initializationError && !usingCachedData && cachedPatients.length === 0) {
+    const categorized = categorizeError(initializationError);
     return (
-      <Container style={styles.flex1}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.headerTitle}>PILDHORA</Text>
-            <Text style={styles.headerSubtitle}>Hola, {displayName}</Text>
-          </View>
-          <Button
-            variant="secondary"
-            onPress={async () => {
-              await dispatch(logout());
-              router.replace('/');
-            }}
-          >
-            Salir
-          </Button>
-        </View>
-        <View style={styles.content}>
-          <Card style={styles.errorCard}>
-            <Text style={styles.errorTitle}>Error de inicialización de Firebase</Text>
-            <Text style={styles.errorMessage}>{initializationError.message || 'No se pudo conectar con los servicios de Firebase'}</Text>
-            <Button variant="primary" onPress={handleRetryInitialization}>Reintentar</Button>
-          </Card>
-        </View>
-      </Container>
+      <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
+        <Container style={styles.container}>
+          <ErrorState
+            category={categorized.category}
+            message={categorized.userMessage}
+            onRetry={handleRetryInitialization}
+          />
+        </Container>
+      </SafeAreaView>
     );
   }
 
-  if (patientsError) {
-    const isIndexError = patientsError?.message?.includes('requires an index');
+  /**
+   * Render patients error state (only if no cached data available)
+   */
+  if (patientsError && !usingCachedData && cachedPatients.length === 0) {
+    const categorized = categorizeError(patientsError);
     return (
-      <Container style={styles.flex1}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.headerTitle}>PILDHORA</Text>
-            <Text style={styles.headerSubtitle}>Hola, {displayName}</Text>
-          </View>
-          <Button
-            variant="secondary"
-            onPress={async () => {
-              await dispatch(logout());
-              router.replace('/auth/signup');
-            }}
-          >
-            <Ionicons name="log-out" size={20} color="#374151" />
-          </Button>
-        </View>
-        <View style={styles.content}>
-          <Card style={styles.warningCard}>
-            <Text style={styles.warningTitle}>{isIndexError ? 'Configuración en progreso' : 'Error al cargar datos'}</Text>
-            <Text style={styles.warningMessage}>
-              {isIndexError ? 'Los índices de la base de datos se están configurando. Esto puede tardar unos minutos. Por favor, intenta nuevamente en breve.' : (patientsError?.message || 'Verifica tu conexión e intenta nuevamente.')}
-            </Text>
-            <Button variant="primary" size="md" onPress={handleRetryInitialization}>Reintentar</Button>
-          </Card>
-        </View>
-      </Container>
+      <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
+        <Container style={styles.container}>
+          <ErrorState
+            category={categorized.category}
+            message={categorized.userMessage}
+            onRetry={handleRetryInitialization}
+          />
+        </Container>
+      </SafeAreaView>
     );
   }
 
+  /**
+   * Render main dashboard
+   */
   return (
-    <SafeAreaView edges={['bottom']} style={styles.flex1}>
-      <Container style={styles.flex1}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>PILDHORA</Text>
-          <Text style={styles.headerSubtitle}>Hola, {displayName}</Text>
-        </View>
-        <View style={styles.headerActions}>
-          <Button variant="danger" onPress={handleEmergency}>
-            <Ionicons name="alert" size={20} color="#FFFFFF" />
-          </Button>
-          <Button variant="secondary" onPress={handleAccountMenu}>
-            <Ionicons name="person" size={20} color="#374151" />
-          </Button>
-        </View>
-      </View>
+    <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
+      <Container style={styles.container}>
+        {/* Offline Indicator */}
+        <OfflineIndicator />
 
-      {Platform.OS !== 'ios' && (
-        <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalView}>
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>Emergencia</Text>
-                <Text style={styles.modalSubtitle}>Selecciona una opción:</Text>
-                <View style={styles.modalActions}>
-                  <Button variant="danger" onPress={() => callEmergency('911')}>Llamar 911</Button>
-                  <Button variant="secondary" onPress={() => callEmergency('112')}>Llamar 112</Button>
-                  <Button variant="secondary" onPress={() => setModalVisible(false)}>Cancelar</Button>
-                </View>
-              </View>
-            </View>
-          </View>
-        </Modal>
-      )}
-
-      {Platform.OS !== 'ios' && (
-        <Modal visible={accountMenuVisible} transparent animationType="fade" onRequestClose={() => setAccountMenuVisible(false)}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalView}>
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>Cuenta</Text>
-                <Text style={styles.modalSubtitle}>Selecciona una opción:</Text>
-                <View style={styles.modalActions}>
-                  <Button variant="danger" onPress={() => { setAccountMenuVisible(false); handleLogout(); }}>Salir de sesión</Button>
-                  <Button variant="secondary" onPress={() => { setAccountMenuVisible(false); handleConfiguraciones(); }}>Configuraciones</Button>
-                  <Button variant="secondary" onPress={() => { setAccountMenuVisible(false); handleMiDispositivo(); }}>Mi dispositivo</Button>
-                  <Button variant="secondary" onPress={() => setAccountMenuVisible(false)}>Cancelar</Button>
-                </View>
-              </View>
-            </View>
-          </View>
-        </Modal>
-      )}
-      {patientsLoading && (
-        <View style={styles.loadingIndicator}>
-          <ActivityIndicator size="small" color="#3B82F6" />
-        </View>
-      )}
-      {patientsWithDevices.length > 0 && (
-        <View style={styles.patientSelector}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.patientScrollView}>
-            {patientsWithDevices.map((patient) => (
-              <Button
-                key={patient.id}
-                variant={selectedPatient?.id === patient.id ? 'primary' : 'secondary'}
-                onPress={() => handlePatientSelect(patient)}
-              >
-                {patient.name}
-              </Button>
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
-      <ScrollView style={styles.flex1} contentContainerStyle={styles.scrollContent}>
-        {patientsLoading ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="large" color="#3B82F6" />
-            <Text style={styles.loadingText}>Cargando pacientes...</Text>
-          </View>
-        ) : selectedPatient ? (
-          <View style={styles.content}>
-            <Card style={styles.card}>
-              <Text style={styles.cardTitle}>Adherencia Diaria</Text>
-              {adherenceLoading ? (
-                <ActivityIndicator size="large" color="#3B82F6" />
-              ) : (
-                <AdherenceProgressChart
-                  progress={adherence ? adherence.adherence / 100 : 0}
-                  size={250}
-                />
-              )}
-            </Card>
-
-            <Card style={styles.deviceCard}>
-              <Text style={styles.deviceTitle}>Dispositivo</Text>
-              {selectedPatient.deviceState ? (
-                <>
-                  <View style={styles.deviceRow}>
-                    <View style={styles.deviceInfo}>
-                      <Ionicons name="watch-outline" size={24} color="gray" />
-                      <Text style={styles.deviceLabel}>Nivel de Batería</Text>
-                    </View>
-                    <Text style={styles.deviceValue}>{selectedPatient.deviceState.battery_level}%</Text>
-                  </View>
-                  <View style={styles.deviceRowSpaced}>
-                    <View style={styles.deviceInfo}>
-                      <Ionicons name="wifi-outline" size={24} color="gray" />
-                      <Text style={styles.deviceLabel}>Estado</Text>
-                    </View>
-                    <Text style={[styles.deviceValue, selectedPatient.deviceState.is_online ? styles.online : styles.offline]}>
-                      {selectedPatient.deviceState.is_online ? 'En Línea' : 'Desconectado'}
-                    </Text>
-                  </View>
-                </>
-              ) : (
-                <Text style={styles.noDevice}>No hay dispositivo vinculado.</Text>
-              )}
-              <Button
-                variant="primary"
-                onPress={() => router.push({ pathname: '/caregiver/chat', params: { patientId: selectedPatient.id, patientName: selectedPatient.name } })}
-              >
-                Chatear con {selectedPatient.name}
-              </Button>
-            </Card>
-          </View>
-        ) : (
-          <View style={styles.centered}>
-            <Ionicons name="people-outline" size={48} color="#9CA3AF" />
-            <Text style={styles.emptyText}>No hay pacientes asignados a tu cuenta</Text>
-            <Text style={styles.emptySubtext}>Usa el botón de abajo para vincular un nuevo dispositivo.</Text>
-            <Button variant="primary" onPress={() => router.push('/caregiver/add-device')}>Vincular Dispositivo</Button>
+        {/* Cached Data Warning */}
+        {usingCachedData && (
+          <View 
+            style={styles.cachedDataBanner}
+            accessible={true}
+            accessibilityRole="alert"
+            accessibilityLabel="Mostrando datos guardados. Conéctate para actualizar."
+          >
+            <Ionicons name="information-circle" size={20} color={colors.warning[500]} />
+            <Text style={styles.cachedDataText}>
+              Mostrando datos guardados. Conéctate para actualizar.
+            </Text>
           </View>
         )}
-      </ScrollView>
-      <Button
-        variant="primary"
-        style={styles.fab}
-        onPress={() => router.push('/caregiver/add-device')}
-      >
-        <Ionicons name="add-outline" size={32} color="white" />
-      </Button>
+
+        {/* Patient Selector (only shown if multiple patients) */}
+        {patientsLoading ? (
+          <PatientSelectorSkeleton />
+        ) : patientsWithDevices.length > 0 ? (
+          <PatientSelector
+            patients={patientsWithDevices}
+            selectedPatientId={selectedPatientId || undefined}
+            onSelectPatient={handlePatientSelect}
+            loading={patientsLoading}
+            onRefresh={handleRefreshData}
+          />
+        ) : null}
+
+        {/* Main Content */}
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          accessible={true}
+          accessibilityLabel="Dashboard content"
+          accessibilityRole="scrollbar"
+        >
+          {patientsLoading ? (
+            // Loading state with skeletons
+            <View style={styles.content}>
+              <DeviceConnectivityCardSkeleton />
+              <LastMedicationStatusCardSkeleton />
+              <QuickActionsPanelSkeleton />
+            </View>
+          ) : patientsWithDevices.length === 0 ? (
+            // Empty state - no patients
+            <View 
+              style={styles.emptyContainer}
+              accessible={true}
+              accessibilityRole="text"
+              accessibilityLabel="No hay pacientes vinculados. Vincula un dispositivo para comenzar a gestionar pacientes"
+            >
+              <Ionicons name="people-outline" size={64} color={colors.gray[400]} accessible={false} />
+              <Text style={styles.emptyTitle}>No hay pacientes vinculados</Text>
+              <Text style={styles.emptyDescription}>
+                Vincula un dispositivo para comenzar a gestionar pacientes
+              </Text>
+              <Button 
+                variant="primary" 
+                size="lg"
+                onPress={() => handleNavigate('add-device')}
+                style={styles.emptyButton}
+                accessibilityLabel="Vincular dispositivo"
+                accessibilityHint="Navega a la pantalla de gestión de dispositivos para vincular un nuevo dispositivo"
+              >
+                Vincular Dispositivo
+              </Button>
+            </View>
+          ) : selectedPatient ? (
+            // Dashboard content with selected patient
+            // Key prop ensures components re-mount when patient changes for clean state transitions
+            // Wrapped with fade-in animation for smooth content appearance
+            <Animated.View 
+              style={[
+                styles.content, 
+                { opacity: fadeAnim }
+              ]} 
+              key={selectedPatient.id}
+            >
+              {/* Device Connectivity Card */}
+              <DeviceConnectivityCard
+                key={`device-${selectedPatient.id}`}
+                deviceId={selectedPatient.deviceId}
+                patientId={selectedPatient.id}
+                onManageDevice={() => handleNavigate('add-device')}
+                onDeviceUnlinked={() => {
+                  console.log('[Dashboard] Device unlinked, refreshing patient data');
+                  // Refresh patient list to update device status
+                  refetchPatients();
+                }}
+                style={styles.card}
+              />
+
+              {/* Last Medication Status Card */}
+              <LastMedicationStatusCard
+                key={`medication-${selectedPatient.id}`}
+                patientId={selectedPatient.id}
+                caregiverId={caregiverUid || undefined}
+                onViewAll={() => handleNavigate('events')}
+              />
+
+              {/* Quick Actions Panel */}
+              <QuickActionsPanel onNavigate={handleNavigate} />
+            </Animated.View>
+          ) : (
+            // No patient selected (shouldn't happen with PatientSelector)
+            <View 
+              style={styles.emptyContainer}
+              accessible={true}
+              accessibilityRole="text"
+              accessibilityLabel="Selecciona un paciente. Elige un paciente de la lista superior para ver su información"
+            >
+              <Ionicons name="hand-left-outline" size={64} color={colors.gray[400]} accessible={false} />
+              <Text style={styles.emptyTitle}>Selecciona un paciente</Text>
+              <Text style={styles.emptyDescription}>
+                Elige un paciente de la lista superior para ver su información
+              </Text>
+            </View>
+          )}
+        </ScrollView>
       </Container>
     </SafeAreaView>
   );
 }
 
+/**
+ * Main dashboard component wrapped with error boundary
+ */
+export default function CaregiverDashboard() {
+  return (
+    <ErrorBoundary>
+      <CaregiverDashboardContent />
+    </ErrorBoundary>
+  );
+}
+
 const styles = StyleSheet.create({
-  flex1: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: '#111827' },
-  headerSubtitle: { fontSize: 14, color: '#6B7280' },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  content: { padding: 16 },
-  errorCard: { backgroundColor: '#FEE2E2', borderWidth: 1, borderColor: '#FECACA', borderRadius: 16, padding: 16 },
-  errorTitle: { color: '#991B1B', textAlign: 'center', fontWeight: '600', marginBottom: 8 },
-  errorMessage: { color: '#B91C1C', textAlign: 'center', fontSize: 14, marginBottom: 16 },
-  warningCard: { backgroundColor: '#FFEDD5', borderWidth: 1, borderColor: '#FED7AA', borderRadius: 16, padding: 16 },
-  warningTitle: { color: '#9A3412', textAlign: 'center', fontWeight: '600', marginBottom: 8 },
-  warningMessage: { color: '#C2410C', textAlign: 'center', fontSize: 14, marginBottom: 16 },
-  loadingIndicator: { padding: 16, alignItems: 'center' },
-  patientSelector: { paddingHorizontal: 16, paddingVertical: 12, backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  patientScrollView: { gap: 12 },
-  scrollContent: { paddingBottom: 20 },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 80 },
-  loadingText: { color: '#4B5563', marginTop: 16 },
-  card: { backgroundColor: 'white', borderRadius: 16, padding: 16, alignItems: 'center' },
-  cardTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 16 },
-  deviceCard: { backgroundColor: 'white', borderRadius: 16, padding: 16, marginTop: 16 },
-  deviceTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 16 },
-  deviceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  deviceRowSpaced: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 },
-  deviceInfo: { flexDirection: 'row', alignItems: 'center' },
-  deviceLabel: { fontSize: 18, marginLeft: 8 },
-  deviceValue: { fontSize: 18, fontWeight: '600' },
-  online: { color: '#10B981' },
-  offline: { color: '#EF4444' },
-  noDevice: { color: '#6B7280' },
-  emptyText: { color: '#4B5563', marginTop: 16, textAlign: 'center' },
-  emptySubtext: { color: '#6B7280', fontSize: 14, textAlign: 'center', marginTop: 4 },
-  fab: { position: 'absolute', bottom: 24, right: 24, borderRadius: 32, width: 64, height: 64, justifyContent: 'center', alignItems: 'center' },
-  modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
-  modalView: { backgroundColor: 'white', width: '100%', maxWidth: 384, borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 20, elevation: 5 },
-  modalContent: { padding: 24 },
-  modalTitle: { fontSize: 24, fontWeight: 'bold', color: '#1F2937', marginBottom: 8 },
-  modalSubtitle: { color: '#4B5563', marginBottom: 24, textAlign: 'center' },
-  modalActions: { gap: 12 },
+  container: {
+    flex: 1,
+    backgroundColor: colors.gray[50],
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: spacing['3xl'],
+  },
+  content: {
+    padding: spacing.lg,
+    gap: spacing.lg,
+  },
+  card: {
+    marginBottom: spacing.md,
+  },
+  // Cached data banner
+  cachedDataBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.warning[50],
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.warning[200],
+  },
+  cachedDataText: {
+    flex: 1,
+    fontSize: typography.fontSize.sm,
+    color: colors.warning[500],
+    fontWeight: typography.fontWeight.medium,
+  },
+  // Empty states
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing['3xl'] * 2, // 64px
+    paddingHorizontal: spacing.lg,
+    minHeight: 400,
+  },
+  emptyTitle: {
+    fontSize: typography.fontSize['2xl'],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.gray[700],
+    marginTop: spacing.lg,
+    textAlign: 'center',
+  },
+  emptyDescription: {
+    fontSize: typography.fontSize.base,
+    color: colors.gray[600],
+    marginTop: spacing.sm,
+    textAlign: 'center',
+    lineHeight: typography.fontSize.base * typography.lineHeight.normal,
+  },
+  emptyButton: {
+    marginTop: spacing.xl,
+  },
 });

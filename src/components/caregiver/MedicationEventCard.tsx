@@ -1,15 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../ui/Card';
 import { colors, spacing, typography, borderRadius } from '../../theme/tokens';
-import { MedicationEvent, MedicationEventType } from '../../types';
+import { MedicationEvent, MedicationEventType, MedicationEventCardProps } from '../../types';
 import { getRelativeTimeString } from '../../utils/dateUtils';
-
-interface MedicationEventCardProps {
-  event: MedicationEvent;
-  onPress: () => void;
-}
 
 /**
  * Get icon name and color for event type

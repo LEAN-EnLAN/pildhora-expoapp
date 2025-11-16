@@ -36,8 +36,11 @@ service cloud.firestore {
     }
 
     // tasks: caregiver-owned tasks (caregiverId field).
+    // Only the caregiver who owns the task can read/write it.
     match /tasks/{taskId} {
-      allow read, write: if isSignedIn() && request.resource.data.caregiverId == request.auth.uid;
+      allow read: if isSignedIn() && resource.data.caregiverId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.caregiverId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.caregiverId == request.auth.uid;
     }
 
     // medications: documents contain patientId and caregiverId.
@@ -78,13 +81,18 @@ service cloud.firestore {
     }
 
     // deviceLinks: relationships between devices and users.
-    // Allow users to read links where they are involved; writes are typically done by Cloud Functions.
+    // Allow users to read links where they are involved (either as patient or caregiver).
+    // Users can create links for themselves, and update/delete their own links.
     match /deviceLinks/{linkId} {
       allow read: if isSignedIn() &&
-        (request.auth.uid == resource.data.userId || request.auth.uid == request.resource.data.userId);
-      // Writes are expected to come from privileged backend; allow basic creation by the user if needed.
-      allow write: if isSignedIn() &&
-        (request.auth.uid == request.resource.data.userId);
+        (request.auth.uid == resource.data.userId);
+      allow create: if isSignedIn() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.keys().hasAll(['deviceId', 'userId', 'role', 'status', 'linkedAt']) &&
+        request.resource.data.role in ['patient', 'caregiver'] &&
+        request.resource.data.status in ['active', 'inactive'];
+      allow update, delete: if isSignedIn() &&
+        resource.data.userId == request.auth.uid;
     }
 
     // deviceConfigs: configuration per device. Only users linked to the device may read/write.
@@ -96,8 +104,9 @@ service cloud.firestore {
         );
     }
 
-    // medicationEvents: events generated when patients create/update/delete medications.
-    // Only the assigned caregiver can read events; only authenticated patients can write events.
+    // medicationEvents: events generated when medications are created/updated/deleted or doses are taken.
+    // Both patients and caregivers can read events they're associated with.
+    // Both patients and caregivers can create events for medications they manage.
     match /medicationEvents/{eventId} {
       // Helper function to check if the request is within rate limit
       // Note: This is a simplified check. For production, consider using Cloud Functions
@@ -113,33 +122,42 @@ service cloud.firestore {
       // Helper function to validate event data structure
       function isValidEventData() {
         let data = request.resource.data;
-        return data.keys().hasAll(['eventType', 'medicationId', 'medicationName', 'patientId', 'caregiverId', 'timestamp', 'syncStatus']) &&
-               data.eventType in ['created', 'updated', 'deleted'] &&
+        return data.keys().hasAll(['eventType', 'medicationId', 'medicationName', 'patientId', 'timestamp', 'syncStatus']) &&
+               data.eventType in ['medication_created', 'medication_updated', 'medication_deleted', 'dose_taken', 'dose_missed'] &&
                data.medicationId is string &&
                data.medicationName is string &&
                data.patientId is string &&
-               data.caregiverId is string &&
                data.timestamp is timestamp &&
-               data.syncStatus in ['pending', 'delivered', 'failed'] &&
-               // Ensure patientId matches authenticated user
-               data.patientId == request.auth.uid &&
+               data.syncStatus in ['pending', 'synced', 'failed'] &&
+               // Ensure the authenticated user is either the patient or has caregiverId field matching
+               (data.patientId == request.auth.uid || 
+                (data.keys().hasAny(['caregiverId']) && data.caregiverId == request.auth.uid)) &&
                // Validate optional fields
                (!data.keys().hasAny(['medicationData']) || data.medicationData is map) &&
-               (!data.keys().hasAny(['changes']) || data.changes is list);
+               (!data.keys().hasAny(['changes']) || data.changes is list) &&
+               (!data.keys().hasAny(['caregiverId']) || data.caregiverId is string) &&
+               (!data.keys().hasAny(['patientName']) || data.patientName is string);
       }
 
-      // Read access: only the assigned caregiver can read events
+      // Read access: both the patient and the assigned caregiver can read events
       allow read: if isSignedIn() && 
-        request.auth.uid == resource.data.caregiverId;
+        (resource.data.patientId == request.auth.uid ||
+         (resource.data.keys().hasAny(['caregiverId']) && resource.data.caregiverId == request.auth.uid));
 
-      // Write access: only authenticated patients can create events
+      // Create access: authenticated users can create events for medications they're associated with
       allow create: if isSignedIn() && 
         isValidEventData() &&
         isWithinRateLimit();
 
-      // Update and delete: only the patient who created the event can update/delete
-      allow update, delete: if isSignedIn() && 
-        request.auth.uid == resource.data.patientId;
+      // Update access: only the creator (patient or caregiver) can update events
+      allow update: if isSignedIn() && 
+        (resource.data.patientId == request.auth.uid ||
+         (resource.data.keys().hasAny(['caregiverId']) && resource.data.caregiverId == request.auth.uid));
+
+      // Delete access: only the creator can delete events
+      allow delete: if isSignedIn() && 
+        (resource.data.patientId == request.auth.uid ||
+         (resource.data.keys().hasAny(['caregiverId']) && resource.data.caregiverId == request.auth.uid));
     }
 
     // fallback: deny everything else by default

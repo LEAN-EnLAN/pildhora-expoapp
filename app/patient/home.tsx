@@ -2,13 +2,13 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { View, Text, FlatList, Alert, Linking, ActionSheetIOS, Platform, StyleSheet, Animated, TouchableOpacity, AppState } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { RootState, AppDispatch } from '../../src/store';
 import { logout } from '../../src/store/slices/authSlice';
 import { fetchMedications } from '../../src/store/slices/medicationsSlice';
 import { startIntakesSubscription, stopIntakesSubscription } from '../../src/store/slices/intakesSlice';
-import { Card, Button, Modal, LoadingSpinner, AnimatedListItem } from '../../src/components/ui';
+import { Card, Button, Modal, LoadingSpinner, AnimatedListItem, AppIcon, BrandedLoadingScreen } from '../../src/components/ui';
 import { AdherenceCard } from '../../src/components/screens/patient/AdherenceCard';
 import { UpcomingDoseCard } from '../../src/components/screens/patient/UpcomingDoseCard';
 import { DeviceStatusCard } from '../../src/components/screens/patient/DeviceStatusCard';
@@ -18,6 +18,7 @@ import { Medication, IntakeStatus } from '../../src/types';
 import { getDbInstance, getRdbInstance } from '../../src/services/firebase';
 import { addDoc, collection, Timestamp } from 'firebase/firestore';
 import { ref, get as rdbGet } from 'firebase/database';
+import { unlinkDeviceFromUser } from '../../src/services/deviceLinking';
 import { colors, spacing, typography, borderRadius, shadows } from '../../src/theme/tokens';
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList<Medication>);
@@ -64,6 +65,7 @@ export default function PatientHome() {
   const [emergencyModalVisible, setEmergencyModalVisible] = useState(false);
   const [takingLoading, setTakingLoading] = useState(false);
   const [accountMenuVisible, setAccountMenuVisible] = useState(false);
+  const [unlinkingDevice, setUnlinkingDevice] = useState(false);
   const scrollY = React.useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -172,6 +174,14 @@ export default function PatientHome() {
       subscription.remove();
     };
   }, [initDevice]);
+
+  // Refresh device list when screen comes into focus (e.g., navigating back from link-device page)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('[Home] Screen focused, refreshing devices');
+      initDevice();
+    }, [initDevice])
+  );
 
   const adherenceData = useMemo(() => {
     const todaysMeds = medications.filter(isScheduledToday);
@@ -300,6 +310,41 @@ export default function PatientHome() {
     router.push('/patient/link-device');
   }, [router]);
 
+  const handleUnlinkDevice = useCallback(async () => {
+    if (!activeDeviceId || !patientId) return;
+    
+    Alert.alert(
+      'Desenlazar dispositivo',
+      `¿Estás seguro de que deseas desenlazar el dispositivo ${activeDeviceId}?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Desenlazar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setUnlinkingDevice(true);
+              await unlinkDeviceFromUser(patientId, activeDeviceId);
+              
+              // Stop listening to the device
+              dispatch(stopDeviceListener());
+              setActiveDeviceId(null);
+              
+              Alert.alert('Éxito', 'Dispositivo desenlazado exitosamente');
+              
+              // Refresh device list
+              await initDevice();
+            } catch (error: any) {
+              Alert.alert('Error', error?.message || 'No se pudo desenlazar el dispositivo');
+            } finally {
+              setUnlinkingDevice(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [activeDeviceId, patientId, dispatch, initDevice]);
+
   const handleAccountMenu = useCallback(() => {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
@@ -382,11 +427,6 @@ export default function PatientHome() {
           const { inventoryService } = await import('../../src/services/inventoryService');
           const doseAmount = inventoryService.parseDoseAmount(upcoming.med);
           
-          console.log('[TakeMedication] Decrementing inventory:', {
-            medicationId: upcoming.med.id,
-            doseAmount,
-          });
-          
           await inventoryService.decrementInventory(upcoming.med.id, doseAmount);
           
           // Check if inventory is now low
@@ -449,13 +489,7 @@ export default function PatientHome() {
   ), [router]);
 
   if (loading) {
-    return (
-      <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <LoadingSpinner size="lg" text="Cargando información..." />
-        </View>
-      </SafeAreaView>
-    );
+    return <BrandedLoadingScreen message="Cargando información..." />;
   }
 
   return (
@@ -464,7 +498,10 @@ export default function PatientHome() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>PILDHORA</Text>
+            <View style={styles.brandingContainer}>
+              <AppIcon size="sm" showShadow={false} rounded={true} />
+              <Text style={styles.headerTitle}>PILDHORA</Text>
+            </View>
             <Text style={styles.headerSubtitle}>Hola, {displayName}</Text>
           </View>
           <View style={styles.headerActions}>
@@ -475,7 +512,7 @@ export default function PatientHome() {
               accessibilityHint="Llama a servicios de emergencia"
               accessibilityRole="button"
             >
-              <Ionicons name="alert-circle" size={28} color={colors.error} />
+              <Ionicons name="alert-circle" size={28} color={colors.error[500]} />
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.iconButton}
@@ -667,6 +704,22 @@ export default function PatientHome() {
                     </Text>
                   </View>
                 )}
+                
+                {/* Unlink Device Button */}
+                {activeDeviceId && (
+                  <View style={styles.unlinkButtonContainer}>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onPress={handleUnlinkDevice}
+                      loading={unlinkingDevice}
+                      disabled={unlinkingDevice}
+                      fullWidth
+                    >
+                      Desenlazar dispositivo
+                    </Button>
+                  </View>
+                )}
               </View>
 
               {/* Quick Actions */}
@@ -775,8 +828,13 @@ const styles = StyleSheet.create({
   headerLeft: {
     flex: 1,
   },
+  brandingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   headerTitle: { 
-    fontSize: typography.fontSize['2xl'], 
+    fontSize: typography.fontSize.xl, 
     fontWeight: typography.fontWeight.extrabold, 
     color: colors.primary[500],
     letterSpacing: 0.5,
@@ -978,5 +1036,8 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.xs,
     color: colors.gray[700],
     lineHeight: typography.fontSize.xs * typography.lineHeight.normal,
+  },
+  unlinkButtonContainer: {
+    marginTop: spacing.md,
   },
 });

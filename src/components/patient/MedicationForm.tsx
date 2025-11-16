@@ -23,6 +23,7 @@ interface Props {
   medication?: Medication | undefined;
   onDelete?: () => void;
   patientIdOverride?: string;
+  caregiverIdOverride?: string;
 }
 
 interface FormState {
@@ -43,11 +44,12 @@ interface FormErrors {
   reminderDays?: string;
 }
 
-export default function MedicationForm({ mode, medication, onDelete, patientIdOverride }: Props) {
+export default function MedicationForm({ mode, medication, onDelete, patientIdOverride, caregiverIdOverride }: Props) {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const { user } = useSelector((state: RootState) => state.auth);
   const patientId = patientIdOverride || user?.id;
+  const caregiverId = caregiverIdOverride || (user?.role === 'caregiver' ? user.id : '');
 
   const [form, setForm] = useState<FormState>({
     name: '',
@@ -192,9 +194,6 @@ export default function MedicationForm({ mode, medication, onDelete, patientIdOv
     setIsSubmitting(true);
 
     try {
-      // Get caregiverId from user if available
-      const caregiverId = user?.role === 'caregiver' ? user.id : '';
-
       // Prepare medication data with new format
       const medicationData = {
         name: form.name.trim(),

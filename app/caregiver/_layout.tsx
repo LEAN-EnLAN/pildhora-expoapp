@@ -4,9 +4,12 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../../src/store';
 import { logout } from '../../src/store/slices/authSlice';
 import { Ionicons } from '@expo/vector-icons';
-import CaregiverHeader from '../../src/components/CaregiverHeader';
+import { Platform, StyleSheet, View, ActivityIndicator } from 'react-native';
+import { CaregiverHeader } from '../../src/components/caregiver';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { getDbInstance } from '../../src/services/firebase';
+import { colors, spacing, typography, shadows } from '../../src/theme/tokens';
+import { useNavigationPersistence } from '../../src/hooks/useNavigationPersistence';
 
 export default function CaregiverLayout() {
   const router = useRouter();
@@ -15,18 +18,31 @@ export default function CaregiverLayout() {
   const { isAuthenticated, user } = useSelector((state: RootState) => state.auth);
   const [checkedPatients, setCheckedPatients] = useState(false);
   const [hasPatients, setHasPatients] = useState<boolean>(true);
+  
+  // Navigation persistence and deep linking (temporarily disabled for debugging)
+  const { isReady: isNavigationReady } = useNavigationPersistence({
+    enabled: false,
+    persistLastRoute: false,
+    handleDeepLinks: false,
+  });
 
-  useEffect(() => {
-    if (!isAuthenticated || user?.role !== 'caregiver') {
-      router.replace('/');
-    }
-  }, [isAuthenticated, user?.role]);
+  // Temporarily disable automatic auth-based redirect to avoid nav loops while debugging
+  // useEffect(() => {
+  //   if (!isAuthenticated || user?.role !== 'caregiver') {
+  //     router.replace('/');
+  //   }
+  // }, [isAuthenticated, user?.role]);
 
   useEffect(() => {
     const checkPatients = async () => {
       if (!user?.id) return;
       try {
         const db = await getDbInstance();
+        if (!db) {
+          setHasPatients(false);
+          setCheckedPatients(true);
+          return;
+        }
         const q = query(
           collection(db, 'users'),
           where('role', '==', 'patient'),
@@ -36,15 +52,9 @@ export default function CaregiverLayout() {
         const any = !snap.empty;
         setHasPatients(any);
         setCheckedPatients(true);
-        if (!any && !pathname.endsWith('/add-device')) {
-          router.replace('/caregiver/add-device');
-        }
       } catch {
         setHasPatients(false);
         setCheckedPatients(true);
-        if (!pathname.endsWith('/add-device')) {
-          router.replace('/caregiver/add-device');
-        }
       }
     };
     checkPatients();
@@ -55,65 +65,159 @@ export default function CaregiverLayout() {
     router.replace('/auth/login');
   };
 
+  // Get screen title based on route name
+  const getScreenTitle = (routeName: string): string => {
+    const titles: Record<string, string> = {
+      dashboard: 'Inicio',
+      tasks: 'Tareas',
+      medications: 'Medicamentos',
+      events: 'Eventos',
+      'add-device': 'Vincular Dispositivo',
+    };
+    return titles[routeName] || routeName.charAt(0).toUpperCase() + routeName.slice(1);
+  };
+
+  // Check if current route should hide tabs (modal screens)
+  const shouldHideTabs = (): boolean => {
+    const modalRoutes = ['/caregiver/add-device', '/caregiver/events/'];
+    return modalRoutes.some(route => pathname.includes(route));
+  };
+
+  // Show loading indicator while navigation is initializing
+  if (!isNavigationReady) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary[500]} />
+      </View>
+    );
+  }
+
   return (
-    <Tabs
-      screenOptions={({ route }) => ({
-        header: () => (
-          <CaregiverHeader
-            title={route.name === 'dashboard' ? 'Inicio' : route.name.charAt(0).toUpperCase() + route.name.slice(1)}
-            showScreenTitle={route.name !== 'dashboard'}
-            onLogout={handleLogout}
-          />
-        ),
-        tabBarActiveTintColor: '#3b82f6',
-        tabBarInactiveTintColor: 'gray',
-      })}
-    >
-      <Tabs.Screen
-        name="dashboard"
-        options={{
-          title: 'Inicio',
-          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
-        }}
+    <>
+      {/* Single custom header for all caregiver screens */}
+      <CaregiverHeader
+        caregiverName={user?.name}
+        title={getScreenTitle(pathname.split('/').pop() || 'dashboard')}
+        showScreenTitle={pathname !== '/caregiver/dashboard'}
+        onLogout={handleLogout}
       />
-      <Tabs.Screen
-        name="tasks"
-        options={{
-          title: 'Tareas',
-          tabBarIcon: ({ color, size }) => <Ionicons name="checkbox-outline" size={size} color={color} />,
+      
+      <Tabs
+        screenOptions={{
+          headerShown: false, // Disable default header for all screens
+          tabBarActiveTintColor: colors.primary[500],
+          tabBarInactiveTintColor: colors.gray[400],
+          tabBarStyle: [
+            styles.tabBar,
+            shouldHideTabs() && styles.tabBarHidden,
+          ],
+          tabBarLabelStyle: styles.tabBarLabel,
+          tabBarIconStyle: styles.tabBarIcon,
+          tabBarItemStyle: styles.tabBarItem,
+          tabBarAllowFontScaling: true,
+          tabBarHideOnKeyboard: Platform.OS === 'android',
         }}
-      />
-      <Tabs.Screen
-        name="reports"
-        options={{
-          title: 'Reportes',
-          tabBarIcon: ({ color, size }) => <Ionicons name="document-text-outline" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="medications"
-        options={{
-          title: 'Medicamentos',
-          tabBarIcon: ({ color, size }) => <Ionicons name="medkit-outline" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="audit"
-        options={{
-          title: 'Registro',
-          tabBarIcon: ({ color, size }) => <Ionicons name="receipt-outline" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="events"
-        options={{
-          title: 'Eventos',
-          tabBarIcon: ({ color, size }) => <Ionicons name="notifications-outline" size={size} color={color} />,
-        }}
-      />
-      {/* This screen is not in the tab bar and will be pushed as a modal */}
-      <Tabs.Screen name="chat" options={{ href: null }} />
-      <Tabs.Screen name="add-device" options={{ href: null, title: 'Vincular Dispositivo' }} />
-    </Tabs>
+      >
+        <Tabs.Screen
+          name="dashboard"
+          options={{
+            title: 'Inicio',
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons 
+                name={focused ? "home" : "home-outline"} 
+                size={focused ? size + 2 : size} 
+                color={color} 
+              />
+            ),
+            tabBarAccessibilityLabel: 'Inicio - Tablero principal del cuidador',
+          }}
+        />
+        <Tabs.Screen
+          name="tasks"
+          options={{
+            title: 'Tareas',
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons 
+                name={focused ? "checkbox" : "checkbox-outline"} 
+                size={focused ? size + 2 : size} 
+                color={color} 
+              />
+            ),
+            tabBarAccessibilityLabel: 'Tareas - Gestionar tareas del cuidador',
+          }}
+        />
+        <Tabs.Screen
+          name="medications"
+          options={{
+            title: 'Medicamentos',
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons 
+                name={focused ? "medkit" : "medkit-outline"} 
+                size={focused ? size + 2 : size} 
+                color={color} 
+              />
+            ),
+            tabBarAccessibilityLabel: 'Medicamentos - Gestionar medicamentos del paciente',
+          }}
+        />
+        <Tabs.Screen
+          name="events"
+          options={{
+            title: 'Eventos',
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons 
+                name={focused ? "notifications" : "notifications-outline"} 
+                size={focused ? size + 2 : size} 
+                color={color} 
+              />
+            ),
+            tabBarAccessibilityLabel: 'Eventos - Ver registro de eventos de medicamentos',
+          }}
+        />
+        {/* Modal screens - hidden from tab bar */}
+        <Tabs.Screen 
+          name="add-device" 
+          options={{ 
+            href: null, 
+            title: 'Vincular Dispositivo',
+            headerShown: false,
+          }} 
+        />
+      </Tabs>
+    </>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+  },
+  tabBar: {
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray[200],
+    paddingTop: spacing.sm,
+    paddingBottom: Platform.OS === 'ios' ? spacing.xl : spacing.md,
+    height: Platform.OS === 'ios' ? 88 : 68,
+    ...shadows.sm,
+  },
+  tabBarHidden: {
+    display: 'none',
+  },
+  tabBarLabel: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semibold,
+    marginTop: spacing.xs,
+    letterSpacing: 0.3,
+  },
+  tabBarIcon: {
+    marginBottom: -2,
+  },
+  tabBarItem: {
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+  },
+});

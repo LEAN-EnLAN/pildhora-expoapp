@@ -272,6 +272,18 @@ export default function LinkDeviceScreen() {
     }
   }, [error]);
 
+  useEffect(() => {
+    if (!successMessage) return;
+
+    if (successMessage.startsWith('Solicitud de dispensaci')) {
+      setDispenseFeedback({
+        type: 'success',
+        message: successMessage,
+      });
+      setSuccessMessage(null);
+    }
+  }, [successMessage]);
+
   const handleLink = async () => {
     console.log('[DEBUG] handleLink called');
     setError(null);
@@ -507,14 +519,25 @@ export default function LinkDeviceScreen() {
               size="md"
               containerStyle={{ marginBottom: spacing.md }}
             />
-            <Button 
-              onPress={handleLink} 
-              loading={loading}
-              disabled={loading || !deviceId.trim()}
-              fullWidth
-            >
-              Enlazar
-            </Button>
+            <View style={{ gap: spacing.sm }}>
+              <Button 
+                onPress={handleLink} 
+                loading={loading}
+                disabled={loading || !deviceId.trim()}
+                fullWidth
+              >
+                Enlazar
+              </Button>
+              <Button
+                onPress={() => deviceId.trim() && handleUnlink(deviceId.trim())}
+                variant="danger"
+                loading={!!deviceId.trim() && unlinkingDevice === deviceId.trim()}
+                disabled={!deviceId.trim() || loading || (!!unlinkingDevice && unlinkingDevice === deviceId.trim())}
+                fullWidth
+              >
+                Desenlazar
+              </Button>
+            </View>
           </Card>
         </View>
 
@@ -525,8 +548,8 @@ export default function LinkDeviceScreen() {
             
             {loadingDevices ? (
               <LoadingSpinner 
-                size="md" 
-                text="Cargando dispositivos..." 
+                size="small" 
+                message="Cargando dispositivos..." 
               />
             ) : linkedDevices.length === 0 ? (
               <View style={styles.emptyState}>
@@ -668,6 +691,36 @@ export default function LinkDeviceScreen() {
           </Button>
         </View>
       </ScrollView>
+
+      {/* Dispense feedback modal */}
+      <Modal
+        visible={!!dispenseFeedback}
+        onClose={() => setDispenseFeedback(null)}
+        title={dispenseFeedback?.type === 'success' ? 'Dispensaci��n enviada' : 'No se pudo dispensar'}
+        size="sm"
+      >
+        <View style={{ gap: spacing.md }}>
+          {dispenseFeedback?.type === 'success' ? (
+            <SuccessMessage
+              message={dispenseFeedback.message}
+              autoDismiss={false}
+            />
+          ) : (
+            <ErrorMessage
+              message={dispenseFeedback?.message || ''}
+              variant="inline"
+              onDismiss={() => setDispenseFeedback(null)}
+            />
+          )}
+          <Button
+            onPress={() => setDispenseFeedback(null)}
+            variant={dispenseFeedback?.type === 'success' ? 'primary' : 'secondary'}
+            fullWidth
+          >
+            Entendido
+          </Button>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

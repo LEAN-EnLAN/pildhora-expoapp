@@ -6,7 +6,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { signIn, logout, signInWithGoogle } from '../../src/store/slices/authSlice';
 import { RootState, AppDispatch } from '../../src/store';
 import { getAuthInstance } from '../../src/services/firebase';
-import { Button, Card, Container } from '../../src/components/ui';
+import { Button, Card, Container, AppIcon } from '../../src/components/ui';
 import { PHTextField } from '../../src/components/ui/PHTextField';
 
 export default function LoginScreen() {
@@ -105,9 +105,7 @@ export default function LoginScreen() {
           )}
 
           <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <Text style={styles.logoText}>P</Text>
-            </View>
+            <AppIcon size="2xl" showShadow={true} rounded={true} />
             <Text style={styles.title}>Bienvenido de nuevo</Text>
             <Text style={styles.subtitle}>Inicia sesión en tu cuenta de Pildhora</Text>
           </View>
@@ -206,25 +204,7 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 32,
-  },
-  logoContainer: {
-    width: 96,
-    height: 96,
-    backgroundColor: '#3B82F6',
-    borderRadius: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  logoText: {
-    color: '#FFFFFF',
-    fontSize: 64,
-    fontWeight: 'bold',
+    gap: 16,
   },
   title: {
     fontSize: 24,

@@ -91,16 +91,24 @@ class AlarmService {
 
   /**
    * Configure the notification handler for when notifications are received
+   * Ensures medication alarms are always shown with sound and alert
    */
   private configureNotificationHandler(): void {
     Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-        shouldShowBanner: true,
-        shouldShowList: true,
-      }),
+      handleNotification: async (notification) => {
+        // Check if this is a medication alarm
+        const isMedicationAlarm = notification.request.content.data?.type === 'medication_alarm';
+        
+        return {
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+          shouldShowBanner: true,
+          shouldShowList: true,
+          // For medication alarms, ensure they're treated as critical
+          priority: isMedicationAlarm ? Notifications.AndroidNotificationPriority.MAX : Notifications.AndroidNotificationPriority.DEFAULT,
+        };
+      },
     });
   }
 
@@ -159,6 +167,7 @@ class AlarmService {
 
   /**
    * Request notification permissions with user guidance
+   * Includes critical alert permissions for iOS and exact alarm permissions for Android
    */
   async requestPermissions(): Promise<PermissionStatus> {
     try {
@@ -179,9 +188,16 @@ class AlarmService {
           return 'denied';
         }
 
-        // Request permissions
+        // Request permissions with critical alerts for iOS
         const { status } = await Notifications.requestPermissionsAsync({
           ios: {
+            allowAlert: true,
+            allowBadge: true,
+            allowSound: true,
+            allowCriticalAlerts: true, // Critical alerts for medication reminders
+          },
+          android: {
+            // Android 13+ requires explicit permission
             allowAlert: true,
             allowBadge: true,
             allowSound: true,
@@ -189,6 +205,10 @@ class AlarmService {
         });
         
         this.permissionStatus = status as PermissionStatus;
+        
+        // Log permission details for debugging
+        console.log('[AlarmService] Permission status:', status);
+        
         return status as PermissionStatus;
       }
 
@@ -295,16 +315,21 @@ class AlarmService {
         );
       }
 
-      // Create notification content
+      // Create notification content with critical priority
       const content: Notifications.NotificationContentInput = {
         title: '💊 Recordatorio de Medicamento',
         body: `Es hora de tomar ${config.emoji || '💊'} ${config.medicationName}`,
         sound: true,
-        priority: Notifications.AndroidNotificationPriority.HIGH,
+        priority: Notifications.AndroidNotificationPriority.MAX, // Maximum priority for alarms
+        vibrate: [0, 250, 250, 250], // Vibration pattern
+        sticky: true, // Keep notification visible
+        autoDismiss: false, // Don't auto-dismiss
+        categoryIdentifier: 'medication_alarm', // For iOS critical alerts
         data: {
           medicationId: config.medicationId,
           medicationName: config.medicationName,
           type: 'medication_alarm',
+          scheduledTime: config.time,
         },
       };
 
@@ -451,28 +476,48 @@ class AlarmService {
     try {
       const alarmIds = this.alarmMappings.get(medicationId);
       
-      if (!alarmIds || alarmIds.length === 0) {
-        console.log('[AlarmService] No alarms found for medication:', medicationId);
-        return;
-      }
-
-      // Cancel all notifications for this medication
-      for (const alarmId of alarmIds) {
-        // Handle comma-separated IDs
-        const ids = alarmId.includes(',') ? alarmId.split(',') : [alarmId];
-        
-        for (const id of ids) {
-          if (!id.startsWith('fallback_')) {
-            await Notifications.cancelScheduledNotificationAsync(id);
+      // Primary path: cancel using stored alarm IDs
+      if (alarmIds && alarmIds.length > 0) {
+        for (const alarmId of alarmIds) {
+          const ids = alarmId.includes(',') ? alarmId.split(',') : [alarmId];
+          
+          for (const id of ids) {
+            if (!id.startsWith('fallback_')) {
+              await Notifications.cancelScheduledNotificationAsync(id);
+            }
           }
         }
+
+        this.alarmMappings.delete(medicationId);
+        await this.saveAlarmMappings();
+        console.log('[AlarmService] Deleted alarms for medication from mappings:', medicationId);
+      } else {
+        console.log('[AlarmService] No alarms in mappings for medication:', medicationId);
       }
 
-      // Remove from mappings
-      this.alarmMappings.delete(medicationId);
-      await this.saveAlarmMappings();
+      // Defensive cleanup: scan all scheduled notifications and cancel any
+      // that still reference this medicationId in their data payload.
+      try {
+        const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+        const toCancel: string[] = [];
 
-      console.log('[AlarmService] Deleted alarms for medication:', medicationId);
+        for (const req of scheduled) {
+          const data = (req.content?.data || {}) as any;
+          if (data?.medicationId === medicationId && !String(req.identifier).startsWith('fallback_')) {
+            toCancel.push(req.identifier);
+          }
+        }
+
+        for (const id of toCancel) {
+          await Notifications.cancelScheduledNotificationAsync(id);
+        }
+
+        if (toCancel.length > 0) {
+          console.log('[AlarmService] Fallback delete cancelled orphaned alarms for medication:', medicationId, toCancel);
+        }
+      } catch (scanError) {
+        console.error('[AlarmService] Error during fallback notification scan for deleteAlarm:', scanError);
+      }
     } catch (error: any) {
       console.error('[AlarmService] Error deleting alarm:', error);
       

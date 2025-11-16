@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray[200],
   },
   danger: {
-    backgroundColor: colors.error,
+    backgroundColor: colors.error[500],
   },
   ghost: {
     backgroundColor: 'transparent',

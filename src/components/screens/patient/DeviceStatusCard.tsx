@@ -42,7 +42,7 @@ export const DeviceStatusCard: React.FC<DeviceStatusCardProps> = React.memo(({
       case 'dispensing':
         return colors.info;
       case 'error':
-        return colors.error;
+        return typeof colors.error === 'string' ? colors.error : colors.error[500];
       default:
         return colors.gray[400];
     }
@@ -51,8 +51,8 @@ export const DeviceStatusCard: React.FC<DeviceStatusCardProps> = React.memo(({
   const batteryColor = useMemo(() => {
     if (batteryLevel === null || batteryLevel === undefined) return colors.gray[400];
     if (batteryLevel > 50) return colors.success;
-    if (batteryLevel > 20) return colors.warning;
-    return colors.error;
+    if (batteryLevel > 20) return typeof colors.warning === 'string' ? colors.warning : colors.warning[500];
+    return typeof colors.error === 'string' ? colors.error : colors.error[500];
   }, [batteryLevel]);
 
   const batteryLabel = useMemo(() => {

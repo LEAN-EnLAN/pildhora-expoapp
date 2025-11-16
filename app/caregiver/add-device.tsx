@@ -1,35 +1,47 @@
-import React, { useState, useRef } from 'react';
-import { Text, View, StyleSheet, Animated } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Text, View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useRouter } from 'expo-router';
-import { useDispatch, useSelector } from 'react-redux';
+import { useRouter } from 'expo-router';
+import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
-import { AppDispatch, RootState } from '../../src/store';
+import { RootState } from '../../src/store';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-import { linkDeviceToUser } from '../../src/services/deviceLinking';
+import { linkDeviceToUser, unlinkDeviceFromUser } from '../../src/services/deviceLinking';
 import { getDbInstance } from '../../src/services/firebase';
-import { startDeviceListener } from '../../src/store/slices/deviceSlice';
-import { Button, Input, Card, LoadingSpinner, ErrorMessage, SuccessMessage } from '../../src/components/ui';
-import { colors, spacing, typography } from '../../src/theme/tokens';
+import { Button, Input, Card, LoadingSpinner, ErrorMessage, SuccessMessage, AnimatedListItem, Collapsible } from '../../src/components/ui';
+import { DeviceConfigPanel } from '../../src/components/shared/DeviceConfigPanel';
+import { useLinkedPatients } from '../../src/hooks/useLinkedPatients';
+import { useDeviceState } from '../../src/hooks/useDeviceState';
+import { colors, spacing, typography, borderRadius } from '../../src/theme/tokens';
+import { PatientWithDevice } from '../../src/types';
 
-type Step = 'enterId' | 'linking' | 'success' | 'error';
+interface LinkedDeviceInfo {
+  deviceId: string;
+  patient: PatientWithDevice | null;
+  isLoading: boolean;
+}
 
-export default function AddPatientScreen() {
+export default function DeviceManagementScreen() {
   const router = useRouter();
-  const dispatch = useDispatch<AppDispatch>();
+  const userId = useSelector((state: RootState) => state.auth.user?.id);
   
-  const [step, setStep] = useState<Step>('enterId');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState('');
   const [validationError, setValidationError] = useState<string>('');
+  const [linking, setLinking] = useState(false);
+  const [unlinkingDevice, setUnlinkingDevice] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [expandedDevices, setExpandedDevices] = useState<Set<string>>(new Set());
+  const [savingConfig, setSavingConfig] = useState<Record<string, boolean>>({});
   
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(1)).current;
-  const slideAnim = useRef(new Animated.Value(0)).current;
+  // Fetch linked patients (which includes their devices)
+  const { patients, isLoading: loadingPatients, error: patientsError, refetch } = useLinkedPatients({
+    caregiverId: userId || null,
+    enabled: !!userId,
+  });
 
-  // Validate device ID
-  const validateDeviceId = (id: string): boolean => {
+  // Validate device ID (minimum 5 characters as per requirements)
+  const validateDeviceId = useCallback((id: string): boolean => {
     if (!id.trim()) {
       setValidationError('El Device ID es requerido');
       return false;
@@ -40,297 +52,631 @@ export default function AddPatientScreen() {
     }
     setValidationError('');
     return true;
-  };
+  }, []);
 
-  const handleDeviceIdChange = (text: string) => {
+  const handleDeviceIdChange = useCallback((text: string) => {
     setDeviceId(text);
     if (text.trim()) {
       validateDeviceId(text);
     } else {
       setValidationError('');
     }
-  };
+  }, [validateDeviceId]);
 
-  const animateTransition = (callback: () => void) => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: -20,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      callback();
-      slideAnim.setValue(20);
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    });
-  };
+  // Handle device linking
+  const handleLink = useCallback(async () => {
+    if (!userId) {
+      setErrorMessage('Debes iniciar sesión para vincular un dispositivo');
+      return;
+    }
 
-  const handleLink = async () => {
-    // Validate before proceeding
     if (!validateDeviceId(deviceId)) {
       return;
     }
 
-    animateTransition(() => setStep('linking'));
+    setLinking(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
     
     try {
       const db = await getDbInstance();
       if (!db) {
         throw new Error('No se pudo conectar a la base de datos');
       }
+
+      // Check if device exists, create if not
       const deviceRef = doc(db, 'devices', deviceId.trim());
       const snap = await getDoc(deviceRef);
       if (!snap.exists()) {
-        const caregiverUid = getAuth()?.currentUser?.uid;
         await setDoc(deviceRef, {
-          linkedUsers: caregiverUid ? [caregiverUid] : [],
-          metadata: { model: 'ESP8266', notes: 'Dispositivo de prueba siempre activo' },
+          linkedUsers: [userId],
+          metadata: { model: 'ESP8266', notes: 'Dispositivo vinculado por cuidador' },
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         }, { merge: true });
       }
 
-      const caregiverUid = getAuth()?.currentUser?.uid;
-      if (caregiverUid) {
-        await linkDeviceToUser(caregiverUid, deviceId.trim());
-      }
-
-      dispatch(startDeviceListener(deviceId.trim()));
-      animateTransition(() => setStep('success'));
+      // Link device to caregiver
+      await linkDeviceToUser(userId, deviceId.trim());
+      
+      setSuccessMessage('Dispositivo vinculado exitosamente');
+      setDeviceId('');
+      setValidationError('');
+      
+      // Refresh linked patients list
+      await refetch();
     } catch (error: any) {
-      console.error("Error finding patient by device:", error);
-      setErrorMessage(error.message || 'Ocurrió un error al verificar el dispositivo.');
-      animateTransition(() => setStep('error'));
+      console.error('[DeviceManagement] Error linking device:', error);
+      setErrorMessage(error.userMessage || error.message || 'No se pudo vincular el dispositivo');
+    } finally {
+      setLinking(false);
     }
-  };
+  }, [userId, deviceId, validateDeviceId, refetch]);
 
-  const handleRetry = () => {
+  // Handle device unlinking with confirmation
+  const handleUnlink = useCallback(async (deviceIdToUnlink: string, patientName?: string) => {
+    if (!userId) {
+      setErrorMessage('Debes iniciar sesión para desvincular un dispositivo');
+      return;
+    }
+
+    // Show confirmation dialog
+    Alert.alert(
+      'Confirmar desvinculación',
+      patientName 
+        ? `¿Estás seguro de que deseas desvincular el dispositivo del paciente ${patientName}?`
+        : '¿Estás seguro de que deseas desvincular este dispositivo?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Desvincular',
+          style: 'destructive',
+          onPress: async () => {
+            setUnlinkingDevice(deviceIdToUnlink);
+            setErrorMessage(null);
+            setSuccessMessage(null);
+            
+            try {
+              await unlinkDeviceFromUser(userId, deviceIdToUnlink);
+              setSuccessMessage('Dispositivo desvinculado exitosamente');
+              
+              // Refresh linked patients list
+              await refetch();
+            } catch (error: any) {
+              console.error('[DeviceManagement] Error unlinking device:', error);
+              setErrorMessage(error.userMessage || error.message || 'No se pudo desvincular el dispositivo');
+            } finally {
+              setUnlinkingDevice(null);
+            }
+          },
+        },
+      ]
+    );
+  }, [userId, refetch]);
+
+  // Toggle device configuration panel
+  const toggleDeviceExpanded = useCallback((deviceId: string) => {
+    setExpandedDevices((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(deviceId)) {
+        newSet.delete(deviceId);
+      } else {
+        newSet.add(deviceId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Handle device configuration save
+  const handleSaveConfig = useCallback(async (
+    deviceId: string,
+    config: {
+      alarmMode: 'off' | 'sound' | 'led' | 'both';
+      ledIntensity: number;
+      ledColor: { r: number; g: number; b: number };
+    }
+  ) => {
+    setSavingConfig(prev => ({ ...prev, [deviceId]: true }));
     setErrorMessage(null);
-    animateTransition(() => setStep('enterId'));
-  };
-
-  const renderContent = () => {
-    const animatedStyle = {
-      opacity: fadeAnim,
-      transform: [{ translateY: slideAnim }],
-    };
-
-    switch (step) {
-      case 'enterId':
-        return (
-          <Animated.View style={[styles.contentContainer, animatedStyle]}>
-            <Card variant="elevated" padding="lg" style={styles.card}>
-              <View style={styles.iconContainer}>
-                <Ionicons name="hardware-chip-outline" size={48} color={colors.primary[500]} />
-              </View>
-              
-              <Text style={styles.title}>Vincular ESP8266</Text>
-              <Text style={styles.subtitle}>
-                Ingresa el ID del dispositivo para conectarlo a tu cuenta
-              </Text>
-
-              <View style={styles.inputContainer}>
-                <Input
-                  label="Device ID"
-                  placeholder="Ejemplo: esp8266-ABC123"
-                  value={deviceId}
-                  onChangeText={handleDeviceIdChange}
-                  error={validationError}
-                  helperText="Identificador único del dispositivo (mínimo 5 caracteres)"
-                  autoCapitalize="none"
-                  leftIcon={<Ionicons name="qr-code-outline" size={20} color={colors.gray[400]} />}
-                  required
-                />
-              </View>
-
-              <Button
-                onPress={handleLink}
-                variant="primary"
-                size="lg"
-                fullWidth
-                disabled={!deviceId.trim() || !!validationError}
-                accessibilityLabel="Vincular dispositivo"
-              >
-                Vincular Dispositivo
-              </Button>
-            </Card>
-          </Animated.View>
-        );
-
-      case 'linking':
-        return (
-          <Animated.View style={[styles.contentContainer, animatedStyle]}>
-            <Card variant="elevated" padding="lg" style={styles.card}>
-              <LoadingSpinner 
-                size="lg" 
-                text="Vinculando dispositivo..."
-              />
-              <Text style={styles.loadingSubtext}>
-                Esto puede tomar unos segundos
-              </Text>
-            </Card>
-          </Animated.View>
-        );
-
-      case 'success':
-        return (
-          <Animated.View style={[styles.contentContainer, animatedStyle]}>
-            <Card variant="elevated" padding="lg" style={styles.card}>
-              <SuccessMessage
-                message="¡Dispositivo vinculado exitosamente!"
-                autoDismiss={false}
-              />
-              
-              <Text style={styles.successDetails}>
-                El dispositivo ha sido conectado y se iniciará la lectura de estado en tiempo real.
-              </Text>
-
-              <View style={styles.buttonGroup}>
-                <Button
-                  onPress={() => router.back()}
-                  variant="primary"
-                  size="lg"
-                  fullWidth
-                  leftIcon={<Ionicons name="checkmark" size={20} color="#FFFFFF" />}
-                >
-                  Hecho
-                </Button>
-              </View>
-            </Card>
-          </Animated.View>
-        );
-
-      case 'error':
-        return (
-          <Animated.View style={[styles.contentContainer, animatedStyle]}>
-            <Card variant="elevated" padding="lg" style={styles.card}>
-              <ErrorMessage
-                message={errorMessage || 'No se pudo vincular el dispositivo'}
-                onRetry={handleRetry}
-                variant="inline"
-              />
-
-              <Text style={styles.errorHelp}>
-                Verifica que el Device ID sea correcto y que tengas conexión a internet.
-              </Text>
-
-              <View style={styles.buttonGroup}>
-                <Button
-                  onPress={handleRetry}
-                  variant="primary"
-                  size="lg"
-                  fullWidth
-                  leftIcon={<Ionicons name="refresh" size={20} color="#FFFFFF" />}
-                  style={styles.retryButton}
-                >
-                  Reintentar
-                </Button>
-                
-                <Button
-                  onPress={() => router.back()}
-                  variant="outline"
-                  size="lg"
-                  fullWidth
-                >
-                  Cancelar
-                </Button>
-              </View>
-            </Card>
-          </Animated.View>
-        );
-
-      default:
-        return null;
+    setSuccessMessage(null);
+    
+    try {
+      const db = await getDbInstance();
+      if (!db) {
+        throw new Error('No se pudo conectar a la base de datos');
+      }
+      
+      // Update Firestore desiredConfig (Cloud Function will mirror to RTDB)
+      const payload = {
+        led_intensity: config.ledIntensity,
+        led_color_rgb: [config.ledColor.r, config.ledColor.g, config.ledColor.b],
+        alarm_mode: config.alarmMode,
+      };
+      
+      await setDoc(
+        doc(db, 'devices', deviceId),
+        {
+          desiredConfig: payload,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+      
+      setSuccessMessage('Configuración guardada exitosamente');
+    } catch (error: any) {
+      console.error('[DeviceManagement] Error saving config:', error);
+      setErrorMessage(error.message || 'No se pudo guardar la configuración');
+    } finally {
+      setSavingConfig(prev => ({ ...prev, [deviceId]: false }));
     }
+  }, []);
+
+  // Render device card with status and configuration
+  const renderDeviceCard = (patient: PatientWithDevice, index: number) => {
+    const deviceId = patient.deviceId;
+    if (!deviceId) return null;
+
+    const isExpanded = expandedDevices.has(deviceId);
+    const isSaving = savingConfig[deviceId] || false;
+    const isUnlinking = unlinkingDevice === deviceId;
+
+    return (
+      <AnimatedListItem key={deviceId} index={index} delay={100}>
+        <Card variant="outlined" padding="md" style={styles.deviceCard}>
+          {/* Device Header */}
+          <View style={styles.deviceHeader}>
+            <View style={styles.deviceInfo}>
+              <Text style={styles.deviceId}>{deviceId}</Text>
+              <Text style={styles.patientName}>Paciente: {patient.name}</Text>
+            </View>
+            <Button
+              onPress={() => handleUnlink(deviceId, patient.name)}
+              variant="danger"
+              size="sm"
+              loading={isUnlinking}
+              disabled={isUnlinking}
+              accessibilityLabel={`Desvincular dispositivo de ${patient.name}`}
+            >
+              Desvincular
+            </Button>
+          </View>
+
+          {/* Device Status */}
+          <DeviceStatusSection deviceId={deviceId} />
+
+          {/* Expand/Collapse Button */}
+          <TouchableOpacity 
+            style={styles.expandButton}
+            onPress={() => toggleDeviceExpanded(deviceId)}
+            accessibilityLabel={isExpanded ? 'Ocultar configuración' : 'Mostrar configuración'}
+            accessibilityHint={isExpanded ? 'Colapsa el panel de configuración del dispositivo' : 'Expande el panel de configuración del dispositivo'}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: isExpanded }}
+          >
+            <Ionicons 
+              name={isExpanded ? 'chevron-up' : 'chevron-down'} 
+              size={20} 
+              color={colors.primary[500]} 
+              accessible={false}
+            />
+            <Text style={styles.expandButtonText}>
+              {isExpanded ? 'Ocultar configuración' : 'Mostrar configuración'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Device Configuration Panel (Expanded) */}
+          <Collapsible collapsed={!isExpanded}>
+            <View style={styles.configSection}>
+              <DeviceConfigPanelWrapper
+                deviceId={deviceId}
+                onSave={(config) => handleSaveConfig(deviceId, config)}
+                loading={isSaving}
+              />
+            </View>
+          </Collapsible>
+        </Card>
+      </AnimatedListItem>
+    );
   };
 
   return (
-    <SafeAreaView edges={['bottom']} style={styles.container}>
-      <Stack.Screen options={{ headerShown: true, title: 'Vincular Dispositivo' }} />
-      {renderContent()}
+    <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
+<ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        {/* Success/Error Messages */}
+        {successMessage && (
+          <View style={styles.messageContainer}>
+            <SuccessMessage
+              message={successMessage}
+              onDismiss={() => setSuccessMessage(null)}
+            />
+          </View>
+        )}
+
+        {errorMessage && (
+          <View style={styles.messageContainer}>
+            <ErrorMessage
+              message={errorMessage}
+              onDismiss={() => setErrorMessage(null)}
+              variant="banner"
+            />
+          </View>
+        )}
+
+        {patientsError && (
+          <View style={styles.messageContainer}>
+            <ErrorMessage
+              message="Error al cargar dispositivos vinculados"
+              variant="banner"
+            />
+          </View>
+        )}
+
+        {/* Link New Device Section */}
+        <View style={styles.section}>
+          <Card variant="elevated" padding="lg">
+            <View style={styles.sectionHeader}>
+              <Ionicons name="hardware-chip-outline" size={24} color={colors.primary[500]} />
+              <Text style={styles.sectionTitle}>Vincular Nuevo Dispositivo</Text>
+            </View>
+            
+            <Text style={styles.sectionDescription}>
+              Ingresa el ID del dispositivo para conectarlo a un paciente
+            </Text>
+
+            <View style={styles.inputContainer}>
+              <Input
+                label="Device ID"
+                placeholder="Ejemplo: esp8266-ABC123"
+                value={deviceId}
+                onChangeText={handleDeviceIdChange}
+                error={validationError}
+                helperText="Identificador único del dispositivo (mínimo 5 caracteres)"
+                autoCapitalize="none"
+                leftIcon={<Ionicons name="qr-code-outline" size={20} color={colors.gray[400]} />}
+                required
+              />
+            </View>
+
+            <Button
+              onPress={handleLink}
+              variant="primary"
+              size="lg"
+              fullWidth
+              loading={linking}
+              disabled={!deviceId.trim() || !!validationError || linking}
+              accessibilityLabel="Vincular dispositivo"
+              leftIcon={<Ionicons name="link" size={20} color="#FFFFFF" />}
+            >
+              Vincular Dispositivo
+            </Button>
+          </Card>
+        </View>
+
+        {/* Linked Devices Section */}
+        <View style={styles.section}>
+          <Card variant="elevated" padding="lg">
+            <View style={styles.sectionHeader}>
+              <Ionicons name="list-outline" size={24} color={colors.primary[500]} />
+              <Text style={styles.sectionTitle}>Dispositivos Vinculados</Text>
+            </View>
+            
+            {loadingPatients ? (
+              <LoadingSpinner 
+                size="large" 
+                message="Cargando dispositivos..." 
+              />
+            ) : patients.length === 0 ? (
+              <View 
+                style={styles.emptyState}
+                accessible={true}
+                accessibilityRole="text"
+                accessibilityLabel="No hay dispositivos vinculados. Vincula un dispositivo para comenzar a monitorear pacientes"
+              >
+                <Ionicons name="hardware-chip-outline" size={48} color={colors.gray[300]} accessible={false} />
+                <Text style={styles.emptyStateText}>
+                  No hay dispositivos vinculados
+                </Text>
+                <Text style={styles.emptyStateSubtext}>
+                  Vincula un dispositivo para comenzar a monitorear pacientes
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.devicesList}>
+                {patients
+                  .filter(p => p.deviceId)
+                  .map((patient, index) => renderDeviceCard(patient, index))}
+              </View>
+            )}
+          </Card>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
+
+// Component to display device status with real-time updates
+const DeviceStatusSection: React.FC<{ deviceId: string }> = ({ deviceId }) => {
+  const { deviceState, isLoading } = useDeviceState({ deviceId, enabled: true });
+
+  if (isLoading) {
+    return (
+      <View style={styles.statusSection}>
+        <LoadingSpinner size="small" message="Cargando estado..." />
+      </View>
+    );
+  }
+
+  const batteryLevel = deviceState?.battery_level ?? null;
+  const isOnline = deviceState?.is_online ?? false;
+  const currentStatus = deviceState?.current_status ?? 'N/D';
+
+  return (
+    <View 
+      style={styles.statusSection}
+      accessible={true}
+      accessibilityLabel={`Estado del dispositivo: ${isOnline ? 'En línea' : 'Desconectado'}, Batería: ${batteryLevel !== null ? `${batteryLevel} por ciento` : 'no disponible'}, Estado actual: ${currentStatus}`}
+      accessibilityRole="summary"
+    >
+      <View style={styles.statusRow}>
+        <View style={styles.statusItem}>
+          <View style={styles.statusLabel}>
+            <Ionicons 
+              name={isOnline ? 'wifi' : 'wifi-outline'} 
+              size={16} 
+              color={isOnline ? colors.success[500] : colors.gray[400]} 
+              accessible={false}
+            />
+            <Text style={styles.statusLabelText}>Estado</Text>
+          </View>
+          <Text style={[styles.statusValue, isOnline && styles.statusValueOnline]}>
+            {isOnline ? 'En línea' : 'Desconectado'}
+          </Text>
+        </View>
+
+        <View style={styles.statusItem}>
+          <View style={styles.statusLabel}>
+            <Ionicons 
+              name="battery-half" 
+              size={16} 
+              color={batteryLevel && batteryLevel > 20 ? colors.success[500] : colors.warning[500]} 
+              accessible={false}
+            />
+            <Text style={styles.statusLabelText}>Batería</Text>
+          </View>
+          <Text style={styles.statusValue}>
+            {batteryLevel !== null ? `${batteryLevel}%` : 'N/D'}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.statusRow}>
+        <View style={styles.statusItem}>
+          <View style={styles.statusLabel}>
+            <Ionicons name="information-circle-outline" size={16} color={colors.gray[400]} accessible={false} />
+            <Text style={styles.statusLabelText}>Estado actual</Text>
+          </View>
+          <Text style={styles.statusValue}>{currentStatus}</Text>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+// Wrapper component to fetch and pass device config to DeviceConfigPanel
+const DeviceConfigPanelWrapper: React.FC<{
+  deviceId: string;
+  onSave: (config: any) => void;
+  loading: boolean;
+}> = ({ deviceId, onSave, loading }) => {
+  const [config, setConfig] = useState<{
+    alarmMode: 'off' | 'sound' | 'led' | 'both';
+    ledIntensity: number;
+    ledColor: { r: number; g: number; b: number };
+  } | null>(null);
+  const [loadingConfig, setLoadingConfig] = useState(true);
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const db = await getDbInstance();
+        if (!db) return;
+
+        const deviceDoc = await getDoc(doc(db, 'devices', deviceId));
+        if (deviceDoc.exists()) {
+          const data = deviceDoc.data();
+          const desired = data?.desiredConfig || {};
+          
+          setConfig({
+            alarmMode: (desired?.alarm_mode as any) ?? 'both',
+            ledIntensity: (desired?.led_intensity as number) ?? 512,
+            ledColor: {
+              r: (desired?.led_color_rgb?.[0] as number) ?? 255,
+              g: (desired?.led_color_rgb?.[1] as number) ?? 255,
+              b: (desired?.led_color_rgb?.[2] as number) ?? 255,
+            },
+          });
+        } else {
+          // Default config
+          setConfig({
+            alarmMode: 'both',
+            ledIntensity: 512,
+            ledColor: { r: 255, g: 255, b: 255 },
+          });
+        }
+      } catch (error) {
+        console.error('[DeviceConfigPanelWrapper] Error fetching config:', error);
+        // Set default config on error
+        setConfig({
+          alarmMode: 'both',
+          ledIntensity: 512,
+          ledColor: { r: 255, g: 255, b: 255 },
+        });
+      } finally {
+        setLoadingConfig(false);
+      }
+    };
+
+    fetchConfig();
+  }, [deviceId]);
+
+  if (loadingConfig || !config) {
+    return <LoadingSpinner size="small" message="Cargando configuración..." />;
+  }
+
+  return (
+    <DeviceConfigPanel
+      deviceId={deviceId}
+      initialAlarmMode={config.alarmMode}
+      initialLedIntensity={config.ledIntensity}
+      initialLedColor={config.ledColor}
+      onSave={onSave}
+      loading={loading}
+    />
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  contentContainer: {
+  scrollView: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  },
+  scrollContent: {
     padding: spacing.lg,
   },
-  card: {
-    width: '100%',
-    maxWidth: 480,
-  },
-  iconContainer: {
-    alignItems: 'center',
+  messageContainer: {
     marginBottom: spacing.lg,
   },
-  title: {
-    fontSize: typography.fontSize['2xl'],
+  section: {
+    marginBottom: spacing.lg,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: typography.fontSize.xl,
     fontWeight: typography.fontWeight.bold,
     color: colors.gray[900],
-    textAlign: 'center',
-    marginBottom: spacing.sm,
   },
-  subtitle: {
-    fontSize: typography.fontSize.base,
+  sectionDescription: {
+    fontSize: typography.fontSize.sm,
     color: colors.gray[600],
-    textAlign: 'center',
-    marginBottom: spacing['2xl'],
-    lineHeight: typography.fontSize.base * typography.lineHeight.normal,
+    marginBottom: spacing.lg,
+    lineHeight: typography.fontSize.sm * typography.lineHeight.normal,
   },
   inputContainer: {
-    marginBottom: spacing['2xl'],
+    marginBottom: spacing.lg,
   },
-  loadingSubtext: {
+  devicesList: {
+    gap: spacing.md,
+  },
+  deviceCard: {
+    marginBottom: spacing.md,
+  },
+  deviceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.md,
+  },
+  deviceInfo: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  deviceId: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.gray[900],
+    marginBottom: spacing.xs,
+  },
+  patientName: {
+    fontSize: typography.fontSize.sm,
+    color: colors.gray[600],
+  },
+  statusSection: {
+    paddingVertical: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray[200],
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
+    marginBottom: spacing.md,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  statusItem: {
+    flex: 1,
+  },
+  statusLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  statusLabelText: {
+    fontSize: typography.fontSize.xs,
+    color: colors.gray[500],
+    textTransform: 'uppercase',
+    fontWeight: typography.fontWeight.medium,
+  },
+  statusValue: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.gray[700],
+  },
+  statusValueOnline: {
+    color: colors.success[600],
+  },
+  expandButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+    minHeight: 44,
+  },
+  expandButtonText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.primary[500],
+  },
+  configSection: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray[200],
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing['3xl'],
+    gap: spacing.md,
+  },
+  emptyStateText: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.gray[600],
+    textAlign: 'center',
+  },
+  emptyStateSubtext: {
     fontSize: typography.fontSize.sm,
     color: colors.gray[500],
     textAlign: 'center',
-    marginTop: spacing.lg,
-  },
-  successDetails: {
-    fontSize: typography.fontSize.base,
-    color: colors.gray[600],
-    textAlign: 'center',
-    marginTop: spacing.lg,
-    marginBottom: spacing['2xl'],
-    lineHeight: typography.fontSize.base * typography.lineHeight.normal,
-  },
-  errorHelp: {
-    fontSize: typography.fontSize.sm,
-    color: colors.gray[600],
-    textAlign: 'center',
-    marginTop: spacing.lg,
-    marginBottom: spacing['2xl'],
-    lineHeight: typography.fontSize.sm * typography.lineHeight.normal,
-  },
-  buttonGroup: {
-    width: '100%',
-    gap: spacing.md,
-  },
-  retryButton: {
-    marginBottom: spacing.sm,
   },
 });
+
+
+
+
+
+

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,12 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Button } from '../ui/Button';
 import { colors, spacing, typography, borderRadius } from '../../theme/tokens';
 import { MedicationEventType } from '../../types';
+
+const FILTERS_STORAGE_KEY = '@medication_event_filters';
 
 export interface EventFilters {
   patientId?: string;
@@ -37,6 +40,50 @@ export const EventFilterControls: React.FC<EventFilterControlsProps> = ({
   const [showPatientModal, setShowPatientModal] = useState(false);
   const [showEventTypeModal, setShowEventTypeModal] = useState(false);
   const [showDateRangeModal, setShowDateRangeModal] = useState(false);
+
+  /**
+   * Load saved filters from AsyncStorage on mount
+   */
+  useEffect(() => {
+    const loadFilters = async () => {
+      try {
+        const savedFilters = await AsyncStorage.getItem(FILTERS_STORAGE_KEY);
+        if (savedFilters) {
+          const parsed = JSON.parse(savedFilters);
+          // Convert date strings back to Date objects
+          if (parsed.dateRange) {
+            parsed.dateRange = {
+              start: new Date(parsed.dateRange.start),
+              end: new Date(parsed.dateRange.end),
+            };
+          }
+          onFiltersChange(parsed);
+        }
+      } catch (error) {
+        console.error('[EventFilterControls] Error loading filters:', error);
+      }
+    };
+
+    loadFilters();
+  }, []); // Only run on mount
+
+  /**
+   * Save filters to AsyncStorage whenever they change
+   */
+  useEffect(() => {
+    const saveFilters = async () => {
+      try {
+        await AsyncStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filters));
+      } catch (error) {
+        console.error('[EventFilterControls] Error saving filters:', error);
+      }
+    };
+
+    // Only save if filters object is not empty (to avoid saving initial empty state)
+    if (Object.keys(filters).length > 0 || filters.searchQuery !== undefined) {
+      saveFilters();
+    }
+  }, [filters]);
 
   const hasActiveFilters = !!(
     filters.patientId ||
@@ -130,6 +177,9 @@ export const EventFilterControls: React.FC<EventFilterControlsProps> = ({
           onChangeText={handleSearchChange}
           autoCapitalize="none"
           autoCorrect={false}
+          accessibilityLabel="Buscar medicamentos"
+          accessibilityHint="Escribe el nombre del medicamento para filtrar eventos"
+          accessibilityRole="search"
         />
         {filters.searchQuery && (
           <TouchableOpacity
@@ -152,6 +202,10 @@ export const EventFilterControls: React.FC<EventFilterControlsProps> = ({
           <TouchableOpacity
             style={[styles.filterChip, filters.patientId && styles.filterChipActive]}
             onPress={() => setShowPatientModal(true)}
+            accessibilityLabel={`Filtrar por paciente: ${getPatientName(filters.patientId)}`}
+            accessibilityHint="Abre el selector de pacientes para filtrar eventos"
+            accessibilityRole="button"
+            accessibilityState={{ selected: !!filters.patientId }}
           >
             <Ionicons
               name="person-outline"
@@ -174,6 +228,10 @@ export const EventFilterControls: React.FC<EventFilterControlsProps> = ({
           <TouchableOpacity
             style={[styles.filterChip, filters.eventType && styles.filterChipActive]}
             onPress={() => setShowEventTypeModal(true)}
+            accessibilityLabel={`Filtrar por tipo de evento: ${getEventTypeLabel(filters.eventType)}`}
+            accessibilityHint="Abre el selector de tipos de evento para filtrar"
+            accessibilityRole="button"
+            accessibilityState={{ selected: !!filters.eventType }}
           >
             <Ionicons
               name="list-outline"
@@ -196,6 +254,10 @@ export const EventFilterControls: React.FC<EventFilterControlsProps> = ({
           <TouchableOpacity
             style={[styles.filterChip, filters.dateRange && styles.filterChipActive]}
             onPress={() => setShowDateRangeModal(true)}
+            accessibilityLabel={`Filtrar por fecha: ${getDateRangeLabel(filters.dateRange)}`}
+            accessibilityHint="Abre el selector de rango de fechas para filtrar eventos"
+            accessibilityRole="button"
+            accessibilityState={{ selected: !!filters.dateRange }}
           >
             <Ionicons
               name="calendar-outline"
@@ -216,7 +278,13 @@ export const EventFilterControls: React.FC<EventFilterControlsProps> = ({
 
           {/* Clear filters button */}
           {hasActiveFilters && (
-            <TouchableOpacity style={styles.clearButton} onPress={handleClearFilters}>
+            <TouchableOpacity 
+              style={styles.clearButton} 
+              onPress={handleClearFilters}
+              accessibilityLabel="Limpiar filtros"
+              accessibilityHint="Elimina todos los filtros activos"
+              accessibilityRole="button"
+            >
               <Ionicons name="close-circle" size={16} color={colors.error[500]} />
               <Text style={styles.clearButtonText}>Limpiar</Text>
             </TouchableOpacity>
@@ -496,10 +564,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md, // Increased from spacing.sm to meet 44pt minimum
     gap: spacing.xs,
     borderWidth: 1,
     borderColor: colors.gray[300],
+    minHeight: 44, // Ensure minimum touch target height
   },
   filterChipActive: {
     backgroundColor: colors.primary[50],
@@ -519,10 +588,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.error[50],
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md, // Increased from spacing.sm to meet 44pt minimum
     gap: spacing.xs,
     borderWidth: 1,
     borderColor: colors.error[500],
+    minHeight: 44, // Ensure minimum touch target height
   },
   clearButtonText: {
     fontSize: typography.fontSize.sm,

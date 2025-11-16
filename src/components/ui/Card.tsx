@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, StyleSheet, ViewStyle, TouchableOpacity } from 'react-native';
+import React, { useRef } from 'react';
+import { View, StyleSheet, ViewStyle, TouchableOpacity, Animated } from 'react-native';
 import { colors, spacing, borderRadius, shadows } from '../../theme/tokens';
 
 interface CardProps {
@@ -25,6 +25,10 @@ export const Card: React.FC<CardProps> = ({
   accessibilityLabel,
   accessibilityHint
 }) => {
+  // Animation values for press feedback
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const opacityAnim = useRef(new Animated.Value(1)).current;
+
   const cardStyle = [
     styles.card,
     styles[variant],
@@ -40,19 +44,68 @@ export const Card: React.FC<CardProps> = ({
     </>
   );
   
+  /**
+   * Handle press in animation
+   * Scales down to 0.98 and reduces opacity for tactile feedback
+   */
+  const handlePressIn = () => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 0.98,
+        useNativeDriver: true,
+        damping: 15,
+        stiffness: 150,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 0.8,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  /**
+   * Handle press out animation
+   * Returns to original scale and full opacity with spring animation
+   */
+  const handlePressOut = () => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        damping: 15,
+        stiffness: 150,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+  
   if (onPress) {
     return (
-      <TouchableOpacity 
-        style={cardStyle} 
-        onPress={onPress}
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel || 'Card'}
-        accessibilityHint={accessibilityHint}
-        accessible={true}
+      <Animated.View
+        style={{
+          transform: [{ scale: scaleAnim }],
+          opacity: opacityAnim,
+        }}
       >
-        {content}
-      </TouchableOpacity>
+        <TouchableOpacity 
+          style={cardStyle} 
+          onPress={onPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          activeOpacity={1}
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel || 'Card'}
+          accessibilityHint={accessibilityHint}
+          accessible={true}
+        >
+          {content}
+        </TouchableOpacity>
+      </Animated.View>
     );
   }
 

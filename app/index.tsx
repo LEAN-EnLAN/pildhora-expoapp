@@ -111,17 +111,18 @@ export default function WelcomeScreen() {
     // Redirect based on auth state only after initialization is complete
     if (!initializing && !loading) {
       console.log('[Index] Auth state check:', { isAuthenticated, user: user?.id, role: user?.role });
-      if (isAuthenticated && user) {
-        if (user.role === 'patient') {
-          console.log('[Index] Redirecting to patient home');
-          router.replace('/patient/home');
-        } else {
-          console.log('[Index] Redirecting to caregiver dashboard');
-          router.replace('/caregiver/dashboard');
-        }
-      } else {
-        console.log('[Index] User not authenticated, staying at root');
-      }
+      // TEMP: disable automatic redirect for debugging
+      // if (isAuthenticated && user) {
+      //   if (user.role === 'patient') {
+      //     console.log('[Index] Redirecting to patient home');
+      //     router.replace('/patient/home');
+      //   } else {
+      //     console.log('[Index] Redirecting to caregiver dashboard');
+      //     router.replace('/caregiver/dashboard');
+      //   }
+      // } else {
+      //   console.log('[Index] User not authenticated, staying at root');
+      // }
     }
   }, [isAuthenticated, user, loading, initializing, router]);
 

@@ -1,20 +1,40 @@
-import React, { useState, useEffect } from 'react';
-import { Text, View, FlatList, Modal, Alert, StyleSheet, TouchableOpacity } from 'react-native';
+/**
+ * Tasks Screen
+ * 
+ * Simple note-taking feature for caregivers to manage their to-dos.
+ * Refactored to use design system components with proper styling.
+ * 
+ * Features:
+ * - Create, read, update, delete tasks
+ * - Mark tasks as complete/incomplete with checkbox toggle
+ * - Visual styling for completed tasks (strikethrough, gray)
+ * - Tasks scoped to individual caregiver account
+ * - Design system Card, Button, and Input components
+ * - Proper accessibility labels and touch targets
+ * - Empty state when no tasks exist
+ * 
+ * Requirements: 9.1, 9.2, 9.3, 9.4, 9.5
+ */
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { Text, View, FlatList, Alert, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { PHTextField } from '../../src/components/ui/PHTextField';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../src/store';
 import { useCollectionSWR } from '../../src/hooks/useCollectionSWR';
 import { getTasksQuery, addTask, updateTask, deleteTask } from '../../src/services/firebase/tasks';
 import { Task } from '../../src/types';
-import { Button } from '../../src/components/ui';
+import { Button, Card, Input, Modal } from '../../src/components/ui';
+import { colors, spacing, typography, borderRadius } from '../../src/theme/tokens';
 
 export default function TasksScreen() {
   const { user } = useSelector((state: RootState) => state.auth);
   const [tasksQuery, setTasksQuery] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [newTaskText, setNewTaskText] = useState('');
+  const [newTaskError, setNewTaskError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -22,9 +42,16 @@ export default function TasksScreen() {
     }
   }, [user]);
 
-  const { data: tasks = [], mutate } = useCollectionSWR<Task>({ query: tasksQuery, cacheKey: user?.id ? `tasks:${user.id}` : null });
+  const { data: tasks = [], mutate } = useCollectionSWR<Task>({ 
+    query: tasksQuery, 
+    cacheKey: user?.id ? `tasks:${user.id}` : null 
+  });
 
-  const toggleCompletion = async (task: Task) => {
+  /**
+   * Toggles task completion status
+   * Updates Firestore document and applies visual styling
+   */
+  const toggleCompletion = useCallback(async (task: Task) => {
     try {
       await updateTask(task.id, { completed: !task.completed });
       mutate();
@@ -32,30 +59,57 @@ export default function TasksScreen() {
       console.error("Error updating task:", error);
       Alert.alert("Error", "No se pudo actualizar la tarea.");
     }
-  };
+  }, [mutate]);
 
-  const handleAddTask = async () => {
-    if (newTaskText.trim() && user) {
-      try {
-        await addTask({
-          title: newTaskText,
-          description: '',
-          completed: false,
-          caregiverId: user.id,
-          patientId: '',
-          dueDate: new Date(),
-        });
-        mutate();
-        setNewTaskText('');
-        setModalVisible(false);
-      } catch (error) {
-        console.error("Error adding task:", error);
-        Alert.alert("Error", "No se pudo agregar la tarea.");
-      }
+  /**
+   * Handles adding a new task
+   * Validates input and creates task in Firestore
+   * Prevents duplicate submissions with loading state
+   */
+  const handleAddTask = useCallback(async () => {
+    // Prevent duplicate submissions
+    if (isSubmitting) {
+      return;
     }
-  };
 
-  const handleDeleteTask = (taskId: string) => {
+    // Validate input
+    if (!newTaskText.trim()) {
+      setNewTaskError('Por favor ingresa una descripción para la tarea');
+      return;
+    }
+
+    if (!user) {
+      Alert.alert("Error", "Usuario no autenticado");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await addTask({
+        title: newTaskText.trim(),
+        description: '',
+        completed: false,
+        caregiverId: user.id,
+        patientId: '',
+        dueDate: new Date(),
+      });
+      mutate();
+      setNewTaskText('');
+      setNewTaskError('');
+      setModalVisible(false);
+    } catch (error) {
+      console.error("Error adding task:", error);
+      Alert.alert("Error", "No se pudo agregar la tarea.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [newTaskText, user, mutate, isSubmitting]);
+
+  /**
+   * Handles deleting a task with confirmation
+   */
+  const handleDeleteTask = useCallback((taskId: string) => {
     Alert.alert(
       "Eliminar Tarea",
       "¿Estás seguro de que quieres eliminar esta tarea?",
@@ -76,72 +130,216 @@ export default function TasksScreen() {
         },
       ]
     );
-  };
+  }, [mutate]);
+
+  /**
+   * Opens add task modal
+   */
+  const handleOpenModal = useCallback(() => {
+    setNewTaskText('');
+    setNewTaskError('');
+    setIsSubmitting(false);
+    setModalVisible(true);
+  }, []);
+
+  /**
+   * Closes add task modal
+   */
+  const handleCloseModal = useCallback(() => {
+    if (isSubmitting) {
+      return; // Prevent closing while submitting
+    }
+    setModalVisible(false);
+    setNewTaskText('');
+    setNewTaskError('');
+    setIsSubmitting(false);
+  }, [isSubmitting]);
+
+  /**
+   * Renders individual task item
+   * Memoized to prevent unnecessary re-renders
+   */
+  const renderTaskItem = useCallback(({ item }: { item: Task }) => (
+    <Card
+      variant="elevated"
+      padding="md"
+      style={styles.taskCard}
+      accessibilityLabel={`Task: ${item.title}, ${item.completed ? 'completed' : 'not completed'}`}
+    >
+      <View style={styles.taskContent}>
+        {/* Checkbox and task title */}
+        <TouchableOpacity
+          onPress={() => toggleCompletion(item)}
+          style={styles.taskInfo}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: item.completed }}
+          accessibilityLabel={item.completed ? 'Mark as incomplete' : 'Mark as complete'}
+          accessibilityHint={`Toggles completion status for task: ${item.title}`}
+          accessible={true}
+        >
+          <View style={styles.checkboxContainer}>
+            <Ionicons
+              name={item.completed ? 'checkbox' : 'square-outline'}
+              size={28}
+              color={item.completed ? colors.success : colors.gray[400]}
+            />
+          </View>
+          <Text
+            style={[
+              styles.taskTitle,
+              item.completed && styles.completedTaskTitle,
+            ]}
+            numberOfLines={2}
+          >
+            {item.title}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Delete button */}
+        <TouchableOpacity
+          onPress={() => handleDeleteTask(item.id)}
+          style={styles.deleteButton}
+          accessibilityRole="button"
+          accessibilityLabel="Delete task"
+          accessibilityHint={`Deletes task: ${item.title}`}
+          accessible={true}
+        >
+          <Ionicons name="trash-outline" size={22} color={colors.error[500]} />
+        </TouchableOpacity>
+      </View>
+    </Card>
+  ), [toggleCompletion, handleDeleteTask]);
+
+  /**
+   * Key extractor for FlatList optimization
+   * Using task ID ensures stable keys across renders
+   */
+  const keyExtractor = useCallback((item: Task) => item.id, []);
+
+  /**
+   * Get item layout for FlatList optimization
+   * Provides exact dimensions for better scroll performance
+   */
+  const getItemLayout = useCallback(
+    (_data: ArrayLike<Task> | null | undefined, index: number) => ({
+      length: 100, // Approximate height of task card + margin
+      offset: 100 * index,
+      index,
+    }),
+    []
+  );
+
+  /**
+   * Renders empty state when no tasks exist
+   */
+  const renderEmptyState = () => (
+    <View 
+      style={styles.emptyStateContainer}
+      accessible={true}
+      accessibilityRole="text"
+      accessibilityLabel="No hay tareas. Crea tu primera tarea para comenzar a organizar tus pendientes"
+    >
+      <Ionicons name="checkbox-outline" size={64} color={colors.gray[300]} accessible={false} />
+      <Text style={styles.emptyStateTitle}>No hay tareas</Text>
+      <Text style={styles.emptyStateDescription}>
+        Crea tu primera tarea para comenzar a organizar tus pendientes
+      </Text>
+    </View>
+  );
 
   return (
     <SafeAreaView edges={['bottom']} style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Tareas</Text>
+      {/* Add task button */}
+      <View style={styles.headerContainer}>
         <Button
           variant="primary"
-          size="sm"
-          onPress={() => setModalVisible(true)}
+          size="md"
+          onPress={handleOpenModal}
+          fullWidth
+          leftIcon={<Ionicons name="add" size={24} color={colors.surface} />}
+          accessibilityLabel="Add new task"
+          accessibilityHint="Opens dialog to create a new task"
         >
-          <Ionicons name="add" size={24} color="white" />
+          Nueva Tarea
         </Button>
       </View>
+
+      {/* Tasks list */}
       <FlatList
         data={tasks}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.taskItem}>
-            <TouchableOpacity onPress={() => toggleCompletion(item)} style={styles.taskInfo}>
-              <Ionicons name={item.completed ? 'checkbox' : 'square-outline'} size={24} color={item.completed ? 'green' : 'gray'} />
-              <Text style={[styles.taskTitle, item.completed && styles.completedTask]}>{item.title}</Text>
-            </TouchableOpacity>
-            <Button
-              variant="secondary"
-              size="sm"
-              onPress={() => handleDeleteTask(item.id)}
-            >
-              <Ionicons name="trash-outline" size={22} color="red" />
-            </Button>
-          </View>
-        )}
+        keyExtractor={keyExtractor}
+        renderItem={renderTaskItem}
+        contentContainerStyle={[
+          styles.listContent,
+          tasks.length === 0 && styles.listContentEmpty,
+        ]}
+        ListEmptyComponent={renderEmptyState}
+        showsVerticalScrollIndicator={false}
+        accessible={true}
+        accessibilityLabel="Lista de tareas"
+        accessibilityRole="list"
+        // Performance optimizations
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        initialNumToRender={10}
+        windowSize={10}
+        getItemLayout={getItemLayout}
       />
+
+      {/* Add task modal */}
       <Modal
-        animationType="slide"
-        transparent={true}
         visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+        onClose={handleCloseModal}
+        title="Nueva Tarea"
+        size="md"
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalView}>
-            <Text style={styles.modalTitle}>Nueva Tarea</Text>
-            <PHTextField
-              placeholder="Descripción de la tarea"
-              value={newTaskText}
-              onChangeText={setNewTaskText}
-              style={styles.input}
-            />
+        <ScrollView style={styles.modalContent}>
+          <Input
+            label="Descripción de la tarea"
+            placeholder="Ej: Revisar medicamentos del paciente"
+            value={newTaskText}
+            onChangeText={(text) => {
+              setNewTaskText(text);
+              if (newTaskError) setNewTaskError('');
+            }}
+            error={newTaskError}
+            variant="outlined"
+            size="lg"
+            multiline
+            numberOfLines={3}
+            required
+            accessibilityLabel="Task description input"
+            accessibilityHint="Enter a description for the new task"
+          />
+
+          <View style={styles.modalActions}>
             <Button
               variant="primary"
-              size="md"
+              size="lg"
+              fullWidth
               onPress={handleAddTask}
-              style={styles.button}
+              disabled={isSubmitting || !newTaskText.trim()}
+              leftIcon={<Ionicons name="checkmark" size={20} color={colors.surface} />}
+              accessibilityLabel="Add task"
+              accessibilityHint="Creates the new task"
             >
-              Agregar
+              {isSubmitting ? 'Agregando...' : 'Agregar'}
             </Button>
+
             <Button
-              variant="secondary"
+              variant="outline"
               size="md"
-              onPress={() => setModalVisible(false)}
-              style={styles.button}
+              fullWidth
+              onPress={handleCloseModal}
+              disabled={isSubmitting}
+              accessibilityLabel="Cancel"
+              accessibilityHint="Closes the add task dialog"
             >
               Cancelar
             </Button>
           </View>
-        </View>
+        </ScrollView>
       </Modal>
     </SafeAreaView>
   );
@@ -150,24 +348,27 @@ export default function TasksScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.background,
   },
-  header: {
-    padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  headerContainer: {
+    padding: spacing.lg,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
+  },
+  listContent: {
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  listContentEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  taskCard: {
+    marginBottom: spacing.sm,
   },
-  taskItem: {
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    marginHorizontal: 8,
-    marginVertical: 4,
-    borderRadius: 8,
+  taskContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -176,40 +377,58 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    paddingRight: spacing.md,
   },
-  taskTitle: {
-    marginLeft: 16,
-    flex: 1,
-    color: '#000000',
-  },
-  completedTask: {
-    textDecorationLine: 'line-through',
-    color: '#6B7280',
-  },
-  modalContainer: {
-    flex: 1,
+  checkboxContainer: {
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    marginRight: spacing.sm,
   },
-  modalView: {
-    backgroundColor: '#FFFFFF',
-    padding: 24,
-    borderRadius: 8,
-    width: '90%',
+  taskTitle: {
+    flex: 1,
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.gray[900],
+    lineHeight: typography.fontSize.base * typography.lineHeight.normal,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
+  completedTaskTitle: {
+    textDecorationLine: 'line-through',
+    color: colors.gray[500],
+    fontWeight: typography.fontWeight.normal,
   },
-  input: {
-    backgroundColor: '#F3F4F6',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
+  deleteButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: borderRadius.md,
   },
-  button: {
-    marginTop: 8,
+  emptyStateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing['3xl'],
+    paddingHorizontal: spacing.xl,
+  },
+  emptyStateTitle: {
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.gray[700],
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  emptyStateDescription: {
+    fontSize: typography.fontSize.base,
+    color: colors.gray[500],
+    textAlign: 'center',
+    lineHeight: typography.fontSize.base * typography.lineHeight.relaxed,
+  },
+  modalContent: {
+    gap: spacing.lg,
+  },
+  modalActions: {
+    gap: spacing.md,
+    marginTop: spacing.lg,
   },
 });

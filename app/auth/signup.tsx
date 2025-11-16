@@ -5,7 +5,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { signUp, signInWithGoogle } from '../../src/store/slices/authSlice';
 import { RootState, AppDispatch } from '../../src/store';
-import { Button, Card, Container } from '../../src/components/ui';
+import { Button, Card, Container, AppIcon } from '../../src/components/ui';
 import { PHTextField } from '../../src/components/ui/PHTextField';
 
 export default function SignupScreen() {
@@ -116,9 +116,7 @@ export default function SignupScreen() {
         >
         <Card style={styles.card}>
           <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <Text style={styles.logoText}>P</Text>
-            </View>
+            <AppIcon size="2xl" showShadow={true} rounded={true} />
             <Text style={styles.title}>Crear cuenta</Text>
             <Text style={styles.subtitle}>Únete a Pildhora hoy</Text>
           </View>

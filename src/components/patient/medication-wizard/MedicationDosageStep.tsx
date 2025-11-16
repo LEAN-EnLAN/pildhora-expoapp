@@ -237,22 +237,30 @@ export const MedicationDosageStep = React.memo(function MedicationDosageStep({}:
         </Text>
 
         <View style={styles.doseValueContainer}>
-          <RNTextInput
-            style={[
-              styles.doseValueInput,
-              { fontSize: responsiveLayout.doseInputFontSize },
-              doseValueError && styles.doseValueInputError,
-            ]}
-            value={doseValue}
-            onChangeText={handleDoseValueChange}
-            placeholder="Ej: 500, 10, 0.5"
-            keyboardType="decimal-pad"
-            maxLength={10}
-            accessible={true}
-            accessibilityLabel="Valor de la dosis"
-            accessibilityHint="Ingresa el valor numérico de la dosis"
-            accessibilityRole="none"
-          />
+          <View style={styles.doseInputWrapper}>
+            <RNTextInput
+              style={[
+                styles.doseValueInput,
+                { fontSize: responsiveLayout.doseInputFontSize },
+                doseValueError && styles.doseValueInputError,
+              ]}
+              value={doseValue}
+              onChangeText={handleDoseValueChange}
+              placeholder="Ej: 500, 10, 0.5"
+              keyboardType="decimal-pad"
+              maxLength={10}
+              accessible={true}
+              accessibilityLabel="Valor de la dosis"
+              accessibilityHint="Ingresa el valor numérico de la dosis"
+              accessibilityRole="none"
+            />
+            {/* Inline Emoji Preview */}
+            {doseValue && !doseValueError && formData.emoji && (
+              <Text style={styles.inlinePreviewEmoji}>
+                {formData.emoji}
+              </Text>
+            )}
+          </View>
         </View>
 
         {doseValueError && (
@@ -265,15 +273,66 @@ export const MedicationDosageStep = React.memo(function MedicationDosageStep({}:
             {doseValueError}
           </Text>
         )}
+      </View>
 
-        {/* Dosage Visualizer */}
-        {doseValue && !doseValueError && quantityType && (
-          <DosageVisualizer
-            doseValue={parseFloat(doseValue)}
-            quantityType={quantityType}
-            doseUnit={doseUnit}
-            emoji={formData.emoji}
-          />
+      {/* Quantity Type Section - Moved here to replace preview container */}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>
+          Tipo de medicamento <Text style={styles.required}>*</Text>
+        </Text>
+        <Text style={styles.helperText}>
+          Selecciona la forma del medicamento
+        </Text>
+
+        <View
+          style={styles.quantityTypesGrid}
+          accessible={true}
+          accessibilityLabel="Selector de tipo de medicamento"
+          accessibilityRole="menu"
+        >
+          {QUANTITY_TYPES.map((type) => (
+            <TouchableOpacity
+              key={type.id}
+              style={[
+                styles.quantityTypeButton,
+                { width: responsiveLayout.quantityTypeWidth },
+                quantityType === type.id && styles.quantityTypeButtonSelected,
+              ]}
+              onPress={() => handleQuantityTypeSelect(type.id)}
+              accessible={true}
+              accessibilityLabel={type.label}
+              accessibilityRole="button"
+              accessibilityState={{ selected: quantityType === type.id }}
+              accessibilityHint={`Toca para seleccionar ${type.label}`}
+            >
+              <Text style={[
+                styles.quantityTypeIcon,
+                { fontSize: responsiveLayout.isSmallScreen ? 28 : 32 }
+              ]}>
+                {getQuantityTypeEmoji(type.id)}
+              </Text>
+              <Text
+                style={[
+                  styles.quantityTypeLabel,
+                  { fontSize: responsiveLayout.isSmallScreen ? typography.fontSize.xs : typography.fontSize.sm },
+                  quantityType === type.id && styles.quantityTypeLabelSelected,
+                ]}
+              >
+                {type.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {quantityTypeError && (
+          <Text
+            style={styles.errorText}
+            accessible={true}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="assertive"
+          >
+            {quantityTypeError}
+          </Text>
         )}
       </View>
 
@@ -340,67 +399,6 @@ export const MedicationDosageStep = React.memo(function MedicationDosageStep({}:
             accessibilityLiveRegion="assertive"
           >
             {doseUnitError}
-          </Text>
-        )}
-      </View>
-
-      {/* Quantity Type Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>
-          Tipo de medicamento <Text style={styles.required}>*</Text>
-        </Text>
-        <Text style={styles.helperText}>
-          Selecciona la forma del medicamento
-        </Text>
-
-        <View
-          style={styles.quantityTypesGrid}
-          accessible={true}
-          accessibilityLabel="Selector de tipo de medicamento"
-          accessibilityRole="menu"
-        >
-          {QUANTITY_TYPES.map((type) => (
-            <TouchableOpacity
-              key={type.id}
-              style={[
-                styles.quantityTypeButton,
-                { width: responsiveLayout.quantityTypeWidth },
-                quantityType === type.id && styles.quantityTypeButtonSelected,
-              ]}
-              onPress={() => handleQuantityTypeSelect(type.id)}
-              accessible={true}
-              accessibilityLabel={type.label}
-              accessibilityRole="button"
-              accessibilityState={{ selected: quantityType === type.id }}
-              accessibilityHint={`Toca para seleccionar ${type.label}`}
-            >
-              <Text style={[
-                styles.quantityTypeIcon,
-                { fontSize: responsiveLayout.isSmallScreen ? 28 : 32 }
-              ]}>
-                {getQuantityTypeEmoji(type.id)}
-              </Text>
-              <Text
-                style={[
-                  styles.quantityTypeLabel,
-                  { fontSize: responsiveLayout.isSmallScreen ? typography.fontSize.xs : typography.fontSize.sm },
-                  quantityType === type.id && styles.quantityTypeLabelSelected,
-                ]}
-              >
-                {type.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {quantityTypeError && (
-          <Text
-            style={styles.errorText}
-            accessible={true}
-            accessibilityRole="alert"
-            accessibilityLiveRegion="assertive"
-          >
-            {quantityTypeError}
           </Text>
         )}
       </View>
@@ -584,81 +582,6 @@ const CreamPreview = React.memo(function CreamPreview({ amount, unit, emoji = '�
   );
 });
 
-// Dosage Visualizer Component
-interface DosageVisualizerProps {
-  doseValue: number;
-  quantityType: string;
-  doseUnit?: string;
-  emoji?: string;
-}
-
-const DosageVisualizer = React.memo(function DosageVisualizer({ doseValue, quantityType, doseUnit, emoji }: DosageVisualizerProps) {
-  const renderVisualization = () => {
-    const count = Math.ceil(doseValue);
-    const displayEmoji = emoji || '💊';
-
-    switch (quantityType.toLowerCase()) {
-      case 'tablets':
-      case 'capsules':
-        return <PillPreview count={count} emoji={displayEmoji} />;
-
-      case 'liquid':
-        // Get the unit label - use the selected unit or default to 'ml'
-        const unitLabel = doseUnit ? (DOSE_UNITS.find(u => u.id === doseUnit)?.label || doseUnit) : 'ml';
-        return <LiquidPreview amount={doseValue} unit={unitLabel} emoji={displayEmoji} />;
-
-      case 'cream':
-        // Get the unit label - use the selected unit or default to 'g'
-        const creamUnitLabel = doseUnit ? (DOSE_UNITS.find(u => u.id === doseUnit)?.label || doseUnit) : 'g';
-        return <CreamPreview amount={doseValue} unit={creamUnitLabel} emoji={displayEmoji} />;
-
-      case 'inhaler':
-        return (
-          <View style={styles.visualizerContent}>
-            <Text style={styles.visualizerEmoji}>{displayEmoji}</Text>
-            <Text style={styles.visualizerCount}>×{count}</Text>
-          </View>
-        );
-
-      case 'drops':
-        return (
-          <View style={styles.visualizerContent}>
-            <Text style={styles.visualizerEmoji}>{displayEmoji}</Text>
-            {Array.from({ length: Math.min(count, 5) }).map((_, index) => (
-              <Text key={index} style={styles.dropEmoji}>💧</Text>
-            ))}
-            {doseValue > 5 && (
-              <Text style={styles.visualizerMore}>+{count - 5}</Text>
-            )}
-          </View>
-        );
-
-      case 'spray':
-        return (
-          <View style={styles.visualizerContent}>
-            <Text style={styles.visualizerEmoji}>{displayEmoji}</Text>
-            <Text style={styles.visualizerCount}>×{count}</Text>
-          </View>
-        );
-
-      default:
-        return (
-          <View style={styles.visualizerContent}>
-            <Text style={styles.visualizerEmoji}>{displayEmoji}</Text>
-            <Text style={styles.visualizerCount}>×{count}</Text>
-          </View>
-        );
-    }
-  };
-
-  return (
-    <View style={styles.visualizer}>
-      <Text style={styles.visualizerLabel}>Vista previa:</Text>
-      {renderVisualization()}
-    </View>
-  );
-});
-
 // Helper function to get emoji for quantity type
 function getQuantityTypeEmoji(typeId: string): string {
   const emojiMap: Record<string, string> = {
@@ -719,20 +642,32 @@ const styles = StyleSheet.create({
   doseValueContainer: {
     marginBottom: spacing.sm,
   },
+  doseInputWrapper: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   doseValueInput: {
     fontSize: 48,
     fontWeight: typography.fontWeight.bold,
     color: colors.gray[900],
     textAlign: 'center',
     padding: spacing.lg,
+    paddingRight: spacing.xl * 2,
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     borderWidth: 2,
     borderColor: colors.gray[300],
     minHeight: 100,
+    width: '100%',
   },
   doseValueInputError: {
     borderColor: colors.error[500],
+  },
+  inlinePreviewEmoji: {
+    position: 'absolute',
+    right: spacing.lg,
+    fontSize: 44,
   },
   errorText: {
     fontSize: typography.fontSize.xs,

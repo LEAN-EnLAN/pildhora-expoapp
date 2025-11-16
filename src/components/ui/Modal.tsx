@@ -9,6 +9,8 @@ import {
   Dimensions,
   TouchableWithoutFeedback,
   ViewStyle,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme/tokens';
@@ -109,7 +111,11 @@ export const Modal: React.FC<ModalProps> = ({
       accessible={true}
       accessibilityViewIsModal={true}
     >
-      <View style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
+      >
         <TouchableWithoutFeedback onPress={handleOverlayPress}>
           <Animated.View
             style={[
@@ -164,7 +170,7 @@ export const Modal: React.FC<ModalProps> = ({
             {children}
           </View>
         </Animated.View>
-      </View>
+      </KeyboardAvoidingView>
     </RNModal>
   );
 };

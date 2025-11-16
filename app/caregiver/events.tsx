@@ -5,87 +5,144 @@ import {
   StyleSheet,
   FlatList,
   RefreshControl,
-  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSelector } from 'react-redux';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   collection,
   query,
   where,
-  orderBy,
-  limit,
-  onSnapshot,
   Timestamp,
-  Query,
-  DocumentData,
+  onSnapshot,
 } from 'firebase/firestore';
 import { getDbInstance } from '../../src/services/firebase';
 import { RootState } from '../../src/store';
 import { MedicationEvent, Patient } from '../../src/types';
 import { MedicationEventCard } from '../../src/components/caregiver/MedicationEventCard';
 import { EventFilterControls, EventFilters } from '../../src/components/caregiver/EventFilterControls';
-import { Container, ListSkeleton, EventCardSkeleton } from '../../src/components/ui';
+import { Container, ListSkeleton, EventCardSkeleton, AnimatedListItem } from '../../src/components/ui';
+import { ErrorBoundary } from '../../src/components/shared/ErrorBoundary';
+import { ErrorState } from '../../src/components/caregiver/ErrorState';
+import { OfflineIndicator } from '../../src/components/caregiver/OfflineIndicator';
+import { patientDataCache } from '../../src/services/patientDataCache';
+import { offlineQueueManager } from '../../src/services/offlineQueueManager';
+import { categorizeError } from '../../src/utils/errorHandling';
 import { colors, spacing, typography } from '../../src/theme/tokens';
+import { buildEventQuery, applyClientSideSearch } from '../../src/utils/eventQueryBuilder';
+import { useCollectionSWR } from '../../src/hooks/useCollectionSWR';
 
-const EVENTS_PER_PAGE = 20;
-const FILTERS_STORAGE_KEY = '@medication_event_filters';
+// Pagination: Limit events per page for better performance
+const EVENTS_PER_PAGE = 50;
 
-export default function MedicationEventRegistry() {
+// Static initial data for instant rendering (SWR pattern)
+const STATIC_INITIAL_EVENTS: MedicationEvent[] = [];
+
+function MedicationEventRegistryContent() {
   const router = useRouter();
   const { user } = useSelector((state: RootState) => state.auth);
   
-  const [events, setEvents] = useState<MedicationEvent[]>([]);
-  const [allEvents, setAllEvents] = useState<MedicationEvent[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<EventFilters>({});
+  const [isOnline, setIsOnline] = useState(true);
 
   /**
-   * Load saved filters from AsyncStorage
+   * Cache key for SWR pattern
+   * Includes filters to ensure proper cache invalidation
    */
+  const cacheKey = useMemo(() => {
+    if (!user?.id) return null;
+
+    const filterKey = [
+      filters.patientId || 'all',
+      filters.eventType || 'all',
+      filters.dateRange ? `${filters.dateRange.start.getTime()}-${filters.dateRange.end.getTime()}` : 'all',
+    ].join(':');
+
+    return `events:${user.id}:${filterKey}`;
+  }, [user?.id, filters.patientId, filters.eventType, filters.dateRange]);
+
+  /**
+   * Build Firestore query based on filters
+   * Use useEffect to handle async query building
+   */
+  const [resolvedQuery, setResolvedQuery] = useState<any>(null);
+
   useEffect(() => {
-    const loadFilters = async () => {
-      try {
-        const savedFilters = await AsyncStorage.getItem(FILTERS_STORAGE_KEY);
-        if (savedFilters) {
-          const parsed = JSON.parse(savedFilters);
-          // Convert date strings back to Date objects
-          if (parsed.dateRange) {
-            parsed.dateRange = {
-              start: new Date(parsed.dateRange.start),
-              end: new Date(parsed.dateRange.end),
-            };
-          }
-          setFilters(parsed);
-        }
-      } catch (error) {
-        console.error('[MedicationEventRegistry] Error loading filters:', error);
+    if (!user?.id) {
+      setResolvedQuery(null);
+      return;
+    }
+
+    const fetchQuery = async () => {
+      const db = await getDbInstance();
+      if (!db) {
+        setResolvedQuery(null);
+        return;
       }
+
+      const query = await buildEventQuery(
+        db,
+        user.id,
+        {
+          patientId: filters.patientId,
+          eventType: filters.eventType,
+          dateRange: filters.dateRange,
+        },
+        EVENTS_PER_PAGE
+      );
+
+      setResolvedQuery(query);
     };
 
-    loadFilters();
+    fetchQuery();
+  }, [user?.id, filters.patientId, filters.eventType, filters.dateRange]);
+
+  // Always call useCollectionSWR to maintain hook order
+  // Pass null query when not ready - the hook will handle this gracefully
+  const {
+    data: allEvents,
+    source,
+    isLoading: loading,
+    error: swrError,
+    mutate,
+  } = useCollectionSWR<MedicationEvent>({
+    cacheKey: cacheKey || 'events:loading',
+    query: resolvedQuery,
+    initialData: STATIC_INITIAL_EVENTS,
+    realtime: true,
+    cacheTTL: 5 * 60 * 1000, // 5 minutes cache TTL
+    onSuccess: (data) => {
+      // Cache events for offline use
+      if (user?.id && data.length > 0) {
+        patientDataCache.cacheEvents(user.id, data).catch(err => {
+          console.error('[MedicationEventRegistry] Error caching events:', err);
+        });
+      }
+    },
+    onError: (err) => {
+      console.error('[MedicationEventRegistry] Error fetching events:', err);
+    },
+  });
+
+  /**
+   * Monitor network status
+   */
+  useEffect(() => {
+    const checkOnlineStatus = () => {
+      const status = offlineQueueManager.isNetworkOnline();
+      setIsOnline(status);
+    };
+
+    checkOnlineStatus();
+    const interval = setInterval(checkOnlineStatus, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
-  /**
-   * Save filters to AsyncStorage whenever they change
-   */
-  useEffect(() => {
-    const saveFilters = async () => {
-      try {
-        await AsyncStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filters));
-      } catch (error) {
-        console.error('[MedicationEventRegistry] Error saving filters:', error);
-      }
-    };
 
-    saveFilters();
-  }, [filters]);
 
   /**
    * Load patients for filter dropdown
@@ -132,132 +189,16 @@ export default function MedicationEventRegistry() {
     loadPatients();
   }, [user?.id]);
 
-  /**
-   * Setup Firestore listener for real-time event updates
-   */
-  useEffect(() => {
-    if (!user?.id) {
-      setLoading(false);
-      setError('Usuario no autenticado');
-      return;
-    }
 
-    let unsubscribe: (() => void) | undefined;
-
-    const setupListener = async () => {
-      try {
-        const db = await getDbInstance();
-        if (!db) {
-          throw new Error('Base de datos no disponible');
-        }
-
-        // Build query with filters
-        let eventsQuery: Query<DocumentData> = collection(db, 'medicationEvents');
-        
-        // Always filter by caregiver
-        const constraints: any[] = [
-          where('caregiverId', '==', user.id),
-        ];
-
-        // Add patient filter if specified
-        if (filters.patientId) {
-          constraints.push(where('patientId', '==', filters.patientId));
-        }
-
-        // Add event type filter if specified
-        if (filters.eventType) {
-          constraints.push(where('eventType', '==', filters.eventType));
-        }
-
-        // Add date range filter if specified
-        if (filters.dateRange) {
-          constraints.push(
-            where('timestamp', '>=', Timestamp.fromDate(filters.dateRange.start)),
-            where('timestamp', '<=', Timestamp.fromDate(filters.dateRange.end))
-          );
-        }
-
-        // Add ordering and limit
-        constraints.push(orderBy('timestamp', 'desc'));
-        constraints.push(limit(EVENTS_PER_PAGE));
-
-        eventsQuery = query(eventsQuery, ...constraints);
-
-        // Setup real-time listener
-        unsubscribe = onSnapshot(
-          eventsQuery,
-          (snapshot) => {
-            const eventData: MedicationEvent[] = [];
-            
-            snapshot.forEach((doc) => {
-              const data = doc.data();
-              eventData.push({
-                id: doc.id,
-                eventType: data.eventType,
-                medicationId: data.medicationId,
-                medicationName: data.medicationName,
-                medicationData: data.medicationData,
-                patientId: data.patientId,
-                patientName: data.patientName,
-                caregiverId: data.caregiverId,
-                timestamp: data.timestamp instanceof Timestamp 
-                  ? data.timestamp.toDate().toISOString()
-                  : data.timestamp,
-                syncStatus: data.syncStatus,
-                changes: data.changes,
-              });
-            });
-
-            setAllEvents(eventData);
-            setLoading(false);
-            setRefreshing(false);
-            setError(null);
-          },
-          (err) => {
-            console.error('[MedicationEventRegistry] Firestore listener error:', err);
-            setError('Error al cargar eventos');
-            setLoading(false);
-            setRefreshing(false);
-          }
-        );
-      } catch (err: any) {
-        console.error('[MedicationEventRegistry] Setup error:', err);
-        setError(err.message || 'Error al configurar la conexión');
-        setLoading(false);
-        setRefreshing(false);
-      }
-    };
-
-    setupListener();
-
-    // Cleanup listener on unmount
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
-  }, [user?.id, filters.patientId, filters.eventType, filters.dateRange]);
 
   /**
    * Apply client-side search filter to events
+   * Firestore doesn't support full-text search, so we filter medication names on the client
+   * Memoized for performance
    */
-  const filteredEvents = useMemo(() => {
-    if (!filters.searchQuery) {
-      return allEvents;
-    }
-
-    const searchLower = filters.searchQuery.toLowerCase();
-    return allEvents.filter(event =>
-      event.medicationName.toLowerCase().includes(searchLower)
-    );
+  const events = useMemo(() => {
+    return applyClientSideSearch(allEvents, filters.searchQuery);
   }, [allEvents, filters.searchQuery]);
-
-  /**
-   * Update events when filtered events change
-   */
-  useEffect(() => {
-    setEvents(filteredEvents);
-  }, [filteredEvents]);
 
   /**
    * Handle filter changes
@@ -268,15 +209,28 @@ export default function MedicationEventRegistry() {
 
   /**
    * Handle pull-to-refresh
+   * Uses SWR mutate to trigger refetch
    */
   const handleRefresh = useCallback(() => {
+    if (!isOnline) {
+      // Can't refresh when offline
+      return;
+    }
+
     setRefreshing(true);
-    // The Firestore listener will automatically update the data
-    // We just need to show the refreshing indicator
+    mutate(); // Trigger SWR refetch
     setTimeout(() => {
       setRefreshing(false);
     }, 1000);
-  }, []);
+  }, [isOnline, mutate]);
+
+  /**
+   * Handle retry on error
+   * Uses SWR mutate to trigger refetch
+   */
+  const handleRetry = useCallback(() => {
+    mutate();
+  }, [mutate]);
 
   /**
    * Handle event card press - navigate to event detail
@@ -290,13 +244,45 @@ export default function MedicationEventRegistry() {
 
   /**
    * Render individual event item
+   * Memoized to prevent unnecessary re-renders
+   * Wrapped with AnimatedListItem for smooth entrance animations
    */
-  const renderEventItem = useCallback(({ item }: { item: MedicationEvent }) => (
-    <MedicationEventCard
-      event={item}
-      onPress={() => handleEventPress(item)}
-    />
+  const renderEventItem = useCallback(({ item, index }: { item: MedicationEvent; index: number }) => (
+    <AnimatedListItem index={index} delay={50}>
+      <MedicationEventCard
+        event={item}
+        onPress={() => handleEventPress(item)}
+      />
+    </AnimatedListItem>
   ), [handleEventPress]);
+
+  /**
+   * Key extractor for FlatList optimization
+   * Using event ID ensures stable keys across renders
+   */
+  const keyExtractor = useCallback((item: MedicationEvent) => item.id, []);
+
+  /**
+   * Get item layout for FlatList optimization
+   * Provides exact dimensions for better scroll performance
+   */
+  const getItemLayout = useCallback(
+    (_data: ArrayLike<MedicationEvent> | null | undefined, index: number) => ({
+      length: 140, // Approximate height of event card + separator
+      offset: 140 * index,
+      index,
+    }),
+    []
+  );
+
+  /**
+   * Categorize error for better user messaging
+   * MUST be called before any conditional returns to maintain hook order
+   */
+  const categorizedError = useMemo(() => {
+    if (!swrError) return null;
+    return categorizeError(swrError);
+  }, [swrError]);
 
   /**
    * Render empty state
@@ -307,8 +293,13 @@ export default function MedicationEventRegistry() {
     }
 
     return (
-      <View style={styles.emptyState}>
-        <Ionicons name="notifications-off-outline" size={64} color={colors.gray[400]} />
+      <View 
+        style={styles.emptyState}
+        accessible={true}
+        accessibilityRole="text"
+        accessibilityLabel="No hay eventos. Los cambios de medicamentos de tus pacientes aparecerán aquí"
+      >
+        <Ionicons name="notifications-off-outline" size={64} color={colors.gray[400]} accessible={false} />
         <Text style={styles.emptyTitle}>No hay eventos</Text>
         <Text style={styles.emptySubtitle}>
           Los cambios de medicamentos de tus pacientes aparecerán aquí
@@ -331,17 +322,18 @@ export default function MedicationEventRegistry() {
   }
 
   /**
-   * Render error state
+   * Render error state (only if no cached data available)
    */
-  if (error) {
+  if (categorizedError && source !== 'cache' && allEvents.length === 0) {
     return (
       <SafeAreaView edges={['bottom']} style={styles.container}>
         <Container style={styles.container}>
-          <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle-outline" size={64} color={colors.error[500]} />
-            <Text style={styles.errorTitle}>Error</Text>
-            <Text style={styles.errorMessage}>{error}</Text>
-          </View>
+          <OfflineIndicator isOnline={isOnline} />
+          <ErrorState
+            category={categorizedError.category}
+            message={categorizedError.userMessage || categorizedError.message || 'Error al cargar eventos'}
+            onRetry={handleRetry}
+          />
         </Container>
       </SafeAreaView>
     );
@@ -350,10 +342,27 @@ export default function MedicationEventRegistry() {
   return (
     <SafeAreaView edges={['bottom']} style={styles.container}>
       <Container style={styles.container}>
+        <OfflineIndicator isOnline={isOnline} />
+        
+        {/* Cached Data Warning */}
+        {source === 'cache' && (
+          <View 
+            style={styles.cachedDataBanner}
+            accessible={true}
+            accessibilityRole="alert"
+            accessibilityLabel="Mostrando datos guardados. Conéctate para actualizar."
+          >
+            <Ionicons name="information-circle" size={20} color={colors.warning[500]} />
+            <Text style={styles.cachedDataText}>
+              Mostrando datos guardados. Conéctate para actualizar.
+            </Text>
+          </View>
+        )}
+
         <FlatList
           data={events}
           renderItem={renderEventItem}
-          keyExtractor={(item) => item.id}
+          keyExtractor={keyExtractor}
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={
             <EventFilterControls
@@ -369,24 +378,36 @@ export default function MedicationEventRegistry() {
               onRefresh={handleRefresh}
               tintColor={colors.primary[500]}
               colors={[colors.primary[500]]}
+              enabled={isOnline}
+              accessibilityLabel="Actualizar eventos"
             />
           }
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           showsVerticalScrollIndicator={false}
+          accessible={true}
+          accessibilityLabel="Lista de eventos de medicamentos"
+          accessibilityRole="list"
           // Performance optimizations
           removeClippedSubviews={true}
           maxToRenderPerBatch={10}
           updateCellsBatchingPeriod={50}
           initialNumToRender={10}
           windowSize={10}
-          getItemLayout={(data, index) => ({
-            length: 120, // Approximate height of event card
-            offset: 120 * index,
-            index,
-          })}
+          getItemLayout={getItemLayout}
         />
       </Container>
     </SafeAreaView>
+  );
+}
+
+/**
+ * Main component wrapped with error boundary
+ */
+export default function MedicationEventRegistry() {
+  return (
+    <ErrorBoundary>
+      <MedicationEventRegistryContent />
+    </ErrorBoundary>
   );
 }
 
@@ -402,32 +423,21 @@ const styles = StyleSheet.create({
   separator: {
     height: spacing.md,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  cachedDataBanner: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.lg,
+    backgroundColor: colors.warning[50],
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.warning[200],
   },
-  loadingText: {
-    fontSize: typography.fontSize.base,
-    color: colors.gray[600],
-  },
-  errorContainer: {
+  cachedDataText: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing['2xl'],
-    gap: spacing.md,
-  },
-  errorTitle: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.error[500],
-  },
-  errorMessage: {
-    fontSize: typography.fontSize.base,
-    color: colors.gray[600],
-    textAlign: 'center',
+    fontSize: typography.fontSize.sm,
+    color: colors.warning[500],
+    fontWeight: typography.fontWeight.medium,
   },
   emptyState: {
     flex: 1,

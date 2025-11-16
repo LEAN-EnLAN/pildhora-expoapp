@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
-  Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSelector } from 'react-redux';
@@ -18,7 +17,8 @@ import { getDbInstance } from '../../../src/services/firebase';
 import { RootState } from '../../../src/store';
 import { MedicationEvent, Patient } from '../../../src/types';
 import { Button, Container, Card } from '../../../src/components/ui';
-import { colors, spacing, typography, borderRadius } from '../../../src/theme/tokens';
+import { EventTypeBadge } from '../../../src/components/caregiver/EventTypeBadge';
+import { colors, spacing, typography, borderRadius, shadows } from '../../../src/theme/tokens';
 import { getRelativeTimeString } from '../../../src/utils/dateUtils';
 
 /**
@@ -265,11 +265,15 @@ function EventHeader({ event }: { event: MedicationEvent }) {
 
   return (
     <Card 
-      variant="outlined" 
+      variant="elevated" 
       padding="lg" 
       style={styles.headerCard}
       accessibilityLabel={`${event.patientName} ${eventTypeText.toLowerCase()} ${event.medicationName} ${relativeTime}`}
     >
+      <View style={styles.headerBadgeContainer}>
+        <EventTypeBadge eventType={event.eventType as any} size="lg" />
+      </View>
+      
       <View style={styles.headerContent}>
         <View 
           style={[styles.headerIcon, { backgroundColor: iconConfig.backgroundColor }]}
@@ -296,24 +300,30 @@ function EventHeader({ event }: { event: MedicationEvent }) {
 }
 
 /**
- * Change Diff Section Component
+ * Change Diff Section Component with Timeline View
  */
 function ChangeDiffSection({ changes }: { changes: any[] }) {
   return (
     <Card 
-      variant="outlined" 
+      variant="elevated" 
       padding="lg" 
       style={styles.section}
       accessibilityLabel={`Cambios realizados: ${changes.length} modificaciones`}
     >
       <View style={styles.sectionHeader}>
-        <Ionicons name="git-compare-outline" size={24} color={colors.primary[500]} />
+        <View style={styles.sectionIconContainer}>
+          <Ionicons name="git-compare-outline" size={24} color={colors.primary[500]} />
+        </View>
         <Text style={styles.sectionTitle}>Cambios Realizados</Text>
       </View>
       
-      <View style={styles.changesContainer}>
+      <View style={styles.timelineContainer}>
         {changes.map((change, index) => (
-          <ChangeItem key={index} change={change} />
+          <ChangeTimelineItem 
+            key={index} 
+            change={change} 
+            isLast={index === changes.length - 1}
+          />
         ))}
       </View>
     </Card>
@@ -321,31 +331,44 @@ function ChangeDiffSection({ changes }: { changes: any[] }) {
 }
 
 /**
- * Individual Change Item Component
+ * Timeline Change Item Component
  */
-function ChangeItem({ change }: { change: any }) {
+function ChangeTimelineItem({ change, isLast }: { change: any; isLast: boolean }) {
   const fieldLabel = getFieldLabel(change.field);
   const oldValueFormatted = formatValue(change.oldValue);
   const newValueFormatted = formatValue(change.newValue);
 
   return (
     <View 
-      style={styles.changeItem}
+      style={styles.timelineItem}
       accessibilityLabel={`${fieldLabel} cambió de ${oldValueFormatted} a ${newValueFormatted}`}
       accessibilityRole="text"
     >
-      <Text style={styles.changeField}>{fieldLabel}</Text>
-      <View style={styles.changeValues}>
-        <View style={styles.oldValue}>
-          <Text style={styles.oldValueText} accessibilityLabel={`Valor anterior: ${oldValueFormatted}`}>
-            {oldValueFormatted}
-          </Text>
-        </View>
-        <Ionicons name="arrow-forward" size={16} color={colors.gray[400]} />
-        <View style={styles.newValue}>
-          <Text style={styles.newValueText} accessibilityLabel={`Valor nuevo: ${newValueFormatted}`}>
-            {newValueFormatted}
-          </Text>
+      {/* Timeline connector */}
+      <View style={styles.timelineConnector}>
+        <View style={styles.timelineDot} />
+        {!isLast && <View style={styles.timelineLine} />}
+      </View>
+      
+      {/* Change content */}
+      <View style={styles.timelineContent}>
+        <Text style={styles.changeField}>{fieldLabel}</Text>
+        <View style={styles.changeValues}>
+          <View style={styles.oldValue}>
+            <Text style={styles.valueLabel}>Anterior</Text>
+            <Text style={styles.oldValueText} accessibilityLabel={`Valor anterior: ${oldValueFormatted}`}>
+              {oldValueFormatted}
+            </Text>
+          </View>
+          <View style={styles.arrowContainer}>
+            <Ionicons name="arrow-forward" size={20} color={colors.primary[500]} />
+          </View>
+          <View style={styles.newValue}>
+            <Text style={styles.valueLabel}>Nuevo</Text>
+            <Text style={styles.newValueText} accessibilityLabel={`Valor nuevo: ${newValueFormatted}`}>
+              {newValueFormatted}
+            </Text>
+          </View>
         </View>
       </View>
     </View>
@@ -356,33 +379,48 @@ function ChangeItem({ change }: { change: any }) {
  * Medication Snapshot Section Component
  */
 function MedicationSnapshotSection({ medicationData }: { medicationData: any }) {
+  if (!medicationData) {
+    return null;
+  }
+
   return (
     <Card 
-      variant="outlined" 
+      variant="elevated" 
       padding="lg" 
       style={styles.section}
       accessibilityLabel="Información completa del medicamento"
     >
       <View style={styles.sectionHeader}>
-        <Ionicons name="document-text-outline" size={24} color={colors.primary[500]} />
+        <View style={styles.sectionIconContainer}>
+          <Ionicons name="document-text-outline" size={24} color={colors.primary[500]} />
+        </View>
         <Text style={styles.sectionTitle}>Información del Medicamento</Text>
       </View>
       
       <View style={styles.snapshotContainer}>
         {medicationData.emoji && (
           <View style={styles.snapshotRow}>
+            <View style={styles.snapshotIconContainer}>
+              <Ionicons name="happy-outline" size={18} color={colors.gray[500]} />
+            </View>
             <Text style={styles.snapshotLabel}>Icono:</Text>
             <Text style={styles.snapshotValue}>{medicationData.emoji}</Text>
           </View>
         )}
         
         <View style={styles.snapshotRow}>
+          <View style={styles.snapshotIconContainer}>
+            <Ionicons name="medical-outline" size={18} color={colors.gray[500]} />
+          </View>
           <Text style={styles.snapshotLabel}>Nombre:</Text>
           <Text style={styles.snapshotValue}>{medicationData.name}</Text>
         </View>
         
         {medicationData.doseValue && (
           <View style={styles.snapshotRow}>
+            <View style={styles.snapshotIconContainer}>
+              <Ionicons name="water-outline" size={18} color={colors.gray[500]} />
+            </View>
             <Text style={styles.snapshotLabel}>Dosis:</Text>
             <Text style={styles.snapshotValue}>
               {medicationData.doseValue} {medicationData.doseUnit || ''}
@@ -392,6 +430,9 @@ function MedicationSnapshotSection({ medicationData }: { medicationData: any }) 
         
         {medicationData.quantityType && (
           <View style={styles.snapshotRow}>
+            <View style={styles.snapshotIconContainer}>
+              <Ionicons name="cube-outline" size={18} color={colors.gray[500]} />
+            </View>
             <Text style={styles.snapshotLabel}>Tipo:</Text>
             <Text style={styles.snapshotValue}>{medicationData.quantityType}</Text>
           </View>
@@ -399,6 +440,9 @@ function MedicationSnapshotSection({ medicationData }: { medicationData: any }) 
         
         {medicationData.times && medicationData.times.length > 0 && (
           <View style={styles.snapshotRow}>
+            <View style={styles.snapshotIconContainer}>
+              <Ionicons name="time-outline" size={18} color={colors.gray[500]} />
+            </View>
             <Text style={styles.snapshotLabel}>Horarios:</Text>
             <Text style={styles.snapshotValue}>{medicationData.times.join(', ')}</Text>
           </View>
@@ -406,6 +450,9 @@ function MedicationSnapshotSection({ medicationData }: { medicationData: any }) 
         
         {medicationData.frequency && (
           <View style={styles.snapshotRow}>
+            <View style={styles.snapshotIconContainer}>
+              <Ionicons name="repeat-outline" size={18} color={colors.gray[500]} />
+            </View>
             <Text style={styles.snapshotLabel}>Frecuencia:</Text>
             <Text style={styles.snapshotValue}>{medicationData.frequency}</Text>
           </View>
@@ -414,6 +461,9 @@ function MedicationSnapshotSection({ medicationData }: { medicationData: any }) 
         {medicationData.trackInventory && (
           <>
             <View style={styles.snapshotRow}>
+              <View style={styles.snapshotIconContainer}>
+                <Ionicons name="layers-outline" size={18} color={colors.gray[500]} />
+              </View>
               <Text style={styles.snapshotLabel}>Inventario:</Text>
               <Text style={styles.snapshotValue}>
                 {medicationData.currentQuantity ?? 'N/A'} unidades
@@ -422,6 +472,9 @@ function MedicationSnapshotSection({ medicationData }: { medicationData: any }) 
             
             {medicationData.lowQuantityThreshold && (
               <View style={styles.snapshotRow}>
+                <View style={styles.snapshotIconContainer}>
+                  <Ionicons name="warning-outline" size={18} color={colors.gray[500]} />
+                </View>
                 <Text style={styles.snapshotLabel}>Umbral bajo:</Text>
                 <Text style={styles.snapshotValue}>
                   {medicationData.lowQuantityThreshold} unidades
@@ -441,42 +494,60 @@ function MedicationSnapshotSection({ medicationData }: { medicationData: any }) 
 function PatientContactSection({ patient }: { patient: Patient }) {
   return (
     <Card 
-      variant="outlined" 
+      variant="elevated" 
       padding="lg" 
       style={styles.section}
       accessibilityLabel={`Información de contacto de ${patient.name}`}
     >
       <View style={styles.sectionHeader}>
-        <Ionicons name="person-outline" size={24} color={colors.primary[500]} />
+        <View style={styles.sectionIconContainer}>
+          <Ionicons name="person-outline" size={24} color={colors.primary[500]} />
+        </View>
         <Text style={styles.sectionTitle}>Información del Paciente</Text>
       </View>
       
       <View style={styles.contactContainer}>
         <View style={styles.contactRow}>
-          <Ionicons name="person" size={20} color={colors.gray[600]} />
-          <Text style={styles.contactLabel}>Nombre:</Text>
-          <Text style={styles.contactValue}>{patient.name}</Text>
+          <View style={styles.contactIconContainer}>
+            <Ionicons name="person" size={20} color={colors.primary[500]} />
+          </View>
+          <View style={styles.contactInfo}>
+            <Text style={styles.contactLabel}>Nombre</Text>
+            <Text style={styles.contactValue}>{patient.name}</Text>
+          </View>
         </View>
         
         <View style={styles.contactRow}>
-          <Ionicons name="mail" size={20} color={colors.gray[600]} />
-          <Text style={styles.contactLabel}>Email:</Text>
-          <Text style={styles.contactValue}>{patient.email}</Text>
+          <View style={styles.contactIconContainer}>
+            <Ionicons name="mail" size={20} color={colors.primary[500]} />
+          </View>
+          <View style={styles.contactInfo}>
+            <Text style={styles.contactLabel}>Email</Text>
+            <Text style={styles.contactValue}>{patient.email}</Text>
+          </View>
         </View>
         
         {patient.adherence !== undefined && (
           <View style={styles.contactRow}>
-            <Ionicons name="stats-chart" size={20} color={colors.gray[600]} />
-            <Text style={styles.contactLabel}>Adherencia:</Text>
-            <Text style={styles.contactValue}>{patient.adherence}%</Text>
+            <View style={styles.contactIconContainer}>
+              <Ionicons name="stats-chart" size={20} color={colors.primary[500]} />
+            </View>
+            <View style={styles.contactInfo}>
+              <Text style={styles.contactLabel}>Adherencia</Text>
+              <Text style={styles.contactValue}>{patient.adherence}%</Text>
+            </View>
           </View>
         )}
         
         {patient.lastTaken && (
           <View style={styles.contactRow}>
-            <Ionicons name="time" size={20} color={colors.gray[600]} />
-            <Text style={styles.contactLabel}>Última dosis:</Text>
-            <Text style={styles.contactValue}>{patient.lastTaken}</Text>
+            <View style={styles.contactIconContainer}>
+              <Ionicons name="time" size={20} color={colors.primary[500]} />
+            </View>
+            <View style={styles.contactInfo}>
+              <Text style={styles.contactLabel}>Última dosis</Text>
+              <Text style={styles.contactValue}>{patient.lastTaken}</Text>
+            </View>
           </View>
         )}
       </View>
@@ -608,6 +679,9 @@ const styles = StyleSheet.create({
   headerCard: {
     marginBottom: spacing.md,
   },
+  headerBadgeContainer: {
+    marginBottom: spacing.md,
+  },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -619,6 +693,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
+    ...shadows.sm,
   },
   headerText: {
     flex: 1,
@@ -632,6 +707,7 @@ const styles = StyleSheet.create({
   headerMedication: {
     fontSize: typography.fontSize.lg,
     color: colors.gray[700],
+    fontStyle: 'italic',
   },
   headerTimestamp: {
     flexDirection: 'row',
@@ -650,72 +726,131 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[100],
+  },
+  sectionIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.primary[50],
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sectionTitle: {
     fontSize: typography.fontSize.lg,
     fontWeight: typography.fontWeight.semibold,
     color: colors.gray[900],
   },
-  changesContainer: {
+  timelineContainer: {
+    gap: spacing.lg,
+  },
+  timelineItem: {
+    flexDirection: 'row',
     gap: spacing.md,
   },
-  changeItem: {
+  timelineConnector: {
+    alignItems: 'center',
+    width: 24,
+  },
+  timelineDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: colors.primary[500],
+    borderWidth: 3,
+    borderColor: colors.primary[100],
+  },
+  timelineLine: {
+    flex: 1,
+    width: 2,
+    backgroundColor: colors.primary[100],
+    marginTop: spacing.xs,
+  },
+  timelineContent: {
+    flex: 1,
     gap: spacing.sm,
   },
   changeField: {
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.bold,
     color: colors.gray[700],
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   changeValues: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
+    alignItems: 'stretch',
+    gap: spacing.sm,
+  },
+  valueLabel: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.gray[500],
+    textTransform: 'uppercase',
+    marginBottom: spacing.xs,
   },
   oldValue: {
     flex: 1,
-    padding: spacing.sm,
+    padding: spacing.md,
     backgroundColor: colors.error[50],
-    borderRadius: borderRadius.sm,
+    borderRadius: borderRadius.md,
     borderLeftWidth: 3,
     borderLeftColor: colors.error[500],
   },
   oldValueText: {
     fontSize: typography.fontSize.base,
     color: colors.error[500],
+    fontWeight: typography.fontWeight.medium,
+  },
+  arrowContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xs,
   },
   newValue: {
     flex: 1,
-    padding: spacing.sm,
+    padding: spacing.md,
     backgroundColor: colors.success + '20',
-    borderRadius: borderRadius.sm,
+    borderRadius: borderRadius.md,
     borderLeftWidth: 3,
     borderLeftColor: colors.success,
   },
   newValueText: {
     fontSize: typography.fontSize.base,
-    color: colors.success,
+    color: '#059669',
+    fontWeight: typography.fontWeight.medium,
   },
   snapshotContainer: {
     gap: spacing.md,
   },
   snapshotRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  snapshotIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.gray[100],
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   snapshotLabel: {
-    fontSize: typography.fontSize.base,
+    fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
     color: colors.gray[600],
-    width: 120,
+    width: 100,
   },
   snapshotValue: {
     flex: 1,
     fontSize: typography.fontSize.base,
     color: colors.gray[900],
+    fontWeight: typography.fontWeight.medium,
   },
   contactContainer: {
     gap: spacing.md,
@@ -723,18 +858,34 @@ const styles = StyleSheet.create({
   contactRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.gray[50],
+    borderRadius: borderRadius.md,
+  },
+  contactIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.primary[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contactInfo: {
+    flex: 1,
+    gap: spacing.xs,
   },
   contactLabel: {
-    fontSize: typography.fontSize.base,
+    fontSize: typography.fontSize.xs,
     fontWeight: typography.fontWeight.semibold,
-    color: colors.gray[600],
-    width: 100,
+    color: colors.gray[500],
+    textTransform: 'uppercase',
   },
   contactValue: {
-    flex: 1,
     fontSize: typography.fontSize.base,
     color: colors.gray[900],
+    fontWeight: typography.fontWeight.medium,
   },
   actionButtons: {
     gap: spacing.md,

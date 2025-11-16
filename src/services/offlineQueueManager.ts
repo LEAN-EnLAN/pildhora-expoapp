@@ -10,11 +10,22 @@ import { AppState, AppStateStatus } from 'react-native';
 import {
   withRetry,
   handleError,
-  createNetworkError,
-  ApplicationError,
-  ErrorCategory,
-  ErrorSeverity,
 } from '../utils/errorHandling';
+
+// NetInfo types (will be available when package is installed)
+type NetInfoState = {
+  isConnected: boolean | null;
+  isInternetReachable: boolean | null;
+  type: string | null;
+};
+
+// Dynamic import for NetInfo (optional dependency)
+let NetInfo: any = null;
+try {
+  NetInfo = require('@react-native-community/netinfo');
+} catch (error) {
+  console.warn('[OfflineQueueManager] NetInfo not available, using fallback network detection');
+}
 
 // Queue item interface
 export interface QueueItem {
@@ -63,8 +74,20 @@ export class OfflineQueueManager {
       // Setup app state listener
       this.setupAppStateListener();
 
-      // Assume online by default (in production, check with NetInfo)
-      this.isOnline = true;
+      // Check initial network status
+      if (NetInfo) {
+        const netState = await NetInfo.fetch();
+        this.isOnline = netState.isConnected ?? false;
+        
+        console.log('[OfflineQueueManager] Initial network status:', {
+          isConnected: netState.isConnected,
+          type: netState.type,
+        });
+      } else {
+        // Fallback: assume online
+        this.isOnline = true;
+        console.log('[OfflineQueueManager] Using fallback network detection (assumed online)');
+      }
 
       // Process queue if online
       if (this.isOnline) {
@@ -115,21 +138,32 @@ export class OfflineQueueManager {
   }
 
   /**
-   * Setup network connectivity listener
-   * Note: Network monitoring is simplified for now. 
-   * In production, integrate with @react-native-community/netinfo
+   * Setup network connectivity listener using NetInfo
    */
   private setupNetworkListener(): void {
-    // For now, assume online. In production, use NetInfo:
-    // this.netInfoUnsubscribe = NetInfo.addEventListener(state => {
-    //   const wasOffline = !this.isOnline;
-    //   this.isOnline = state.isConnected ?? false;
-    //   if (wasOffline && this.isOnline) {
-    //     this.processQueue();
-    //   }
-    // });
+    if (!NetInfo) {
+      console.log('[OfflineQueueManager] NetInfo not available, skipping network listener setup');
+      return;
+    }
+
+    this.netInfoUnsubscribe = NetInfo.addEventListener((state: NetInfoState) => {
+      const wasOffline = !this.isOnline;
+      this.isOnline = state.isConnected ?? false;
+      
+      console.log('[OfflineQueueManager] Network status changed:', {
+        isConnected: state.isConnected,
+        type: state.type,
+        isInternetReachable: state.isInternetReachable,
+      });
+      
+      // Process queue when coming back online
+      if (wasOffline && this.isOnline) {
+        console.log('[OfflineQueueManager] Back online, processing queue');
+        this.processQueue();
+      }
+    });
     
-    console.log('[OfflineQueueManager] Network listener setup (simplified mode)');
+    console.log('[OfflineQueueManager] Network listener setup complete');
   }
 
   /**
@@ -153,7 +187,7 @@ export class OfflineQueueManager {
    * Generate a unique ID for queue items
    */
   private generateId(): string {
-    return `queue_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `queue_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
   }
 
   /**

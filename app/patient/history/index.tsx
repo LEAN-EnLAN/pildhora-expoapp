@@ -156,8 +156,8 @@ export default function HistoryScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <LoadingSpinner 
-            size="lg" 
-            text={!isInitialized ? "Inicializando aplicación..." : "Cargando historial..."} 
+            size="large" 
+            message={!isInitialized ? "Inicializando aplicación..." : "Cargando historial..."} 
           />
         </View>
       </SafeAreaView>
@@ -201,7 +201,7 @@ export default function HistoryScreen() {
             accessibilityHint="Elimina todos los registros del historial"
             accessibilityRole="button"
           >
-            <Ionicons name="trash-outline" size={24} color={colors.error} />
+            <Ionicons name="trash-outline" size={24} color={colors.error[500]} />
           </TouchableOpacity>
         )}
       </View>
