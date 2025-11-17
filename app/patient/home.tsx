@@ -763,6 +763,19 @@ export default function PatientHome() {
                 <View style={styles.quickActions}>
                   <TouchableOpacity 
                     style={styles.quickActionCard}
+                    onPress={() => router.push('/patient/medications')}
+                    accessibilityLabel="Ver medicamentos"
+                    accessibilityHint="Muestra todos tus medicamentos"
+                    accessibilityRole="button"
+                  >
+                    <View style={styles.quickActionIcon}>
+                      <Ionicons name="medkit" size={24} color={colors.primary[500]} />
+                    </View>
+                    <Text style={styles.quickActionTitle} numberOfLines={1}>Medicamentos</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={styles.quickActionCard}
                     onPress={handleHistory}
                     accessibilityLabel="Ver historial"
                     accessibilityHint="Muestra el historial de dosis y eventos"
@@ -773,22 +786,6 @@ export default function PatientHome() {
                     </View>
                     <Text style={styles.quickActionTitle} numberOfLines={1}>Historial</Text>
                   </TouchableOpacity>
-
-                  {/* Only show Medications management in Autonomous Mode (no device connected) */}
-                  {!deviceStatus.isOnline && (
-                    <TouchableOpacity 
-                      style={styles.quickActionCard}
-                      onPress={() => router.push('/patient/medications')}
-                      accessibilityLabel="Ver medicamentos"
-                      accessibilityHint="Muestra todos tus medicamentos"
-                      accessibilityRole="button"
-                    >
-                      <View style={styles.quickActionIcon}>
-                        <Ionicons name="medical-outline" size={24} color={colors.primary[500]} />
-                      </View>
-                      <Text style={styles.quickActionTitle} numberOfLines={1}>Medicamentos</Text>
-                    </TouchableOpacity>
-                  )}
 
                   <TouchableOpacity 
                     style={styles.quickActionCard}

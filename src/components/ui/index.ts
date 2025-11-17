@@ -25,6 +25,9 @@ export { default as BrandedEmptyState } from './BrandedEmptyState';
 // Enhanced ColorPicker
 export { ColorPicker } from './ColorPicker';
 
+// Confirmation dialogs
+export { DeleteMedicationDialog } from './DeleteMedicationDialog';
+
 // Legacy components (backward compatibility)
 export { Container } from './Container';
 export { PHTextField } from './PHTextField';

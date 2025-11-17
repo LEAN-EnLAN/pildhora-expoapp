@@ -8,23 +8,16 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSelector } from 'react-redux';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  collection,
-  query,
-  where,
-  Timestamp,
-  onSnapshot,
-} from 'firebase/firestore';
 import { getDbInstance } from '../../src/services/firebase';
 import { RootState } from '../../src/store';
-import { MedicationEvent, Patient } from '../../src/types';
+import { MedicationEvent } from '../../src/types';
 import { MedicationEventCard } from '../../src/components/caregiver/MedicationEventCard';
 import { EventFilterControls, EventFilters } from '../../src/components/caregiver/EventFilterControls';
 import { Container, ListSkeleton, EventCardSkeleton, AnimatedListItem } from '../../src/components/ui';
 import { ErrorBoundary } from '../../src/components/shared/ErrorBoundary';
 import { ErrorState } from '../../src/components/caregiver/ErrorState';
+import { ScreenWrapper } from '../../src/components/caregiver';
 import { OfflineIndicator } from '../../src/components/caregiver/OfflineIndicator';
 import { patientDataCache } from '../../src/services/patientDataCache';
 import { offlineQueueManager } from '../../src/services/offlineQueueManager';
@@ -33,6 +26,7 @@ import { colors, spacing, typography } from '../../src/theme/tokens';
 import { buildEventQuery, applyClientSideSearch } from '../../src/utils/eventQueryBuilder';
 import { useCollectionSWR } from '../../src/hooks/useCollectionSWR';
 import { useLinkedPatients } from '../../src/hooks/useLinkedPatients';
+import { useScrollViewPadding } from '../../src/hooks/useScrollViewPadding';
 
 // Pagination: Limit events per page for better performance
 const EVENTS_PER_PAGE = 50;
@@ -44,12 +38,15 @@ function MedicationEventRegistryContent() {
   const router = useRouter();
   const { user } = useSelector((state: RootState) => state.auth);
   
+  // Layout dimensions for proper spacing
+  const { contentPaddingBottom } = useScrollViewPadding();
+  
   const [refreshing, setRefreshing] = useState(false);
   const [filters, setFilters] = useState<EventFilters>({});
   const [isOnline, setIsOnline] = useState(true);
 
   // Fetch linked patients using the proper hook
-  const { patients, isLoading: patientsLoading } = useLinkedPatients({
+  const { patients } = useLinkedPatients({
     caregiverId: user?.id || null,
     enabled: !!user?.id,
   });
@@ -80,8 +77,9 @@ function MedicationEventRegistryContent() {
     filters.patientId, 
     filters.eventType, 
     // Use stable timestamp values instead of Date object references
-    filters.dateRange?.start.getTime(),
-    filters.dateRange?.end.getTime(),
+    // Only call getTime() if the date exists
+    filters.dateRange?.start?.getTime(),
+    filters.dateRange?.end?.getTime(),
   ]);
 
   /**
@@ -111,6 +109,9 @@ function MedicationEventRegistryContent() {
         return;
       }
 
+      // Extract patient IDs for query
+      const linkedPatientIds = patients.map(p => p.id);
+
       const query = buildEventQuery(
         db,
         user.id,
@@ -119,7 +120,8 @@ function MedicationEventRegistryContent() {
           eventType: filters.eventType,
           dateRange: filters.dateRange,
         },
-        EVENTS_PER_PAGE
+        EVENTS_PER_PAGE,
+        linkedPatientIds // Pass linked patient IDs
       );
 
       setResolvedQuery(query);
@@ -128,12 +130,13 @@ function MedicationEventRegistryContent() {
     fetchQuery();
   }, [
     user?.id, 
-    patients.length, 
+    patients, // Watch the entire patients array
     filters.patientId, 
     filters.eventType,
     // Use stable timestamp values instead of Date object references
-    filters.dateRange?.start.getTime(),
-    filters.dateRange?.end.getTime(),
+    // Only call getTime() if the date exists
+    filters.dateRange?.start?.getTime(),
+    filters.dateRange?.end?.getTime(),
   ]);
 
   // Memoize callbacks to prevent infinite loops in useCollectionSWR
@@ -314,11 +317,11 @@ function MedicationEventRegistryContent() {
    */
   if (loading) {
     return (
-      <SafeAreaView edges={['bottom']} style={styles.container}>
+      <ScreenWrapper>
         <Container style={styles.container}>
           <ListSkeleton count={5} ItemSkeleton={EventCardSkeleton} />
         </Container>
-      </SafeAreaView>
+      </ScreenWrapper>
     );
   }
 
@@ -327,7 +330,7 @@ function MedicationEventRegistryContent() {
    */
   if (categorizedError && source !== 'cache' && allEvents.length === 0) {
     return (
-      <SafeAreaView edges={['bottom']} style={styles.container}>
+      <ScreenWrapper>
         <Container style={styles.container}>
           <OfflineIndicator isOnline={isOnline} />
           <ErrorState
@@ -336,12 +339,12 @@ function MedicationEventRegistryContent() {
             onRetry={handleRetry}
           />
         </Container>
-      </SafeAreaView>
+      </ScreenWrapper>
     );
   }
 
   return (
-    <SafeAreaView edges={['bottom']} style={styles.container}>
+    <ScreenWrapper>
       <Container style={styles.container}>
         <OfflineIndicator isOnline={isOnline} />
         
@@ -364,7 +367,7 @@ function MedicationEventRegistryContent() {
           data={events}
           renderItem={renderEventItem}
           keyExtractor={keyExtractor}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
           ListHeaderComponent={
             <EventFilterControls
               filters={filters}
@@ -397,7 +400,7 @@ function MedicationEventRegistryContent() {
           getItemLayout={getItemLayout}
         />
       </Container>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 }
 
@@ -418,43 +421,51 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   listContent: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    // paddingBottom is applied dynamically via useScrollViewPadding hook
     flexGrow: 1,
   },
   separator: {
-    height: spacing.md,
+    height: spacing.lg,
   },
   cachedDataBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.warning[50],
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     gap: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.warning[200],
+    marginBottom: spacing.sm,
   },
   cachedDataText: {
     flex: 1,
     fontSize: typography.fontSize.sm,
-    color: colors.warning[500],
+    color: colors.warning[600],
     fontWeight: typography.fontWeight.medium,
+    lineHeight: typography.fontSize.sm * 1.4,
   },
   emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing['2xl'],
-    gap: spacing.md,
+    paddingHorizontal: spacing['2xl'],
+    paddingVertical: spacing['3xl'],
   },
   emptyTitle: {
-    fontSize: typography.fontSize.xl,
+    fontSize: typography.fontSize['2xl'],
     fontWeight: typography.fontWeight.bold,
-    color: colors.gray[700],
+    color: colors.gray[900],
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
   },
   emptySubtitle: {
     fontSize: typography.fontSize.base,
-    color: colors.gray[500],
+    color: colors.gray[600],
     textAlign: 'center',
+    lineHeight: typography.fontSize.base * 1.5,
+    maxWidth: 280,
   },
 });

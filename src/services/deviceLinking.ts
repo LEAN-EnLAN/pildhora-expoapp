@@ -416,6 +416,10 @@ export async function checkDevelopmentRuleStatus(): Promise<void> {
 /**
  * Unlink a device from the user by removing the deviceLink document from Firestore
  * and removing the mapping from RTDB.
+ * 
+ * This function can be called in two scenarios:
+ * 1. User unlinking their own device (userId matches authenticated user)
+ * 2. Device owner (patient) revoking caregiver access (userId is caregiver, auth user is patient)
  */
 export async function unlinkDeviceFromUser(userId: string, deviceId: string): Promise<void> {
   console.log('[DeviceLinking] unlinkDeviceFromUser called', { userId, deviceId: deviceId.substring(0, 8) + '...' });
@@ -425,12 +429,30 @@ export async function unlinkDeviceFromUser(userId: string, deviceId: string): Pr
     validateUserId(userId);
     validateDeviceId(deviceId);
     
-    // Authentication validation
-    await validateAuthentication(userId);
-    
     // Get Firebase instances
+    const auth = await getAuthInstance();
     const db = await getDbInstance();
     const rdb = await getRdbInstance();
+    
+    if (!auth) {
+      throw new DeviceLinkingError(
+        'Firebase Auth not initialized',
+        'AUTH_NOT_INITIALIZED',
+        'Error de autenticación. Por favor, reinicia la aplicación.',
+        true
+      );
+    }
+    
+    const currentUser = auth.currentUser;
+    
+    if (!currentUser) {
+      throw new DeviceLinkingError(
+        'User not authenticated',
+        'NOT_AUTHENTICATED',
+        'No has iniciado sesión. Por favor, inicia sesión e intenta nuevamente.',
+        false
+      );
+    }
     
     if (!db) {
       throw new DeviceLinkingError(
@@ -450,6 +472,61 @@ export async function unlinkDeviceFromUser(userId: string, deviceId: string): Pr
       );
     }
     
+    // Check if this is the user unlinking their own device or a patient revoking caregiver access
+    const isOwnDevice = currentUser.uid === userId;
+    
+    if (!isOwnDevice) {
+      // This is a patient revoking caregiver access
+      // Verify that the authenticated user is the device owner
+      console.log('[DeviceLinking] Verifying device ownership for caregiver revocation');
+      
+      const deviceLinkId = `${deviceId}_${userId}`;
+      const deviceLinkRef = doc(db, 'deviceLinks', deviceLinkId);
+      
+      const deviceLinkDoc = await retryOperation(async () => {
+        return await getDoc(deviceLinkRef);
+      });
+      
+      if (!deviceLinkDoc.exists()) {
+        throw new DeviceLinkingError(
+          'Device link not found',
+          'DEVICE_LINK_NOT_FOUND',
+          'No se encontró el vínculo del dispositivo.',
+          false
+        );
+      }
+      
+      // Check if the authenticated user owns this device
+      // The device owner is the patient who has this deviceId in their user document
+      const currentUserDoc = await retryOperation(async () => {
+        const docRef = doc(db, 'users', currentUser.uid);
+        return await getDoc(docRef);
+      });
+      
+      if (!currentUserDoc.exists()) {
+        throw new DeviceLinkingError(
+          'User document not found',
+          'USER_NOT_FOUND',
+          'No se encontró el usuario. Por favor, cierra sesión e inicia sesión nuevamente.',
+          false
+        );
+      }
+      
+      const currentUserData = currentUserDoc.data();
+      const isDeviceOwner = currentUserData?.deviceId === deviceId;
+      
+      if (!isDeviceOwner) {
+        throw new DeviceLinkingError(
+          'Not authorized to revoke access',
+          'NOT_AUTHORIZED',
+          'No tienes permiso para revocar el acceso a este dispositivo.',
+          false
+        );
+      }
+      
+      console.log('[DeviceLinking] Device ownership verified, proceeding with caregiver revocation');
+    }
+    
     // Remove deviceLink document from Firestore
     const deviceLinkId = `${deviceId}_${userId}`;
     const deviceLinkRef = doc(db, 'deviceLinks', deviceLinkId);
@@ -460,14 +537,18 @@ export async function unlinkDeviceFromUser(userId: string, deviceId: string): Pr
       console.log('[DeviceLinking] Successfully removed deviceLink document');
     });
     
-    // Remove the device from RTDB
-    const deviceRef = ref(rdb, `users/${userId}/devices/${deviceId}`);
-    
-    await retryOperation(async () => {
-      console.log('[DeviceLinking] Removing from RTDB:', `users/${userId}/devices/${deviceId}`);
-      await remove(deviceRef);
-      console.log('[DeviceLinking] Successfully removed device link from RTDB');
-    });
+    // Remove the device from RTDB (only if this is the user's own device)
+    if (isOwnDevice) {
+      const deviceRef = ref(rdb, `users/${userId}/devices/${deviceId}`);
+      
+      await retryOperation(async () => {
+        console.log('[DeviceLinking] Removing from RTDB:', `users/${userId}/devices/${deviceId}`);
+        await remove(deviceRef);
+        console.log('[DeviceLinking] Successfully removed device link from RTDB');
+      });
+    } else {
+      console.log('[DeviceLinking] Skipping RTDB removal (caregiver revocation)');
+    }
     
     console.log('[DeviceLinking] Device unlinking completed successfully');
   } catch (error: any) {

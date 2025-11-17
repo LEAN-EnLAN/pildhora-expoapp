@@ -49,15 +49,57 @@ const validateUserPermission = async (currentUser: User | null, medicationPatien
   }
 
   // If checking a specific medication, validate the user has permission
-  if (medicationPatientId && medicationCaregiverId) {
-    const hasPermission = currentUser.id === medicationPatientId || currentUser.id === medicationCaregiverId;
-    if (!hasPermission) {
-      const error: MedicationError = {
-        type: 'PERMISSION',
-        message: 'User does not have permission to access this medication'
-      };
-      throw error;
+  if (medicationPatientId) {
+    // Patient can access their own medications
+    if (currentUser.id === medicationPatientId) {
+      return;
     }
+    
+    // Caregiver can access if they're linked to the patient
+    if (currentUser.role === 'caregiver') {
+      // Check if caregiver is explicitly set on the medication
+      if (medicationCaregiverId && currentUser.id === medicationCaregiverId) {
+        return;
+      }
+      
+      // Check if caregiver has a deviceLink to the patient
+      // First, get the patient's deviceId
+      const db = await getDbInstance();
+      if (db) {
+        try {
+          // Get the patient's deviceId
+          const patientDoc = await getDoc(doc(db, 'users', medicationPatientId));
+          if (patientDoc.exists()) {
+            const patientData = patientDoc.data();
+            const deviceId = patientData.deviceId;
+            
+            if (deviceId) {
+              // Check if caregiver has a deviceLink to this device
+              const deviceLinksQuery = query(
+                collection(db, 'deviceLinks'),
+                where('userId', '==', currentUser.id),
+                where('deviceId', '==', deviceId),
+                where('role', '==', 'caregiver'),
+                where('status', '==', 'active')
+              );
+              const deviceLinksSnapshot = await getDocs(deviceLinksQuery);
+              if (!deviceLinksSnapshot.empty) {
+                return; // Caregiver has access through device link
+              }
+            }
+          }
+        } catch (err) {
+          console.error('[validateUserPermission] Error checking device links:', err);
+        }
+      }
+    }
+    
+    // No permission found
+    const error: MedicationError = {
+      type: 'PERMISSION',
+      message: 'User does not have permission to access this medication'
+    };
+    throw error;
   }
 };
 

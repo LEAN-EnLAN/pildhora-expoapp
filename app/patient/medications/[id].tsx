@@ -7,6 +7,7 @@ import { RootState, AppDispatch } from '../../../src/store';
 import { updateMedication, deleteMedication, fetchMedications } from '../../../src/store/slices/medicationsSlice';
 import { MedicationWizard, MedicationFormData } from '../../../src/components/patient/medication-wizard';
 import { MedicationDetailView } from '../../../src/components/screens/patient/MedicationDetailView';
+import { DeleteMedicationDialog } from '../../../src/components/ui';
 import { Medication } from '../../../src/types';
 import { colors, spacing, typography } from '../../../src/theme/tokens';
 
@@ -20,42 +21,34 @@ export default function MedicationDetailScreen() {
     state.medications.medications.find(m => m.id === medId)
   );
   const [isEditing, setIsEditing] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   // Handle edit button press
   const handleEdit = useCallback(() => {
     setIsEditing(true);
   }, []);
 
-  // Handle delete button press
+  // Handle delete button press - show enhanced dialog
   const handleDelete = useCallback(() => {
+    setShowDeleteDialog(true);
+  }, []);
+
+  // Handle confirmed deletion
+  const handleConfirmDelete = useCallback(async () => {
     if (!medication?.id) {
       return;
     }
 
-    Alert.alert(
-      'Eliminar medicamento',
-      `¿Estás seguro de que deseas eliminar "${medication.name}"? Esta acción no se puede deshacer.`,
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await dispatch(deleteMedication(medication.id)).unwrap();
-              Alert.alert('Éxito', 'Medicamento eliminado correctamente');
-              router.back();
-            } catch (error: any) {
-              console.error('[MedicationDetailScreen] Error deleting medication:', error);
-              Alert.alert('Error', error.message || 'No se pudo eliminar el medicamento');
-            }
-          },
-        },
-      ]
-    );
+    try {
+      await dispatch(deleteMedication(medication.id)).unwrap();
+      setShowDeleteDialog(false);
+      Alert.alert('Éxito', 'Medicamento eliminado correctamente');
+      router.back();
+    } catch (error: any) {
+      console.error('[MedicationDetailScreen] Error deleting medication:', error);
+      setShowDeleteDialog(false);
+      Alert.alert('Error', error.message || 'No se pudo eliminar el medicamento');
+    }
   }, [medication, dispatch, router]);
 
   // Handle refill complete
@@ -187,6 +180,12 @@ export default function MedicationDetailScreen() {
         onEdit={handleEdit}
         onDelete={handleDelete}
         onRefillComplete={handleRefillComplete}
+      />
+      <DeleteMedicationDialog
+        visible={showDeleteDialog}
+        medication={medication}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setShowDeleteDialog(false)}
       />
     </SafeAreaView>
   );

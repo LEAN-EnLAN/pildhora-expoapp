@@ -130,17 +130,15 @@ export default function PatientSelector({
       return; // Already selected
     }
     
-    // Save to AsyncStorage
+    // Save to AsyncStorage (non-blocking)
     saveSelectedPatient(patientId);
     
-    // Update selection
+    // Update selection immediately for smooth transition
     onSelectPatient(patientId);
     
-    // Trigger data refresh if callback provided
-    if (onRefresh) {
-      onRefresh();
-    }
-  }, [selectedPatientId, onSelectPatient, onRefresh]);
+    // Note: We don't trigger onRefresh here to prevent reloading
+    // The dashboard will handle data fetching based on selectedPatientId change
+  }, [selectedPatientId, onSelectPatient]);
 
   /**
    * Get device status indicator color
@@ -150,7 +148,7 @@ export default function PatientSelector({
       return colors.gray[400]; // No device
     }
     
-    return patient.deviceState.is_online ? colors.success : colors.gray[400];
+    return patient.deviceState.is_online ? colors.success[500] : colors.gray[400];
   };
 
   /**
@@ -193,13 +191,6 @@ export default function PatientSelector({
         <Text style={styles.loadingText}>Cargando pacientes...</Text>
       </View>
     );
-  }
-
-  /**
-   * Don't render if only one patient (no need for selector)
-   */
-  if (patients.length === 1) {
-    return null;
   }
 
   return (
@@ -363,23 +354,25 @@ function PatientChip({
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: spacing.md,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray[200],
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
   },
   label: {
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
     color: colors.gray[700],
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xs,
+    paddingLeft: spacing.md,
   },
   scrollView: {
     flexGrow: 0,
   },
   scrollContent: {
-    paddingHorizontal: spacing.lg,
+    paddingLeft: spacing.md,
+    paddingRight: spacing.md,
     gap: spacing.md,
   },
   chip: {
@@ -436,8 +429,9 @@ const styles = StyleSheet.create({
     right: spacing.xs,
   },
   emptyContainer: {
-    paddingVertical: spacing['3xl'],
-    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xl,
+    paddingHorizontal: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.surface,
@@ -459,8 +453,9 @@ const styles = StyleSheet.create({
     lineHeight: typography.fontSize.sm * typography.lineHeight.normal,
   },
   loadingContainer: {
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    paddingHorizontal: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

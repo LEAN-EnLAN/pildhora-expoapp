@@ -1,14 +1,13 @@
 import React, { useCallback, useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, StyleSheet, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
-import { Ionicons } from '@expo/vector-icons';
 import { MedicationWizard, MedicationFormData } from '../../../../src/components/patient/medication-wizard';
+import { ScreenWrapper } from '../../../../src/components/caregiver';
 import { addMedication } from '../../../../src/store/slices/medicationsSlice';
 import { AppDispatch, RootState } from '../../../../src/store';
 import { Medication } from '../../../../src/types';
-import { colors, spacing, typography, borderRadius, shadows } from '../../../../src/theme/tokens';
+import { colors } from '../../../../src/theme/tokens';
 import { getPatientById } from '../../../../src/services/firebase/user';
 import { createAndEnqueueEvent } from '../../../../src/services/medicationEventService';
 
@@ -37,11 +36,6 @@ export default function CaregiverAddMedicationScreen() {
     };
     loadPatientName();
   }, [pid]);
-
-  // Handle navigation back
-  const handleBack = useCallback(() => {
-    router.back();
-  }, [router]);
 
   // Handle wizard completion
   const handleWizardComplete = useCallback(async (formData: MedicationFormData) => {
@@ -127,23 +121,7 @@ export default function CaregiverAddMedicationScreen() {
   }, [router]);
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
-      {/* Modern Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleBack}
-            accessibilityLabel="Volver"
-            accessibilityHint="Regresa a la pantalla anterior"
-            accessibilityRole="button"
-          >
-            <Ionicons name="chevron-back" size={24} color={colors.gray[900]} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Agregar Medicamento</Text>
-        </View>
-      </View>
-
+    <ScreenWrapper applyBottomPadding={true}>
       {/* Medication Wizard */}
       <View 
         style={{ flex: 1 }}
@@ -156,7 +134,7 @@ export default function CaregiverAddMedicationScreen() {
           onCancel={handleWizardCancel}
         />
       </View>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 }
 
@@ -164,33 +142,5 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    ...shadows.sm,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: borderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.gray[50],
-    marginRight: spacing.md,
-  },
-  headerTitle: {
-    fontSize: typography.fontSize['2xl'],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.gray[900],
   },
 });

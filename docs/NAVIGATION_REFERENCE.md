@@ -61,7 +61,7 @@ The caregiver interface uses a bottom tab navigator with 4 main tabs.
 |-------|-----|------|-------------|
 | `/caregiver/dashboard` | Inicio | `home` / `home-outline` | Main dashboard with patient selector and quick actions |
 | `/caregiver/tasks` | Tareas | `checkbox` / `checkbox-outline` | Task management and reminders |
-| `/caregiver/medications` | Medicamentos | `medkit` / `medkit-outline` | Medication management for patients |
+| `/caregiver/device-connection` | Pacientes | `people` / `people-outline` | Patient management and linking |
 | `/caregiver/events` | Eventos | `notifications` / `notifications-outline` | Event registry and history |
 
 ### Caregiver Modal Routes
@@ -69,8 +69,9 @@ These routes are hidden from the tab bar (href: null):
 
 | Route | Screen | Description |
 |-------|--------|-------------|
+| `/caregiver/patients` | PatientsScreen | CRUD interface for managing patients |
+| `/caregiver/medications` | MedicationsManagement | Medication management (accessed via patients screen) |
 | `/caregiver/add-device` | DeviceManagement | Device linking and management |
-| `/caregiver/device-connection` | DeviceConnection | Enter connection code |
 | `/caregiver/device-connection-confirm` | DeviceConnectionConfirm | Confirm device connection |
 | `/caregiver/settings` | CaregiverSettings | App settings |
 

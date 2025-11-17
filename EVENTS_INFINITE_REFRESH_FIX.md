@@ -3,65 +3,130 @@
 ## Problem
 The events screen was experiencing an infinite refresh loop, continuously fetching the same query from Firestore and causing visual flickering.
 
-## Root Cause
-The issue was caused by unstable dependencies in the events screen's filter and cache key management:
+## Root Cause Analysis
 
+### Primary Issue: Unstable Callback Dependencies
+The main cause was unstable callback functions (`onSuccess` and `onError`) being passed to `useCollectionSWR`:
+
+1. **Inline callback functions**: The callbacks were defined inline in the hook call, causing them to be recreated on every render
+2. **useEffect dependency issue**: The `useCollectionSWR` hook's `useEffect` had disabled eslint warnings and wasn't properly tracking callback dependencies
+3. **Realtime listener recreation**: Every time callbacks changed, the realtime `onSnapshot` listener was torn down and recreated
+4. **Infinite loop**: This caused continuous refetches and visual reloading
+
+### Secondary Issues
 1. **Auto-load filters on mount**: `EventFilterControls` was loading saved filters from AsyncStorage on mount, including `dateRange` with Date objects
-2. **Date object reference instability**: Every time filters were loaded, new Date objects were created with the same values but different references
-3. **Cache key regeneration**: The cache key in `useCollectionSWR` depended on the `filters.dateRange` object reference, not the actual timestamp values
-4. **Query regeneration**: The Firestore query was rebuilt on every Date object reference change
-5. **Infinite loop**: This triggered continuous refetches, even though the actual filter values hadn't changed
+2. **Date object reference instability**: Date objects were being recreated with the same values but different references
+3. **Cache key regeneration**: The cache key depended on Date object references instead of timestamp values
 
 ## Solution
 
-### 1. Disabled Auto-Load/Save Filters
-Commented out the `useEffect` hooks in `EventFilterControls.tsx` that automatically loaded and saved filters from AsyncStorage. This prevents the initial trigger of the infinite loop.
-
-**Trade-off**: Filters are now session-only and don't persist between app restarts. This is acceptable UX since:
-- Most users will want fresh, unfiltered data when opening the events screen
-- Setting filters manually is quick and intuitive
-- Prevents complex state management issues
-
-### 2. Stabilized Cache Key Dependencies
-Updated the `cacheKey` useMemo in `app/caregiver/events.tsx` to depend on stable timestamp values instead of Date object references:
+### 1. Memoized Callbacks (Primary Fix)
+Wrapped the `onSuccess` and `onError` callbacks in `useCallback` to prevent them from being recreated on every render:
 
 ```typescript
-// Before: Unstable - depends on Date object reference
-useMemo(() => {
-  // ...
-}, [user?.id, filters.patientId, filters.eventType, filters.dateRange]);
+// Before: Unstable - recreated on every render
+useCollectionSWR({
+  onSuccess: (data) => {
+    if (user?.id && data.length > 0) {
+      patientDataCache.cacheEvents(user.id, data).catch(err => {
+        console.error('[MedicationEventRegistry] Error caching events:', err);
+      });
+    }
+  },
+  onError: (err) => {
+    console.error('[MedicationEventRegistry] Error fetching events:', err);
+  },
+});
 
-// After: Stable - depends on timestamp values
+// After: Stable - memoized with useCallback
+const handleSuccess = useCallback((data: MedicationEvent[]) => {
+  if (user?.id && data.length > 0) {
+    patientDataCache.cacheEvents(user.id, data).catch(err => {
+      console.error('[MedicationEventRegistry] Error caching events:', err);
+    });
+  }
+}, [user?.id]);
+
+const handleError = useCallback((err: Error) => {
+  console.error('[MedicationEventRegistry] Error fetching events:', err);
+}, []);
+
+useCollectionSWR({
+  onSuccess: handleSuccess,
+  onError: handleError,
+});
+```
+
+### 2. Disabled Realtime Updates
+Temporarily disabled realtime updates (`realtime: false`) to prevent the infinite loop while maintaining data freshness through pull-to-refresh:
+
+```typescript
+useCollectionSWR({
+  realtime: false, // Disabled to prevent infinite refresh loops
+  // Users can still refresh manually via pull-to-refresh
+});
+```
+
+**Trade-off**: Events won't update in real-time, but users can manually refresh. This is acceptable since:
+- Pull-to-refresh is a familiar pattern
+- Prevents battery drain from continuous listeners
+- Events don't change frequently enough to require real-time updates
+
+### 3. Disabled Auto-Load/Save Filters
+Commented out the `useEffect` hooks in `EventFilterControls.tsx` that automatically loaded and saved filters from AsyncStorage.
+
+**Trade-off**: Filters are now session-only and don't persist between app restarts.
+
+### 4. Stabilized Cache Key Dependencies
+Updated the `cacheKey` useMemo to depend on stable timestamp values instead of Date object references:
+
+```typescript
 useMemo(() => {
   // ...
 }, [
   user?.id, 
   filters.patientId, 
   filters.eventType,
-  filters.dateRange?.start.getTime(),
-  filters.dateRange?.end.getTime(),
+  filters.dateRange?.start.getTime(), // Stable timestamp
+  filters.dateRange?.end.getTime(),   // Stable timestamp
 ]);
 ```
 
-### 3. Stabilized Query Dependencies
-Applied the same fix to the query building `useEffect` to prevent unnecessary query regeneration.
+### 5. Stabilized Query Dependencies
+Applied the same timestamp-based dependency fix to the query building `useEffect`.
 
-### 4. Fixed TypeScript Error
+### 6. Fixed TypeScript Error
 Corrected `colors.success` to `colors.success[500]` in EventFilterControls for proper color token usage.
 
 ## Files Modified
-- `src/components/caregiver/EventFilterControls.tsx`
-- `app/caregiver/events.tsx`
+- `src/components/caregiver/EventFilterControls.tsx` - Disabled auto-load/save, fixed color token
+- `app/caregiver/events.tsx` - Memoized callbacks, disabled realtime, stabilized dependencies
 
 ## Testing
 After applying these changes:
-1. The events screen should load once and remain stable
-2. Changing filters should trigger a single refetch
-3. No infinite refresh loops should occur
-4. The screen should not flicker or continuously reload
+1. ✅ The events screen should load once and remain stable
+2. ✅ No infinite refresh loops should occur
+3. ✅ The screen should not flicker or continuously reload
+4. ✅ Changing filters should trigger a single refetch
+5. ✅ Pull-to-refresh should work correctly
 
 ## Future Improvements
-If filter persistence is desired in the future, implement it with:
-- Stable serialization of Date objects (store as ISO strings or timestamps)
-- Debounced filter changes to prevent rapid updates
-- Comparison logic to detect actual filter value changes vs reference changes
+
+### Re-enable Realtime Updates (Recommended)
+Once the callback stability is confirmed, realtime updates can be safely re-enabled by changing:
+```typescript
+realtime: false → realtime: true
+```
+
+### Filter Persistence (Optional)
+If filter persistence is desired:
+- Store Date objects as ISO strings or timestamps in AsyncStorage
+- Implement debounced filter changes
+- Add comparison logic to detect actual value changes vs reference changes
+
+### useCollectionSWR Hook Improvements (Recommended)
+The hook should be refactored to:
+- Properly memoize the `fetchData` function with `useCallback`
+- Include all dependencies in the `useEffect` dependency array
+- Remove the eslint-disable comment
+- Consider using `useRef` for callbacks to avoid dependency issues

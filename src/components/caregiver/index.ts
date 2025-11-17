@@ -18,3 +18,5 @@ export { LastMedicationStatusCard } from './LastMedicationStatusCard';
 
 export { default as PatientSelector } from './PatientSelector';
 export type { PatientSelectorProps } from './PatientSelector';
+
+export { ScreenWrapper } from './ScreenWrapper';

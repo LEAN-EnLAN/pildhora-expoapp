@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Animated, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { colors, spacing, typography } from '../../theme/tokens';
-import { getRdbInstance } from '../../services/firebase';
+import { getRdbInstance, getDbInstance } from '../../services/firebase';
 import { ref, onValue } from 'firebase/database';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { getRelativeTimeString } from '../../utils/dateUtils';
 import { DeviceState, DeviceConnectivityCardProps } from '../../types';
 import { unlinkDeviceFromUser } from '../../services/deviceLinking';
@@ -17,6 +19,7 @@ export const DeviceConnectivityCard: React.FC<DeviceConnectivityCardProps> = Rea
   style
 }) => {
   const [deviceState, setDeviceState] = useState<DeviceState | null>(null);
+  const [deviceConfig, setDeviceConfig] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [unlinking, setUnlinking] = useState<boolean>(false);
@@ -33,7 +36,7 @@ export const DeviceConnectivityCard: React.FC<DeviceConnectivityCardProps> = Rea
       return;
     }
 
-    let unsubscribe: (() => void) | null = null;
+    let rtdbUnsubscribe: (() => void) | null = null;
     let mounted = true;
 
     const setupListener = async () => {
@@ -51,7 +54,7 @@ export const DeviceConnectivityCard: React.FC<DeviceConnectivityCardProps> = Rea
 
         const deviceRef = ref(rtdb, `devices/${deviceId}/state`);
         
-        unsubscribe = onValue(
+        rtdbUnsubscribe = onValue(
           deviceRef,
           (snapshot) => {
             if (!mounted) return;
@@ -90,8 +93,65 @@ export const DeviceConnectivityCard: React.FC<DeviceConnectivityCardProps> = Rea
     // Cleanup listener on unmount or device change
     return () => {
       mounted = false;
-      if (unsubscribe) {
-        unsubscribe();
+      if (rtdbUnsubscribe) {
+        rtdbUnsubscribe();
+      }
+    };
+  }, [deviceId, fadeAnim]);
+
+  // Set up Firestore listener for device configuration
+  useEffect(() => {
+    if (!deviceId) {
+      setDeviceConfig(null);
+      return;
+    }
+
+    let firestoreUnsubscribe: (() => void) | null = null;
+    let mounted = true;
+
+    const setupConfigListener = async () => {
+      try {
+        const db = await getDbInstance();
+        if (!db) {
+          console.warn('[DeviceConnectivityCard] Firestore not initialized');
+          return;
+        }
+
+        const deviceDocRef = doc(db, 'devices', deviceId);
+        
+        firestoreUnsubscribe = onSnapshot(
+          deviceDocRef,
+          (snapshot) => {
+            if (!mounted) return;
+            
+            if (snapshot.exists()) {
+              const data = snapshot.data();
+              setDeviceConfig(data?.desiredConfig || null);
+              console.log('[DeviceConnectivityCard] Device config loaded:', data?.desiredConfig);
+            } else {
+              setDeviceConfig(null);
+            }
+          },
+          (err) => {
+            if (!mounted) return;
+            console.error('[DeviceConnectivityCard] Firestore listener error:', err);
+            // Don't set error state for config - it's optional
+          }
+        );
+      } catch (err: any) {
+        if (!mounted) return;
+        console.error('[DeviceConnectivityCard] Config setup error:', err);
+        // Don't set error state for config - it's optional
+      }
+    };
+
+    setupConfigListener();
+
+    // Cleanup listener on unmount or device change
+    return () => {
+      mounted = false;
+      if (firestoreUnsubscribe) {
+        firestoreUnsubscribe();
       }
     };
   }, [deviceId]);
@@ -287,24 +347,34 @@ export const DeviceConnectivityCard: React.FC<DeviceConnectivityCardProps> = Rea
   // Get additional device state info
   const currentStatus = deviceState?.current_status || 'N/D';
   const wifiSignal = deviceState?.wifi_signal_strength;
-  const alarmMode = deviceState?.alarm_mode || 'N/D';
-  const ledIntensity = deviceState?.led_intensity;
+  // Get alarm mode from Firestore config (desiredConfig) or fallback to RTDB state
+  const alarmMode = deviceConfig?.alarm_mode || deviceState?.alarm_mode || 'N/D';
+  // Get LED intensity from Firestore config or fallback to RTDB state
+  const ledIntensity = deviceConfig?.led_intensity ?? deviceState?.led_intensity;
 
   return (
     <Card 
       variant="elevated" 
-      padding="lg" 
+      padding="none"
       style={style}
       accessibilityLabel={`Estado del dispositivo: ${statusLabel}, ${batteryLabel}`}
     >
-      {/* Header with gradient-like effect */}
+      {/* Header with gradient background */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <Text style={styles.title}>Conectividad del Dispositivo</Text>
+          <View style={styles.headerLeft}>
+            <View style={styles.iconContainer}>
+              <Ionicons name="hardware-chip" size={24} color={colors.primary[600]} />
+            </View>
+            <View>
+              <Text style={styles.title}>Dispositivo</Text>
+              <Text style={styles.subtitle}>Estado de conexión</Text>
+            </View>
+          </View>
           <View style={[styles.statusBadge, { backgroundColor: isOnline ? colors.success[50] : colors.gray[100] }]}>
             <View style={[styles.statusDot, { backgroundColor: isOnline ? colors.success[500] : colors.gray[400] }]} />
             <Text style={[styles.statusBadgeText, { color: isOnline ? colors.success[700] : colors.gray[600] }]}>
-              {isOnline ? 'En línea' : 'Desconectado'}
+              {isOnline ? 'En línea' : 'Fuera de línea'}
             </Text>
           </View>
         </View>
@@ -469,30 +539,50 @@ export const DeviceConnectivityCard: React.FC<DeviceConnectivityCardProps> = Rea
 const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.primary[50],
-    marginHorizontal: -spacing.lg,
-    marginTop: -spacing.lg,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.lg,
-    borderBottomWidth: 2,
-    borderBottomColor: colors.primary[100],
+    paddingVertical: spacing.lg,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
   },
   headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: colors.primary[500],
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
   title: {
     fontSize: typography.fontSize.lg,
     fontWeight: typography.fontWeight.bold,
     color: colors.primary[900],
   },
+  subtitle: {
+    fontSize: typography.fontSize.xs,
+    color: colors.primary[600],
+    marginTop: 2,
+  },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 16,
     gap: spacing.xs,
   },
   statusDot: {
@@ -507,7 +597,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   content: {
-    gap: spacing.lg,
+    gap: spacing.md,
+    padding: spacing.lg,
   },
   deviceIdContainer: {
     backgroundColor: colors.gray[50],

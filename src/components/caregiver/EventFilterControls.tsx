@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,9 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Button } from '../ui/Button';
 import { colors, spacing, typography, borderRadius } from '../../theme/tokens';
 import { MedicationEventType } from '../../types';
-
-const FILTERS_STORAGE_KEY = '@medication_event_filters';
 
 export interface EventFilters {
   patientId?: string;
@@ -539,47 +536,64 @@ export const EventFilterControls: React.FC<EventFilterControlsProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    gap: spacing.md,
+    gap: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xl,
+    backgroundColor: colors.background,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.gray[200],
+    shadowColor: colors.gray[900],
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   searchInput: {
     flex: 1,
     fontSize: typography.fontSize.base,
     color: colors.gray[900],
     padding: 0,
+    minHeight: 24,
   },
   filtersRow: {
     flexDirection: 'row',
+    marginTop: spacing.xs,
   },
   filtersContent: {
-    gap: spacing.sm,
-    paddingRight: spacing.md,
+    gap: spacing.md,
+    paddingRight: spacing.lg,
   },
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md, // Increased from spacing.sm to meet 44pt minimum
-    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+    gap: spacing.sm,
     borderWidth: 1,
     borderColor: colors.gray[300],
-    minHeight: 44, // Ensure minimum touch target height
+    minHeight: 44,
+    shadowColor: colors.gray[900],
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   filterChipActive: {
     backgroundColor: colors.primary[50],
     borderColor: colors.primary[500],
+    shadowColor: colors.primary[500],
+    shadowOpacity: 0.1,
   },
   filterChipText: {
     fontSize: typography.fontSize.sm,
@@ -588,23 +602,29 @@ const styles = StyleSheet.create({
   },
   filterChipTextActive: {
     color: colors.primary[500],
+    fontWeight: typography.fontWeight.semibold,
   },
   clearButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.error[50],
     borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md, // Increased from spacing.sm to meet 44pt minimum
-    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+    gap: spacing.sm,
     borderWidth: 1,
     borderColor: colors.error[500],
-    minHeight: 44, // Ensure minimum touch target height
+    minHeight: 44,
+    shadowColor: colors.error[500],
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
   },
   clearButtonText: {
     fontSize: typography.fontSize.sm,
     color: colors.error[500],
-    fontWeight: typography.fontWeight.medium,
+    fontWeight: typography.fontWeight.semibold,
   },
   modalOverlay: {
     flex: 1,
@@ -621,11 +641,17 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     maxHeight: '80%',
     gap: spacing.lg,
+    shadowColor: colors.gray[900],
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
   },
   modalTitle: {
     fontSize: typography.fontSize.xl,
     fontWeight: typography.fontWeight.bold,
     color: colors.gray[900],
+    marginBottom: spacing.xs,
   },
   modalList: {
     maxHeight: 300,
@@ -633,9 +659,10 @@ const styles = StyleSheet.create({
   modalOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.md,
+    padding: spacing.lg,
     borderRadius: borderRadius.md,
-    gap: spacing.sm,
+    gap: spacing.md,
+    minHeight: 56,
   },
   modalOptionActive: {
     backgroundColor: colors.primary[50],

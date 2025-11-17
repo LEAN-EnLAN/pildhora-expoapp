@@ -8,6 +8,14 @@ interface WizardProgressIndicatorProps {
   stepLabels: string[];
 }
 
+// Step icons mapping
+const STEP_ICONS = [
+  { icon: '🏷️', filledIcon: '🏷️' },  // Icon & Name
+  { icon: '⏰', filledIcon: '⏰' },  // Schedule
+  { icon: '💊', filledIcon: '💊' },  // Dosage
+  { icon: '📦', filledIcon: '📦' },  // Inventory
+];
+
 export function WizardProgressIndicator({ 
   currentStep, 
   totalSteps, 
@@ -37,6 +45,7 @@ export function WizardProgressIndicator({
           const isCompleted = index < currentStep;
           const isCurrent = index === currentStep;
           const isPending = index > currentStep;
+          const stepIcon = STEP_ICONS[index] || STEP_ICONS[0];
 
           return (
             <View key={index} style={styles.stepItem}>
@@ -52,13 +61,11 @@ export function WizardProgressIndicator({
               >
                 <Text
                   style={[
-                    styles.stepNumber,
-                    isCompleted && styles.stepNumberCompleted,
-                    isCurrent && styles.stepNumberCurrent,
-                    isPending && styles.stepNumberPending,
+                    styles.stepIcon,
+                    isPending && styles.stepIconPending,
                   ]}
                 >
-                  {isCompleted ? '✓' : index + 1}
+                  {isCompleted || isCurrent ? stepIcon.filledIcon : stepIcon.icon}
                 </Text>
               </View>
 
@@ -122,7 +129,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   stepCircleCompleted: {
-    backgroundColor: colors.success,
+    backgroundColor: colors.success[500],
   },
   stepCircleCurrent: {
     backgroundColor: colors.primary[500],
@@ -130,18 +137,11 @@ const styles = StyleSheet.create({
   stepCirclePending: {
     backgroundColor: colors.gray[200],
   },
-  stepNumber: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.bold,
+  stepIcon: {
+    fontSize: 20,
   },
-  stepNumberCompleted: {
-    color: colors.surface,
-  },
-  stepNumberCurrent: {
-    color: colors.surface,
-  },
-  stepNumberPending: {
-    color: colors.gray[500],
+  stepIconPending: {
+    opacity: 0.5,
   },
   stepLabel: {
     fontSize: typography.fontSize.xs,

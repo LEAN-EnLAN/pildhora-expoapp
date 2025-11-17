@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,30 +6,20 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  ActivityIndicator,
-  TouchableOpacity,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { RootState } from '../../src/store';
-import { Button, Container, Card, Input, AnimatedListItem } from '../../src/components/ui';
+import { Button, Container, Card, Input } from '../../src/components/ui';
+import { ScreenWrapper } from '../../src/components/caregiver';
 import { validateCode, ConnectionCodeError } from '../../src/services/connectionCode';
-import { getCaregiverPatients } from '../../src/services/firebase/user';
-import { Patient } from '../../src/types';
 import { colors, spacing, typography, borderRadius } from '../../src/theme/tokens';
 
 /**
  * DeviceConnectionScreen
  * 
- * Consolidated screen for caregivers to:
- * 1. Connect to patient devices using connection codes
- * 2. View and manage linked patients
- * 3. Access patient medication management
- * 
- * This screen combines device linking and patient management since
- * linking with a device and linking with a patient are essentially the same.
+ * Screen for caregivers to connect to patient devices using connection codes.
  * 
  * Requirements: 5.1, 5.2, 5.3
  * 
@@ -38,16 +28,10 @@ import { colors, spacing, typography, borderRadius } from '../../src/theme/token
  * 2. Real-time format validation (6-8 alphanumeric)
  * 3. Code validation on submit
  * 4. Navigate to confirmation screen (Task 9)
- * 5. View list of linked patients below
- * 6. Access patient medications from the list
  */
 export default function DeviceConnectionScreen() {
   const router = useRouter();
   const { user } = useSelector((state: RootState) => state.auth);
-  
-  // Linked patients state
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [loadingPatients, setLoadingPatients] = useState<boolean>(true);
 
   // Form state
   const [code, setCode] = useState('');
@@ -166,42 +150,12 @@ export default function DeviceConnectionScreen() {
   }, [code, user, router, validateCodeFormat]);
 
   /**
-   * Load linked patients
-   */
-  const loadPatients = useCallback(async () => {
-    if (!user?.id) {
-      setLoadingPatients(false);
-      return;
-    }
-    
-    try {
-      const list = await getCaregiverPatients(user.id);
-      setPatients(list);
-    } catch (error) {
-      console.error('[DeviceConnection] Error loading patients:', error);
-    } finally {
-      setLoadingPatients(false);
-    }
-  }, [user?.id]);
-
-  useEffect(() => {
-    loadPatients();
-  }, [loadPatients]);
-
-  /**
-   * Navigate to patient medications
-   */
-  const handleManagePatient = useCallback((patientId: string) => {
-    router.push(`/caregiver/medications/${patientId}`);
-  }, [router]);
-
-  /**
    * Check if form is valid for submission
    */
   const isFormValid = code.length >= 6 && code.length <= 8 && !formatError;
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
+    <ScreenWrapper applyTopPadding={false}>
       <Container style={styles.container}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -212,6 +166,20 @@ export default function DeviceConnectionScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
+            {/* Back Button */}
+            <View style={styles.backButtonContainer}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onPress={() => router.back()}
+                leftIcon={<Ionicons name="chevron-back" size={20} color={colors.gray[700]} />}
+                accessibilityLabel="Volver"
+                accessibilityHint="Regresa a la pantalla de pacientes"
+              >
+                Volver
+              </Button>
+            </View>
+
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.iconContainer}>
@@ -342,105 +310,10 @@ export default function DeviceConnectionScreen() {
                 </View>
               </View>
             </Card>
-
-            {/* Linked Patients Section */}
-            <View style={styles.patientsSection}>
-              <View style={styles.patientsSectionHeader}>
-                <Ionicons
-                  name="people-outline"
-                  size={24}
-                  color={colors.primary[500]}
-                />
-                <Text style={styles.patientsSectionTitle}>Pacientes Vinculados</Text>
-              </View>
-
-              {/* Navigate to Dashboard Button */}
-              {patients.length > 0 && (
-                <Button
-                  variant="primary"
-                  size="lg"
-                  onPress={() => router.push('/caregiver/dashboard')}
-                  style={styles.dashboardButton}
-                  leftIcon={<Ionicons name="grid-outline" size={20} color={colors.surface} />}
-                  accessibilityLabel="Ir al tablero de pacientes"
-                  accessibilityHint="Navega al tablero principal para ver todos los pacientes"
-                  fullWidth
-                >
-                  Ver Tablero de Pacientes
-                </Button>
-              )}
-
-              {loadingPatients ? (
-                <Card style={styles.loadingCard}>
-                  <ActivityIndicator size="large" color={colors.primary[500]} />
-                  <Text style={styles.loadingText}>Cargando pacientes...</Text>
-                </Card>
-              ) : patients.length === 0 ? (
-                <Card style={styles.emptyCard}>
-                  <Ionicons
-                    name="person-add-outline"
-                    size={48}
-                    color={colors.gray[300]}
-                  />
-                  <Text style={styles.emptyText}>No hay pacientes vinculados</Text>
-                  <Text style={styles.emptySubtext}>
-                    Usa el código de conexión arriba para vincular tu primer paciente
-                  </Text>
-                </Card>
-              ) : (
-                <View style={styles.patientsList}>
-                  {patients.map((patient, index) => (
-                    <AnimatedListItem key={patient.id} index={index} delay={100}>
-                      <Card style={styles.patientCard}>
-                        <View style={styles.patientCardContent}>
-                          <View style={styles.patientAvatar}>
-                            <Ionicons
-                              name="person"
-                              size={24}
-                              color={colors.primary[500]}
-                            />
-                          </View>
-                          <View style={styles.patientInfo}>
-                            <Text style={styles.patientName}>{patient.name}</Text>
-                            <Text style={styles.patientEmail}>{patient.email}</Text>
-                          </View>
-                          <TouchableOpacity
-                            style={styles.manageButton}
-                            onPress={() => handleManagePatient(patient.id)}
-                            accessibilityLabel={`Gestionar medicamentos de ${patient.name}`}
-                            accessibilityHint="Abre la pantalla de gestión de medicamentos para este paciente"
-                            accessibilityRole="button"
-                          >
-                            <Text style={styles.manageButtonText}>Gestionar</Text>
-                            <Ionicons
-                              name="chevron-forward"
-                              size={20}
-                              color={colors.primary[500]}
-                            />
-                          </TouchableOpacity>
-                        </View>
-                      </Card>
-                    </AnimatedListItem>
-                  ))}
-                </View>
-              )}
-            </View>
-
-            {/* Back Button */}
-            <Button
-              variant="ghost"
-              size="md"
-              onPress={() => router.back()}
-              style={styles.backButton}
-              accessibilityLabel="Volver"
-              accessibilityHint="Regresa a la pantalla anterior"
-            >
-              ← Volver
-            </Button>
           </ScrollView>
         </KeyboardAvoidingView>
       </Container>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 }
 
@@ -455,6 +328,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.lg,
     paddingBottom: spacing['3xl'],
+  },
+  backButtonContainer: {
+    marginBottom: spacing.md,
   },
   // Header
   header: {
@@ -518,7 +394,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary[50],
     borderColor: colors.primary[100],
     borderWidth: 1,
-    marginBottom: spacing.lg,
   },
   helpHeader: {
     flexDirection: 'row',
@@ -544,103 +419,5 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     color: colors.gray[700],
     lineHeight: typography.fontSize.sm * typography.lineHeight.relaxed,
-  },
-  // Back Button
-  backButton: {
-    alignSelf: 'center',
-  },
-  // Patients Section
-  patientsSection: {
-    marginTop: spacing.xl,
-  },
-  dashboardButton: {
-    marginBottom: spacing.lg,
-  },
-  patientsSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  patientsSectionTitle: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.gray[900],
-  },
-  loadingCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing['2xl'],
-    gap: spacing.md,
-  },
-  loadingText: {
-    fontSize: typography.fontSize.base,
-    color: colors.gray[600],
-  },
-  emptyCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing['3xl'],
-    gap: spacing.md,
-  },
-  emptyText: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.gray[600],
-    textAlign: 'center',
-  },
-  emptySubtext: {
-    fontSize: typography.fontSize.sm,
-    color: colors.gray[500],
-    textAlign: 'center',
-    paddingHorizontal: spacing.lg,
-    lineHeight: typography.fontSize.sm * typography.lineHeight.relaxed,
-  },
-  patientsList: {
-    gap: spacing.md,
-  },
-  patientCard: {
-    padding: spacing.md,
-  },
-  patientCardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  patientAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[50],
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  patientInfo: {
-    flex: 1,
-  },
-  patientName: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.gray[900],
-    marginBottom: spacing.xs,
-  },
-  patientEmail: {
-    fontSize: typography.fontSize.sm,
-    color: colors.gray[600],
-  },
-  manageButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.primary[50],
-    borderRadius: borderRadius.md,
-    minHeight: 44,
-  },
-  manageButtonText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.primary[600],
   },
 });

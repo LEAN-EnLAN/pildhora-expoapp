@@ -1,12 +1,13 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { StyleSheet, Alert, View, Text } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../../../../src/store';
 import { updateMedication, deleteMedication, fetchMedications } from '../../../../src/store/slices/medicationsSlice';
 import { MedicationWizard, MedicationFormData } from '../../../../src/components/patient/medication-wizard';
 import { MedicationDetailView } from '../../../../src/components/screens/patient/MedicationDetailView';
+import { DeleteMedicationDialog } from '../../../../src/components/ui';
+import { ScreenWrapper } from '../../../../src/components/caregiver';
 import { Medication } from '../../../../src/types';
 import { colors, spacing, typography } from '../../../../src/theme/tokens';
 import { getPatientById } from '../../../../src/services/firebase/user';
@@ -23,6 +24,7 @@ export default function CaregiverMedicationDetailScreen() {
     state.medications.medications.find(m => m.id === medId)
   );
   const [isEditing, setIsEditing] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [patientName, setPatientName] = useState<string>('');
 
   // Fetch patient name for event generation
@@ -47,50 +49,42 @@ export default function CaregiverMedicationDetailScreen() {
     setIsEditing(true);
   }, []);
 
-  // Handle delete button press
+  // Handle delete button press - show enhanced dialog
   const handleDelete = useCallback(() => {
+    setShowDeleteDialog(true);
+  }, []);
+
+  // Handle confirmed deletion
+  const handleConfirmDelete = useCallback(async () => {
     if (!medication?.id || !user?.id) {
       return;
     }
 
-    Alert.alert(
-      'Eliminar medicamento',
-      `¿Estás seguro de que deseas eliminar "${medication.name}"? Esta acción no se puede deshacer.`,
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Generate deletion event before deleting
-              if (patientName) {
-                try {
-                  await createAndEnqueueEvent(
-                    { ...medication, caregiverId: user.id } as Medication,
-                    patientName,
-                    'deleted'
-                  );                } catch (eventError) {
-                  // Log event creation error but don't fail the medication deletion
-                  console.error('[CaregiverMedicationDetailScreen] Failed to create medication event:', eventError);
-                }
-              }
+    try {
+      // Generate deletion event before deleting
+      if (patientName) {
+        try {
+          await createAndEnqueueEvent(
+            { ...medication, caregiverId: user.id } as Medication,
+            patientName,
+            'deleted'
+          );
+        } catch (eventError) {
+          // Log event creation error but don't fail the medication deletion
+          console.error('[CaregiverMedicationDetailScreen] Failed to create medication event:', eventError);
+        }
+      }
 
-              // Delete the medication
-              await dispatch(deleteMedication(medication.id)).unwrap();
-              Alert.alert('Éxito', 'Medicamento eliminado correctamente');
-              router.back();
-            } catch (error: any) {
-              console.error('[CaregiverMedicationDetailScreen] Error deleting medication:', error);
-              Alert.alert('Error', error.message || 'No se pudo eliminar el medicamento');
-            }
-          },
-        },
-      ]
-    );
+      // Delete the medication
+      await dispatch(deleteMedication(medication.id)).unwrap();
+      setShowDeleteDialog(false);
+      Alert.alert('Éxito', 'Medicamento eliminado correctamente');
+      router.back();
+    } catch (error: any) {
+      console.error('[CaregiverMedicationDetailScreen] Error deleting medication:', error);
+      setShowDeleteDialog(false);
+      Alert.alert('Error', error.message || 'No se pudo eliminar el medicamento');
+    }
   }, [medication, dispatch, router, patientName, user]);
 
   // Handle refill complete
@@ -207,38 +201,44 @@ export default function CaregiverMedicationDetailScreen() {
   // Show error if medication not found
   if (!medication) {
     return (
-      <SafeAreaView edges={['bottom']} style={styles.screen}>
+      <ScreenWrapper applyBottomPadding={true}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Medicamento no encontrado</Text>
         </View>
-      </SafeAreaView>
+      </ScreenWrapper>
     );
   }
 
   // Show wizard when editing
   if (isEditing) {
     return (
-      <SafeAreaView edges={['bottom']} style={styles.screen}>
+      <ScreenWrapper applyBottomPadding={true}>
         <MedicationWizard
           mode="edit"
           medication={medication}
           onComplete={handleWizardComplete}
           onCancel={handleWizardCancel}
         />
-      </SafeAreaView>
+      </ScreenWrapper>
     );
   }
 
   // Show detail view by default
   return (
-    <SafeAreaView edges={['bottom']} style={styles.screen}>
+    <ScreenWrapper applyBottomPadding={true}>
       <MedicationDetailView
         medication={medication}
         onEdit={handleEdit}
         onDelete={handleDelete}
         onRefillComplete={handleRefillComplete}
       />
-    </SafeAreaView>
+      <DeleteMedicationDialog
+        visible={showDeleteDialog}
+        medication={medication}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setShowDeleteDialog(false)}
+      />
+    </ScreenWrapper>
   );
 }
 

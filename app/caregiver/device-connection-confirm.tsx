@@ -7,12 +7,13 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { RootState } from '../../src/store';
 import { Button, Container, Card } from '../../src/components/ui';
+import { ScreenWrapper } from '../../src/components/caregiver';
+import { useScrollViewPadding } from '../../src/hooks/useScrollViewPadding';
 import { useCode, validateCode, ConnectionCodeError } from '../../src/services/connectionCode';
 import { completeOnboarding } from '../../src/services/onboarding';
 import { colors, spacing, typography, borderRadius } from '../../src/theme/tokens';
@@ -38,6 +39,9 @@ export default function DeviceConnectionConfirmScreen() {
     deviceId: string;
   }>();
   const { user } = useSelector((state: RootState) => state.auth);
+  
+  // Layout dimensions for proper spacing
+  const { contentPaddingBottom } = useScrollViewPadding();
 
   // Validation state
   const [isValidating, setIsValidating] = useState(true);
@@ -202,10 +206,10 @@ export default function DeviceConnectionConfirmScreen() {
   // Show success confirmation screen
   if (connectionSuccess) {
     return (
-      <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
+      <ScreenWrapper>
         <Container style={styles.container}>
           <ScrollView
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}
             showsVerticalScrollIndicator={false}
           >
             {/* Success Icon */}
@@ -314,31 +318,31 @@ export default function DeviceConnectionConfirmScreen() {
             </Button>
           </ScrollView>
         </Container>
-      </SafeAreaView>
+      </ScreenWrapper>
     );
   }
 
   // Show loading state while validating
   if (isValidating) {
     return (
-      <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
+      <ScreenWrapper>
         <Container style={styles.container}>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary[500]} />
             <Text style={styles.loadingText}>Validando código de conexión...</Text>
           </View>
         </Container>
-      </SafeAreaView>
+      </ScreenWrapper>
     );
   }
 
   // Show error state if validation failed
   if (validationError) {
     return (
-      <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
+      <ScreenWrapper>
         <Container style={styles.container}>
           <ScrollView
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}
             showsVerticalScrollIndicator={false}
           >
             {/* Error Header */}
@@ -417,16 +421,16 @@ export default function DeviceConnectionConfirmScreen() {
             </Button>
           </ScrollView>
         </Container>
-      </SafeAreaView>
+      </ScreenWrapper>
     );
   }
 
   // Show confirmation screen
   return (
-    <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
+    <ScreenWrapper>
       <Container style={styles.container}>
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}
           showsVerticalScrollIndicator={false}
         >
           {/* Header */}
@@ -596,7 +600,7 @@ export default function DeviceConnectionConfirmScreen() {
           </View>
         </ScrollView>
       </Container>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 }
 

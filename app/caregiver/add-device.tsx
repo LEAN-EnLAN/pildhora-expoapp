@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Text, View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +10,8 @@ import { linkDeviceToUser, unlinkDeviceFromUser } from '../../src/services/devic
 import { getDbInstance } from '../../src/services/firebase';
 import { Button, Input, Card, LoadingSpinner, ErrorMessage, SuccessMessage, AnimatedListItem, Collapsible } from '../../src/components/ui';
 import { DeviceConfigPanel } from '../../src/components/shared/DeviceConfigPanel';
+import { ScreenWrapper } from '../../src/components/caregiver';
+import { useScrollViewPadding } from '../../src/hooks/useScrollViewPadding';
 import { useLinkedPatients } from '../../src/hooks/useLinkedPatients';
 import { useDeviceState } from '../../src/hooks/useDeviceState';
 import { colors, spacing, typography, shadows } from '../../src/theme/tokens';
@@ -19,6 +20,9 @@ import { PatientWithDevice } from '../../src/types';
 export default function DeviceManagementScreen() {
   const router = useRouter();
   const userId = useSelector((state: RootState) => state.auth.user?.id);
+  
+  // Layout dimensions for proper spacing
+  const { contentPaddingBottom } = useScrollViewPadding();
 
   // Handle back navigation with haptics
   const handleGoBack = useCallback(() => {
@@ -284,7 +288,7 @@ export default function DeviceManagementScreen() {
   };
 
   return (
-    <SafeAreaView edges={['top']} style={styles.container}>
+    <ScreenWrapper applyTopPadding={false}>
       {/* Back Button Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -300,7 +304,7 @@ export default function DeviceManagementScreen() {
         <Text style={styles.headerTitle}>Gestión de Dispositivos</Text>
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}>
         {/* Success/Error Messages */}
         {successMessage && (
           <View style={styles.messageContainer}>
@@ -409,7 +413,7 @@ export default function DeviceManagementScreen() {
           </Card>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 }
 

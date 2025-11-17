@@ -10,12 +10,14 @@ export default function MedicationsLayout() {
       <Stack.Screen
         name="index"
         options={{
+          title: 'Medicamentos',
+          headerShown: true,
           headerLeft: () => (
             <Link href="/patient/home" asChild>
               <Pressable 
                 style={{ height: 44, width: 44, alignItems: 'center', justifyContent: 'center' }}
-                accessibilityLabel="Volver"
-                accessibilityHint="Regresa a la pantalla anterior"
+                accessibilityLabel="Volver al inicio"
+                accessibilityHint="Regresa a la pantalla de inicio"
                 accessibilityRole="button"
               >
                 <Ionicons name="chevron-back" size={24} color={colors.gray[900]} />

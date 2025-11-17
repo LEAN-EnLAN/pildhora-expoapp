@@ -13,17 +13,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RootState } from '../../src/store';
 import { useLinkedPatients } from '../../src/hooks/useLinkedPatients';
 import { useNetworkStatus } from '../../src/hooks/useNetworkStatus';
+import { useScrollViewPadding } from '../../src/hooks/useScrollViewPadding';
 import {
   waitForFirebaseInitialization,
   reinitializeFirebase
 } from '../../src/services/firebase';
 import { Button, Container } from '../../src/components/ui';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { PatientWithDevice } from '../../src/types';
 import PatientSelector from '../../src/components/caregiver/PatientSelector';
 import { DeviceConnectivityCard } from '../../src/components/caregiver/DeviceConnectivityCard';
 import { LastMedicationStatusCard } from '../../src/components/caregiver/LastMedicationStatusCard';
 import QuickActionsPanel from '../../src/components/caregiver/QuickActionsPanel';
+import { ScreenWrapper } from '../../src/components/caregiver';
 import {
   DeviceConnectivityCardSkeleton,
   LastMedicationStatusCardSkeleton,
@@ -43,6 +44,9 @@ const SELECTED_PATIENT_KEY = '@caregiver_selected_patient';
 function CaregiverDashboardContent() {
   const router = useRouter();
   const { user } = useSelector((state: RootState) => state.auth);
+  
+  // Layout dimensions for proper spacing
+  const { contentPaddingBottom } = useScrollViewPadding();
   
   // State management
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
@@ -229,17 +233,18 @@ function CaregiverDashboardContent() {
   }, [selectedPatientId, patientsWithDevices]);
 
   /**
-   * Fade in content when data is loaded
+   * Fade in content when data is initially loaded
+   * Only runs once when patients are first loaded, not on patient switches
    */
+  const hasAnimated = useRef(false);
   useEffect(() => {
-    if (!patientsLoading && patientsWithDevices.length > 0) {
+    if (!patientsLoading && patientsWithDevices.length > 0 && !hasAnimated.current) {
+      hasAnimated.current = true;
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 400,
         useNativeDriver: true,
       }).start();
-    } else {
-      fadeAnim.setValue(0);
     }
   }, [patientsLoading, patientsWithDevices.length, fadeAnim]);
 
@@ -253,7 +258,8 @@ function CaregiverDashboardContent() {
 
   /**
    * Handle patient selection
-   * Updates selected patient ID, persists to storage, and triggers data refresh
+   * Updates selected patient ID and persists to storage
+   * Does NOT trigger data refresh - components will update based on selectedPatientId
    */
   const handlePatientSelect = useCallback((patientId: string) => {
     // Only update if different patient
@@ -269,18 +275,11 @@ function CaregiverDashboardContent() {
     
     setSelectedPatientId(patientId);
     
-    // Persist selection to AsyncStorage
+    // Persist selection to AsyncStorage (non-blocking)
     AsyncStorage.setItem(SELECTED_PATIENT_KEY, patientId).catch(() => {
       // Silently fail - selection will persist in memory
     });
   }, [selectedPatientId, patientStateCache, patientsWithDevices]);
-
-  /**
-   * Handle data refresh when patient changes
-   */
-  const handleRefreshData = useCallback(() => {
-    refetchPatients();
-  }, [refetchPatients]);
 
   /**
    * Handle navigation to different screens
@@ -295,7 +294,7 @@ function CaregiverDashboardContent() {
   if (initializationError && !usingCachedData && cachedPatients.length === 0) {
     const categorized = categorizeError(initializationError);
     return (
-      <SafeAreaView edges={['bottom']} style={styles.container}>
+      <ScreenWrapper>
         <Container style={styles.container}>
           <ErrorState
             category={categorized.category}
@@ -303,7 +302,7 @@ function CaregiverDashboardContent() {
             onRetry={handleRetryInitialization}
           />
         </Container>
-      </SafeAreaView>
+      </ScreenWrapper>
     );
   }
 
@@ -313,7 +312,7 @@ function CaregiverDashboardContent() {
   if (patientsError && !usingCachedData && cachedPatients.length === 0) {
     const categorized = categorizeError(patientsError);
     return (
-      <SafeAreaView edges={['bottom']} style={styles.container}>
+      <ScreenWrapper>
         <Container style={styles.container}>
           <ErrorState
             category={categorized.category}
@@ -321,7 +320,7 @@ function CaregiverDashboardContent() {
             onRetry={handleRetryInitialization}
           />
         </Container>
-      </SafeAreaView>
+      </ScreenWrapper>
     );
   }
 
@@ -329,43 +328,43 @@ function CaregiverDashboardContent() {
    * Render main dashboard
    */
   return (
-    <SafeAreaView edges={['bottom']} style={styles.container}>
+    <ScreenWrapper>
+      {/* Offline Indicator */}
+      <OfflineIndicator />
+
+      {/* Cached Data Warning */}
+      {usingCachedData && (
+        <View 
+          style={styles.cachedDataBanner}
+          accessible={true}
+          accessibilityRole="alert"
+          accessibilityLabel="Mostrando datos guardados. Conéctate para actualizar."
+        >
+          <Ionicons name="information-circle" size={20} color={colors.warning[500]} />
+          <Text style={styles.cachedDataText}>
+            Mostrando datos guardados. Conéctate para actualizar.
+          </Text>
+        </View>
+      )}
+
+      {/* Patient Selector (only shown if multiple patients) - Outside Container for edge-to-edge */}
+      {patientsLoading ? (
+        <PatientSelectorSkeleton />
+      ) : patientsWithDevices.length > 0 ? (
+        <PatientSelector
+          patients={patientsWithDevices}
+          selectedPatientId={selectedPatientId || undefined}
+          onSelectPatient={handlePatientSelect}
+          loading={patientsLoading}
+        />
+      ) : null}
+
       <Container style={styles.container}>
-        {/* Offline Indicator */}
-        <OfflineIndicator />
-
-        {/* Cached Data Warning */}
-        {usingCachedData && (
-          <View 
-            style={styles.cachedDataBanner}
-            accessible={true}
-            accessibilityRole="alert"
-            accessibilityLabel="Mostrando datos guardados. Conéctate para actualizar."
-          >
-            <Ionicons name="information-circle" size={20} color={colors.warning[500]} />
-            <Text style={styles.cachedDataText}>
-              Mostrando datos guardados. Conéctate para actualizar.
-            </Text>
-          </View>
-        )}
-
-        {/* Patient Selector (only shown if multiple patients) */}
-        {patientsLoading ? (
-          <PatientSelectorSkeleton />
-        ) : patientsWithDevices.length > 0 ? (
-          <PatientSelector
-            patients={patientsWithDevices}
-            selectedPatientId={selectedPatientId || undefined}
-            onSelectPatient={handlePatientSelect}
-            loading={patientsLoading}
-            onRefresh={handleRefreshData}
-          />
-        ) : null}
 
         {/* Main Content */}
         <ScrollView 
           style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}
           showsVerticalScrollIndicator={false}
           accessible={true}
           accessibilityLabel="Dashboard content"
@@ -404,18 +403,16 @@ function CaregiverDashboardContent() {
             </View>
           ) : selectedPatient ? (
             // Dashboard content with selected patient
-            // Key prop ensures components re-mount when patient changes for clean state transitions
+            // Components update based on patientId prop changes without remounting
             // Wrapped with fade-in animation for smooth content appearance
             <Animated.View 
               style={[
                 styles.content, 
                 { opacity: fadeAnim }
-              ]} 
-              key={selectedPatient.id}
+              ]}
             >
               {/* Device Connectivity Card */}
               <DeviceConnectivityCard
-                key={`device-${selectedPatient.id}`}
                 deviceId={selectedPatient.deviceId}
                 patientId={selectedPatient.id}
                 onManageDevice={() => handleNavigate('add-device')}
@@ -429,7 +426,6 @@ function CaregiverDashboardContent() {
 
               {/* Last Medication Status Card */}
               <LastMedicationStatusCard
-                key={`medication-${selectedPatient.id}`}
                 patientId={selectedPatient.id}
                 caregiverId={caregiverUid || undefined}
                 onViewAll={() => handleNavigate('events')}
@@ -455,7 +451,7 @@ function CaregiverDashboardContent() {
           )}
         </ScrollView>
       </Container>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 }
 
@@ -479,11 +475,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: spacing['3xl'],
+    // paddingBottom is applied dynamically via useScrollViewPadding hook
   },
   content: {
-    padding: spacing.lg,
-    gap: spacing.lg,
+    padding: spacing.md,
+    gap: spacing.md,
   },
   card: {
     marginBottom: spacing.md,

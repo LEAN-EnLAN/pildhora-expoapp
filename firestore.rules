@@ -47,12 +47,18 @@ service cloud.firestore {
     // medications: documents contain patientId and caregiverId.
     // Allow read/write for the patient or caregiver associated with the medication.
     match /medications/{medicationId} {
-      allow read, write: if isSignedIn() &&
+      // Read: Patient can read their own medications, any authenticated caregiver can read
+      allow read: if isSignedIn() &&
         (
-          (request.auth.uid == resource.data.patientId) ||
-          (request.auth.uid == resource.data.caregiverId) ||
-          (request.auth.uid == request.resource.data.patientId) ||
-          (request.auth.uid == request.resource.data.caregiverId)
+          request.auth.uid == resource.data.patientId ||
+          isCaregiver()
+        );
+
+      // Write: Patient can write their own medications, any authenticated caregiver can write
+      allow write: if isSignedIn() &&
+        (
+          request.auth.uid == request.resource.data.patientId ||
+          isCaregiver()
         );
     }
 
@@ -157,13 +163,6 @@ service cloud.firestore {
     // Both patients and caregivers can read events they're associated with.
     // Both patients and caregivers can create events for medications they manage.
     match /medicationEvents/{eventId} {
-      // Helper function to check if caregiver is linked to patient
-      function isLinkedCaregiver(patientId) {
-        // Check if there's a deviceLink where the caregiver is linked to the patient's device
-        let patientDoc = get(/databases/$(database)/documents/users/$(patientId));
-        return patientDoc.data.keys().hasAny(['deviceId']) &&
-               exists(/databases/$(database)/documents/deviceLinks/$(patientDoc.data.deviceId + '_' + request.auth.uid));
-      }
 
       // Helper function to check if the request is within rate limit
       // Note: This is a simplified check. For production, consider using Cloud Functions
@@ -196,28 +195,25 @@ service cloud.firestore {
                (!data.keys().hasAny(['patientName']) || data.patientName is string);
       }
 
-      // Read access: patient can read their own events, caregivers can read events for linked patients
+      // Read access: patient can read their own events, any caregiver can read events
       allow read: if isSignedIn() && 
         (resource.data.patientId == request.auth.uid ||
-         (resource.data.keys().hasAny(['caregiverId']) && resource.data.caregiverId == request.auth.uid) ||
-         isLinkedCaregiver(resource.data.patientId));
+         isCaregiver());
 
       // Create access: authenticated users can create events for medications they're associated with
       allow create: if isSignedIn() && 
         isValidEventData() &&
         isWithinRateLimit();
 
-      // Update access: only the creator (patient or caregiver) can update events
+      // Update access: patient or any caregiver can update events
       allow update: if isSignedIn() && 
         (resource.data.patientId == request.auth.uid ||
-         (resource.data.keys().hasAny(['caregiverId']) && resource.data.caregiverId == request.auth.uid) ||
-         isLinkedCaregiver(resource.data.patientId));
+         isCaregiver());
 
-      // Delete access: only the creator can delete events
+      // Delete access: patient or any caregiver can delete events
       allow delete: if isSignedIn() && 
         (resource.data.patientId == request.auth.uid ||
-         (resource.data.keys().hasAny(['caregiverId']) && resource.data.caregiverId == request.auth.uid) ||
-         isLinkedCaregiver(resource.data.patientId));
+         isCaregiver());
     }
 
     // connectionCodes: time-limited codes for caregiver device linking.

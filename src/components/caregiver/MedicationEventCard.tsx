@@ -14,8 +14,8 @@ function getEventTypeIcon(eventType: MedicationEventType): { name: string; color
     case 'created':
       return {
         name: 'add-circle',
-        color: colors.success,
-        backgroundColor: '#E6F7ED',
+        color: colors.success[500],
+        backgroundColor: colors.success[50],
       };
     case 'updated':
       return {
@@ -32,8 +32,8 @@ function getEventTypeIcon(eventType: MedicationEventType): { name: string; color
     default:
       return {
         name: 'information-circle',
-        color: colors.info,
-        backgroundColor: '#F0EFFF',
+        color: colors.info[500],
+        backgroundColor: colors.info[50],
       };
   }
 }

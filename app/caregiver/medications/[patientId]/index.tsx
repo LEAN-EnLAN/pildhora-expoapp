@@ -5,25 +5,25 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { RootState, AppDispatch } from '../../../../src/store';
 import { fetchMedications } from '../../../../src/store/slices/medicationsSlice';
 import { Medication } from '../../../../src/types';
-import { Button, ErrorMessage, AnimatedListItem, ListSkeleton, MedicationCardSkeleton } from '../../../../src/components/ui';
+import { Button, AnimatedListItem, ListSkeleton, MedicationCardSkeleton } from '../../../../src/components/ui';
 import { MedicationCard } from '../../../../src/components/screens/patient';
 import { ErrorBoundary } from '../../../../src/components/shared/ErrorBoundary';
 import { ErrorState } from '../../../../src/components/caregiver/ErrorState';
 import { OfflineIndicator } from '../../../../src/components/caregiver/OfflineIndicator';
+import { ScreenWrapper } from '../../../../src/components/caregiver';
 import { patientDataCache } from '../../../../src/services/patientDataCache';
 import { useNetworkStatus } from '../../../../src/hooks/useNetworkStatus';
+import { useScrollViewPadding } from '../../../../src/hooks/useScrollViewPadding';
 import { categorizeError } from '../../../../src/utils/errorHandling';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../../../src/theme/tokens';
 import { inventoryService } from '../../../../src/services/inventoryService';
-import { getPatientById } from '../../../../src/services/firebase/user';
 
 function CaregiverMedicationsIndexContent() {
   const { patientId } = useLocalSearchParams();
   const pid = Array.isArray(patientId) ? patientId[0] : patientId;
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
-  const { user } = useSelector((state: RootState) => state.auth);
   const { medications, loading, error } = useSelector((state: RootState) => state.medications);
   const [lowInventoryMeds, setLowInventoryMeds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
@@ -33,6 +33,9 @@ function CaregiverMedicationsIndexContent() {
   // Network status
   const networkStatus = useNetworkStatus();
   const isOnline = networkStatus.isOnline;
+  
+  // Layout dimensions for proper spacing
+  const { contentPaddingBottom } = useScrollViewPadding();
 
   /**
    * Load cached medications on mount
@@ -257,10 +260,10 @@ function CaregiverMedicationsIndexContent() {
           variant="primary"
           size="lg"
           onPress={() => router.push(`/caregiver/medications/${pid}/add`)}
+          leftIcon={<Ionicons name="add" size={20} color="#FFFFFF" />}
           accessibilityLabel="Agregar medicamento"
           accessibilityHint="Navega a la pantalla para agregar un nuevo medicamento"
         >
-          <Ionicons name="add" size={20} color="#FFFFFF" style={styles.addIcon} />
           Agregar Medicamento
         </Button>
       </View>
@@ -270,9 +273,11 @@ function CaregiverMedicationsIndexContent() {
   // Loading state with skeleton loaders
   if (loading) {
     return (
-      <View style={styles.container}>
-        <ListSkeleton count={4} ItemSkeleton={MedicationCardSkeleton} />
-      </View>
+      <ScreenWrapper>
+        <View style={styles.container}>
+          <ListSkeleton count={4} ItemSkeleton={MedicationCardSkeleton} />
+        </View>
+      </ScreenWrapper>
     );
   }
 
@@ -280,47 +285,51 @@ function CaregiverMedicationsIndexContent() {
   if (error && !usingCachedData && cachedMedications.length === 0) {
     const categorized = categorizeError(error);
     return (
-      <View style={styles.container}>
-        <OfflineIndicator isOnline={isOnline} />
-        <ErrorState
-          category={categorized.category}
-          message={categorized.userMessage}
-          onRetry={handleRetry}
-        />
-      </View>
+      <ScreenWrapper>
+        <View style={styles.container}>
+          <OfflineIndicator isOnline={isOnline} />
+          <ErrorState
+            category={categorized.category}
+            message={categorized.userMessage}
+            onRetry={handleRetry}
+          />
+        </View>
+      </ScreenWrapper>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <OfflineIndicator />
-      
-      {/* Cached Data Warning */}
-      {usingCachedData && (
-        <View style={styles.cachedDataBanner}>
-          <Ionicons name="information-circle" size={20} color={colors.warning[500]} />
-          <Text style={styles.cachedDataText}>
-            Mostrando datos guardados. Conéctate para actualizar.
-          </Text>
-        </View>
-      )}
+    <ScreenWrapper>
+      <View style={styles.container}>
+        <OfflineIndicator />
+        
+        {/* Cached Data Warning */}
+        {usingCachedData && (
+          <View style={styles.cachedDataBanner}>
+            <Ionicons name="information-circle" size={20} color={colors.warning[500]} />
+            <Text style={styles.cachedDataText}>
+              Mostrando datos guardados. Conéctate para actualizar.
+            </Text>
+          </View>
+        )}
 
-      <FlatList
-        data={filteredMedications}
-        keyExtractor={keyExtractor}
-        renderItem={renderMedicationItem}
-        contentContainerStyle={styles.listContent}
-        ListHeaderComponent={renderSearchBar}
-        ListEmptyComponent={renderEmptyState}
-        ListFooterComponent={renderAddButton}
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={10}
-        updateCellsBatchingPeriod={50}
-        initialNumToRender={10}
-        windowSize={10}
-        getItemLayout={getItemLayout}
-      />
-    </View>
+        <FlatList
+          data={filteredMedications}
+          keyExtractor={keyExtractor}
+          renderItem={renderMedicationItem}
+          contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
+          ListHeaderComponent={renderSearchBar}
+          ListEmptyComponent={renderEmptyState}
+          ListFooterComponent={renderAddButton}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          updateCellsBatchingPeriod={50}
+          initialNumToRender={10}
+          windowSize={10}
+          getItemLayout={getItemLayout}
+        />
+      </View>
+    </ScreenWrapper>
   );
 }
 
@@ -358,7 +367,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: spacing.lg,
-    paddingBottom: spacing['3xl'],
+    // paddingBottom is applied dynamically via useScrollViewPadding hook
   },
   medicationItem: {
     marginBottom: spacing.md,
@@ -417,8 +426,5 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     borderTopWidth: 1,
     borderTopColor: colors.gray[200],
-  },
-  addIcon: {
-    marginRight: spacing.xs,
   },
 });

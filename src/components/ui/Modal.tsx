@@ -11,6 +11,7 @@ import {
   ViewStyle,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme/tokens';
@@ -25,6 +26,7 @@ interface ModalProps {
   showCloseButton?: boolean;
   closeOnOverlayPress?: boolean;
   contentStyle?: ViewStyle;
+  fitContent?: boolean;
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -39,6 +41,7 @@ export const Modal: React.FC<ModalProps> = ({
   showCloseButton = true,
   closeOnOverlayPress = true,
   contentStyle,
+  fitContent = false,
 }) => {
   const insets = useSafeAreaInsets();
   const overlayOpacity = useRef(new Animated.Value(0)).current;
@@ -97,8 +100,13 @@ export const Modal: React.FC<ModalProps> = ({
 
   const modalContentStyle = [
     styles.modalContent,
-    styles[`size_${size}`],
+    fitContent ? styles.fitContent : styles[`size_${size}`],
     contentStyle,
+  ];
+
+  const containerStyle = [
+    styles.container,
+    fitContent && styles.containerCenter,
   ];
 
   return (
@@ -112,7 +120,7 @@ export const Modal: React.FC<ModalProps> = ({
       accessibilityViewIsModal={true}
     >
       <KeyboardAvoidingView
-        style={styles.container}
+        style={containerStyle}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}
       >
@@ -166,9 +174,14 @@ export const Modal: React.FC<ModalProps> = ({
             </View>
           )}
 
-          <View style={[styles.body, { paddingBottom: spacing.lg + insets.bottom }]}>
+          <ScrollView 
+            style={styles.scrollView}
+            contentContainerStyle={[styles.body, { paddingBottom: spacing.lg + insets.bottom }]}
+            showsVerticalScrollIndicator={true}
+            bounces={true}
+          >
             {children}
-          </View>
+          </ScrollView>
         </Animated.View>
       </KeyboardAvoidingView>
     </RNModal>
@@ -181,6 +194,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'center',
   },
+  containerCenter: {
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -192,6 +209,11 @@ const styles = StyleSheet.create({
     width: '100%',
     maxHeight: '90%',
     ...shadows.lg,
+  },
+  fitContent: {
+    borderRadius: borderRadius.xl,
+    maxHeight: '90%',
+    width: '100%',
   },
   size_sm: {
     maxHeight: '40%',
@@ -237,7 +259,11 @@ const styles = StyleSheet.create({
     color: colors.gray[600],
     fontWeight: typography.fontWeight.bold,
   },
+  scrollView: {
+    flex: 1,
+  },
   body: {
     padding: spacing.lg,
+    flexGrow: 1,
   },
 });

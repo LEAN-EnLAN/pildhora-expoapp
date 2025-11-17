@@ -515,17 +515,19 @@ export const MedicationScheduleStep = React.memo(function MedicationScheduleStep
                     </Text>
                   </TouchableOpacity>
                 </View>
-                <DateTimePicker
-                  value={tempTime}
-                  mode="time"
-                  is24Hour={use24Hour}
-                  display="spinner"
-                  onChange={(_event, date) => {
-                    if (date) setTempTime(date);
-                  }}
-                  style={styles.timePicker}
-                  textColor={colors.gray[900]}
-                />
+                <View style={styles.timePickerWrapper}>
+                  <DateTimePicker
+                    value={tempTime}
+                    mode="time"
+                    is24Hour={use24Hour}
+                    display="spinner"
+                    onChange={(_event, date) => {
+                      if (date) setTempTime(date);
+                    }}
+                    style={styles.timePicker}
+                    textColor={colors.gray[900]}
+                  />
+                </View>
               </View>
             </TouchableOpacity>
           </TouchableOpacity>
@@ -813,6 +815,12 @@ const styles = StyleSheet.create({
   pickerButtonPrimary: {
     color: colors.primary[500],
     fontWeight: typography.fontWeight.semibold,
+  },
+  timePickerWrapper: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
   },
   timePicker: {
     width: '100%',
