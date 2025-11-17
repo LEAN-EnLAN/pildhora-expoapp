@@ -128,35 +128,19 @@ export default function CaregiverLayout() {
             tabBarAccessibilityLabel: 'Tareas - Gestionar tareas del cuidador',
           }}
         />
-        <Tabs.Screen
-          name="device-connection"
-          options={{
-            tabBarLabel: 'Pacientes',
-            tabBarIcon: ({ color, size, focused }) => (
-              <Ionicons 
-                name={focused ? 'people' : 'people-outline'} 
-                size={size} 
-                color={color} 
-              />
-            ),
-            tabBarAccessibilityLabel: 'Pacientes - Gestionar pacientes y dispositivos vinculados',
-          }}
-        />
-        <Tabs.Screen
-          name="events"
-          options={{
-            tabBarLabel: 'Eventos',
-            tabBarIcon: ({ color, size, focused }) => (
-              <Ionicons 
-                name={focused ? 'notifications' : 'notifications-outline'} 
-                size={size} 
-                color={color} 
-              />
-            ),
-            tabBarAccessibilityLabel: 'Eventos - Ver registro de eventos de medicamentos',
-          }}
-        />
         {/* Modal screens and nested routes - hidden from tab bar */}
+        <Tabs.Screen 
+          name="device-connection" 
+          options={{ 
+            href: null,
+          }} 
+        />
+        <Tabs.Screen 
+          name="events" 
+          options={{ 
+            href: null,
+          }} 
+        />
         <Tabs.Screen 
           name="add-device" 
           options={{ 

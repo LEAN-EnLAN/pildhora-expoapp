@@ -57,18 +57,32 @@ function MedicationEventRegistryContent() {
   /**
    * Cache key for SWR pattern
    * Includes filters to ensure proper cache invalidation
+   * Uses stable date timestamps to prevent infinite refresh loops
    */
   const cacheKey = useMemo(() => {
     if (!user?.id) return null;
 
+    // Create stable date range key by using timestamps
+    // This prevents Date object reference changes from invalidating the cache
+    const dateRangeKey = filters.dateRange 
+      ? `${filters.dateRange.start.getTime()}-${filters.dateRange.end.getTime()}`
+      : 'all';
+
     const filterKey = [
       filters.patientId || 'all',
       filters.eventType || 'all',
-      filters.dateRange ? `${filters.dateRange.start.getTime()}-${filters.dateRange.end.getTime()}` : 'all',
+      dateRangeKey,
     ].join(':');
 
     return `events:${user.id}:${filterKey}`;
-  }, [user?.id, filters.patientId, filters.eventType, filters.dateRange]);
+  }, [
+    user?.id, 
+    filters.patientId, 
+    filters.eventType, 
+    // Use stable timestamp values instead of Date object references
+    filters.dateRange?.start.getTime(),
+    filters.dateRange?.end.getTime(),
+  ]);
 
   /**
    * Build Firestore query based on filters
@@ -112,7 +126,29 @@ function MedicationEventRegistryContent() {
     };
 
     fetchQuery();
-  }, [user?.id, patients.length, filters.patientId, filters.eventType, filters.dateRange]);
+  }, [
+    user?.id, 
+    patients.length, 
+    filters.patientId, 
+    filters.eventType,
+    // Use stable timestamp values instead of Date object references
+    filters.dateRange?.start.getTime(),
+    filters.dateRange?.end.getTime(),
+  ]);
+
+  // Memoize callbacks to prevent infinite loops in useCollectionSWR
+  const handleSuccess = useCallback((data: MedicationEvent[]) => {
+    // Cache events for offline use
+    if (user?.id && data.length > 0) {
+      patientDataCache.cacheEvents(user.id, data).catch(err => {
+        console.error('[MedicationEventRegistry] Error caching events:', err);
+      });
+    }
+  }, [user?.id]);
+
+  const handleError = useCallback((err: Error) => {
+    console.error('[MedicationEventRegistry] Error fetching events:', err);
+  }, []);
 
   // Always call useCollectionSWR to maintain hook order
   // Pass null query when not ready - the hook will handle this gracefully
@@ -126,19 +162,10 @@ function MedicationEventRegistryContent() {
     cacheKey: cacheKey || 'events:loading',
     query: resolvedQuery,
     initialData: STATIC_INITIAL_EVENTS,
-    realtime: true,
+    realtime: false, // Disabled to prevent infinite refresh loops - use pull-to-refresh instead
     cacheTTL: 5 * 60 * 1000, // 5 minutes cache TTL
-    onSuccess: (data) => {
-      // Cache events for offline use
-      if (user?.id && data.length > 0) {
-        patientDataCache.cacheEvents(user.id, data).catch(err => {
-          console.error('[MedicationEventRegistry] Error caching events:', err);
-        });
-      }
-    },
-    onError: (err) => {
-      console.error('[MedicationEventRegistry] Error fetching events:', err);
-    },
+    onSuccess: handleSuccess,
+    onError: handleError,
   });
 
   /**

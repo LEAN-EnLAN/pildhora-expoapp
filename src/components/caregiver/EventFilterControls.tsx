@@ -74,21 +74,23 @@ export const EventFilterControls: React.FC<EventFilterControlsProps> = ({
 
   /**
    * Save filters to AsyncStorage whenever they change
+   * DISABLED: Auto-save removed since auto-load was causing infinite refresh loops.
+   * Filters are now session-only, which is acceptable UX.
    */
-  useEffect(() => {
-    const saveFilters = async () => {
-      try {
-        await AsyncStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filters));
-      } catch (error) {
-        console.error('[EventFilterControls] Error saving filters:', error);
-      }
-    };
+  // useEffect(() => {
+  //   const saveFilters = async () => {
+  //     try {
+  //       await AsyncStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filters));
+  //     } catch (error) {
+  //       console.error('[EventFilterControls] Error saving filters:', error);
+  //     }
+  //   };
 
-    // Only save if filters object is not empty (to avoid saving initial empty state)
-    if (Object.keys(filters).length > 0 || filters.searchQuery !== undefined) {
-      saveFilters();
-    }
-  }, [filters]);
+  //   // Only save if filters object is not empty (to avoid saving initial empty state)
+  //   if (Object.keys(filters).length > 0 || filters.searchQuery !== undefined) {
+  //     saveFilters();
+  //   }
+  // }, [filters]);
 
   const hasActiveFilters = !!(
     filters.patientId ||
@@ -405,7 +407,7 @@ export const EventFilterControls: React.FC<EventFilterControlsProps> = ({
                 ]}
                 onPress={() => handleEventTypeSelect('created')}
               >
-                <Ionicons name="add-circle" size={20} color={colors.success} />
+                <Ionicons name="add-circle" size={20} color={colors.success[500]} />
                 <Text
                   style={[
                     styles.modalOptionText,
