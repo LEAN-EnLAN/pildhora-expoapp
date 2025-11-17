@@ -32,12 +32,14 @@ yarn-error.*
 
 # local env files
 .env
-<<<<<<< HEAD
-=======
 .env.*
 !.env.example
->>>>>>> ef8fc0a98d49f3ca238dc513c889b943f62dc482
 .env*.local
+
+# Firebase service account credentials
+*serviceAccount*.json
+*service-account*.json
+firebase-adminsdk-*.json
 
 # typescript
 *.tsbuildinfo

@@ -51,13 +51,13 @@ export const DeviceStatusCard: React.FC<DeviceStatusCardProps> = React.memo(({
     if (hasCaregivers) {
       return {
         text: caregiverCount === 1 ? 'Modo Cuidador (1)' : `Modo Cuidador (${caregiverCount})`,
-        color: colors.primary[500],
+        color: typeof colors.primary === 'string' ? colors.primary : colors.primary[500],
         icon: 'people' as const,
       };
     }
     return {
       text: 'Modo Autónomo',
-      color: colors.success,
+      color: typeof colors.success === 'string' ? colors.success : colors.success[500],
       icon: 'person' as const,
     };
   }, [deviceId, linksLoading, hasCaregivers, caregiverCount]);
@@ -68,9 +68,9 @@ export const DeviceStatusCard: React.FC<DeviceStatusCardProps> = React.memo(({
       case 'pending':
         return typeof colors.warning === 'string' ? colors.warning : colors.warning[500];
       case 'idle':
-        return colors.success;
+        return typeof colors.success === 'string' ? colors.success : colors.success[500];
       case 'dispensing':
-        return colors.info;
+        return typeof colors.info === 'string' ? colors.info : colors.info[500];
       case 'error':
         return typeof colors.error === 'string' ? colors.error : colors.error[500];
       default:

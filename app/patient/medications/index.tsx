@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { RootState, AppDispatch } from '../../../src/store';
 import { fetchMedications } from '../../../src/store/slices/medicationsSlice';
 import { Medication } from '../../../src/types';
-import { Button, LoadingSpinner, ErrorMessage, AnimatedListItem, ListSkeleton, MedicationCardSkeleton } from '../../../src/components/ui';
+import { Button, ErrorMessage, AnimatedListItem, ListSkeleton, MedicationCardSkeleton } from '../../../src/components/ui';
 import { MedicationCard } from '../../../src/components/screens/patient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../../src/theme/tokens';
@@ -107,7 +107,7 @@ export default function MedicationsIndex() {
     return (
       <View style={styles.modeIndicator}>
         <View style={styles.modeIndicatorContent}>
-          <Ionicons name="link" size={20} color={colors.info} />
+          <Ionicons name="link" size={20} color={typeof colors.info === 'string' ? colors.info : colors.info[500]} />
           <Text style={styles.modeIndicatorText}>
             Modo cuidador activo - Los medicamentos son gestionados por tu cuidador
           </Text>
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   modeIndicator: {
     backgroundColor: colors.info + '15',
     borderLeftWidth: 4,
-    borderLeftColor: colors.info,
+    borderLeftColor: typeof colors.info === 'string' ? colors.info : colors.info[500],
     borderRadius: borderRadius.md,
     padding: spacing.md,
     marginBottom: spacing.lg,
