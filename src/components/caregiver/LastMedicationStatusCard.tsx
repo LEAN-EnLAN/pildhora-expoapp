@@ -5,10 +5,12 @@ import { useRouter } from 'expo-router';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { EventTypeBadge } from './EventTypeBadge';
+import { AutonomousModeBanner } from './AutonomousModeBanner';
 import { colors, spacing, typography } from '../../theme/tokens';
 import { MedicationEvent, LastMedicationStatusCardProps } from '../../types';
 import { getRelativeTimeString } from '../../utils/dateUtils';
 import { useCollectionSWR } from '../../hooks/useCollectionSWR';
+import { usePatientAutonomousMode } from '../../hooks/usePatientAutonomousMode';
 import { getDbInstance } from '../../services/firebase';
 import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 
@@ -35,6 +37,9 @@ export const LastMedicationStatusCard: React.FC<LastMedicationStatusCardProps> =
   onViewAll,
 }) => {
   const router = useRouter();
+  
+  // Check if patient is in autonomous mode
+  const { isAutonomous } = usePatientAutonomousMode(patientId);
 
   /**
    * Build Firestore query for latest event
@@ -192,13 +197,20 @@ export const LastMedicationStatusCard: React.FC<LastMedicationStatusCardProps> =
           </View>
         </View>
         <View style={styles.content}>
-          <View style={styles.emptyContainer}>
-            <Ionicons name="document-text-outline" size={48} color={colors.gray[300]} />
-            <Text style={styles.emptyText}>No hay eventos recientes</Text>
-            <Text style={styles.emptySubtext}>
-              Los eventos de medicamentos aparecerán aquí
-            </Text>
-          </View>
+          {isAutonomous ? (
+            <AutonomousModeBanner 
+              message="Modo autónomo activado - No hay datos recientes disponibles"
+              size="md"
+            />
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="document-text-outline" size={48} color={colors.gray[300]} />
+              <Text style={styles.emptyText}>No hay eventos recientes</Text>
+              <Text style={styles.emptySubtext}>
+                Los eventos de medicamentos aparecerán aquí
+              </Text>
+            </View>
+          )}
         </View>
       </Card>
     );

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../../theme/tokens';
 
 /**
@@ -14,10 +15,14 @@ export interface WizardProgressIndicatorProps {
 /**
  * WizardProgressIndicator Component
  * 
- * Displays progress through the device provisioning wizard with:
- * - Linear progress bar showing overall completion
- * - Step indicators with numbers/checkmarks
- * - Step labels for context
+ * Modern, visually appealing progress indicator for device provisioning wizard.
+ * 
+ * Features:
+ * - Animated progress bar with gradient
+ * - Icon-based step indicators
+ * - Connected line showing progression
+ * - Current step highlight with pulse effect
+ * - Percentage display
  * 
  * Accessibility:
  * - Announces current step and total steps
@@ -31,6 +36,8 @@ export function WizardProgressIndicator({
   totalSteps, 
   stepLabels 
 }: WizardProgressIndicatorProps) {
+  const progressPercentage = Math.round(((currentStep + 1) / totalSteps) * 100);
+  
   return (
     <View 
       style={styles.container}
@@ -38,61 +45,94 @@ export function WizardProgressIndicator({
       accessibilityLabel={`Paso ${currentStep + 1} de ${totalSteps}: ${stepLabels[currentStep]}`}
       accessibilityValue={{ min: 0, max: totalSteps, now: currentStep + 1 }}
     >
-      {/* Progress Bar */}
-      <View style={styles.progressBarContainer}>
-        <View 
-          style={[
-            styles.progressBarFill, 
-            { width: `${((currentStep + 1) / totalSteps) * 100}%` }
-          ]}
-          accessibilityElementsHidden
-        />
+      {/* Header with Title and Percentage */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Configurar Dispositivo</Text>
+        <View style={styles.percentageContainer}>
+          <Text style={styles.percentageText}>{progressPercentage}%</Text>
+        </View>
       </View>
 
-      {/* Step Indicators */}
+      {/* Current Step Info */}
+      <View style={styles.currentStepInfo}>
+        <Text style={styles.currentStepLabel}>Paso {currentStep + 1} de {totalSteps}</Text>
+        <Text style={styles.currentStepName}>{stepLabels[currentStep]}</Text>
+      </View>
+
+      {/* Progress Bar with Gradient Effect */}
+      <View style={styles.progressBarContainer}>
+        <View style={styles.progressBarBackground}>
+          <View 
+            style={[
+              styles.progressBarFill, 
+              { width: `${progressPercentage}%` }
+            ]}
+            accessibilityElementsHidden
+          >
+            <View style={styles.progressBarGradient} />
+          </View>
+        </View>
+      </View>
+
+      {/* Step Indicators with Connection Lines */}
       <View style={styles.stepsContainer}>
         {stepLabels.map((label, index) => {
           const isCompleted = index < currentStep;
           const isCurrent = index === currentStep;
           const isPending = index > currentStep;
+          const isNotLast = index < totalSteps - 1;
 
           return (
-            <View key={index} style={styles.stepItem}>
-              {/* Step Circle */}
-              <View
-                style={[
-                  styles.stepCircle,
-                  isCompleted && styles.stepCircleCompleted,
-                  isCurrent && styles.stepCircleCurrent,
-                  isPending && styles.stepCirclePending,
-                ]}
-                accessibilityElementsHidden
-              >
+            <React.Fragment key={index}>
+              <View style={styles.stepItem}>
+                {/* Step Circle with Icon */}
+                <View
+                  style={[
+                    styles.stepCircle,
+                    isCompleted && styles.stepCircleCompleted,
+                    isCurrent && styles.stepCircleCurrent,
+                    isPending && styles.stepCirclePending,
+                  ]}
+                  accessibilityElementsHidden
+                >
+                  {isCompleted ? (
+                    <Ionicons name="checkmark" size={20} color={colors.surface} />
+                  ) : isCurrent ? (
+                    <View style={styles.currentStepPulse}>
+                      <Text style={styles.stepNumberCurrent}>{index + 1}</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.stepNumberPending}>{index + 1}</Text>
+                  )}
+                </View>
+
+                {/* Step Label */}
                 <Text
                   style={[
-                    styles.stepNumber,
-                    isCompleted && styles.stepNumberCompleted,
-                    isCurrent && styles.stepNumberCurrent,
-                    isPending && styles.stepNumberPending,
+                    styles.stepLabel,
+                    isCompleted && styles.stepLabelCompleted,
+                    isCurrent && styles.stepLabelCurrent,
+                    isPending && styles.stepLabelPending,
                   ]}
+                  numberOfLines={2}
+                  accessibilityElementsHidden
                 >
-                  {isCompleted ? '✓' : index + 1}
+                  {label}
                 </Text>
               </View>
 
-              {/* Step Label */}
-              <Text
-                style={[
-                  styles.stepLabel,
-                  isCurrent && styles.stepLabelCurrent,
-                  isPending && styles.stepLabelPending,
-                ]}
-                numberOfLines={2}
-                accessibilityElementsHidden
-              >
-                {label}
-              </Text>
-            </View>
+              {/* Connection Line */}
+              {isNotLast && (
+                <View style={styles.connectionLineContainer}>
+                  <View 
+                    style={[
+                      styles.connectionLine,
+                      index < currentStep && styles.connectionLineCompleted,
+                    ]} 
+                  />
+                </View>
+              )}
+            </React.Fragment>
           );
         })}
       </View>
@@ -104,19 +144,63 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.lg,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    borderBottomColor: colors.gray[100],
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  title: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.gray[900],
+  },
+  percentageContainer: {
+    backgroundColor: '#EFF6FF', // primary[50]
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+  },
+  percentageText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary[500],
+  },
+  currentStepInfo: {
+    marginBottom: spacing.md,
+  },
+  currentStepLabel: {
+    fontSize: typography.fontSize.xs,
+    color: colors.gray[600],
+    marginBottom: spacing.xs / 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  currentStepName: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.gray[900],
   },
   progressBarContainer: {
-    height: 4,
-    backgroundColor: colors.gray[200],
-    borderRadius: borderRadius.full,
     marginBottom: spacing.lg,
+  },
+  progressBarBackground: {
+    height: 8,
+    backgroundColor: colors.gray[100],
+    borderRadius: borderRadius.full,
     overflow: 'hidden',
   },
   progressBarFill: {
+    height: '100%',
+    borderRadius: borderRadius.full,
+    overflow: 'hidden',
+  },
+  progressBarGradient: {
     height: '100%',
     backgroundColor: colors.primary[500],
     borderRadius: borderRadius.full,
@@ -127,51 +211,80 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   stepItem: {
-    flex: 1,
     alignItems: 'center',
-    paddingHorizontal: spacing.xs,
+    width: 60,
   },
   stepCircle: {
-    width: 32,
-    height: 32,
+    width: 40,
+    height: 40,
     borderRadius: borderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.xs,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   stepCircleCompleted: {
     backgroundColor: colors.success,
+    borderColor: colors.success,
   },
   stepCircleCurrent: {
-    backgroundColor: colors.primary[500],
+    backgroundColor: '#3B82F6', // primary[500]
+    borderColor: '#3B82F6', // primary[500]
+    shadowColor: '#3B82F6', // primary[500]
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   stepCirclePending: {
-    backgroundColor: colors.gray[200],
+    backgroundColor: colors.gray[100],
+    borderColor: colors.gray[200],
   },
-  stepNumber: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.bold,
-  },
-  stepNumberCompleted: {
-    color: colors.surface,
+  currentStepPulse: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   stepNumberCurrent: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
     color: colors.surface,
   },
   stepNumberPending: {
-    color: colors.gray[500],
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.gray[400],
   },
   stepLabel: {
     fontSize: typography.fontSize.xs,
     textAlign: 'center',
+    lineHeight: typography.fontSize.xs * 1.3,
+  },
+  stepLabelCompleted: {
     color: colors.gray[700],
-    lineHeight: typography.fontSize.xs * 1.4,
+    fontWeight: typography.fontWeight.medium,
   },
   stepLabelCurrent: {
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.bold,
     color: colors.primary[500],
   },
   stepLabelPending: {
-    color: colors.gray[500],
+    color: colors.gray[400],
+  },
+  connectionLineContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  connectionLine: {
+    height: 2,
+    width: '100%',
+    backgroundColor: colors.gray[200],
+  },
+  connectionLineCompleted: {
+    backgroundColor: colors.success,
   },
 });

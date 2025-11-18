@@ -42,6 +42,8 @@ export interface User {
   onboardingStep?: 'device_provisioning' | 'device_connection' | 'complete';
   /** Device ID linked to this user (only for patients who have provisioned a device) */
   deviceId?: string;
+  /** Whether the patient is in autonomous mode (data not shared with caregivers) */
+  autonomousMode?: boolean;
 }
 
 // ============================================================================

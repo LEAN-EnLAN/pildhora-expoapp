@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, RefreshControl, TouchableOpacity, Share } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, RefreshControl, TouchableOpacity, Share, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useSelector } from 'react-redux';
@@ -13,6 +13,7 @@ import { collection, query, where, getDocs, doc, getDoc, setDoc, serverTimestamp
 import { DeviceLink, ConnectionCodeData } from '../../src/types';
 import { generateCode, getActiveCodes, revokeCode } from '../../src/services/connectionCode';
 import { linkDeviceToUser, unlinkDeviceFromUser } from '../../src/services/deviceLinking';
+import { setAutonomousMode, isAutonomousModeEnabled } from '../../src/services/autonomousMode';
 import { Ionicons } from '@expo/vector-icons';
 
 interface LinkedCaregiver {
@@ -57,7 +58,8 @@ export default function DeviceSettings() {
   const [unlinkingDevice, setUnlinkingDevice] = useState<string | null>(null);
   const [dispensingDevice, setDispensingDevice] = useState<string | null>(null);
   const [dispenseFeedback, setDispenseFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [showUnlinkWarning, setShowUnlinkWarning] = useState(false);
+  const [autonomousMode, setAutonomousModeState] = useState(false);
+  const [togglingAutonomousMode, setTogglingAutonomousMode] = useState(false);
 
   // Load caregivers, connection codes, and device stats
   const loadData = useCallback(async () => {
@@ -119,6 +121,10 @@ export default function DeviceSettings() {
       // Load active connection codes
       const codes = await getActiveCodes(patientId);
       setConnectionCodes(codes);
+
+      // Load autonomous mode status
+      const isAutonomous = await isAutonomousModeEnabled(patientId);
+      setAutonomousModeState(isAutonomous);
 
       // Load device stats and configuration
       const devDoc = await getDoc(doc(db, 'devices', deviceId));
@@ -212,36 +218,39 @@ export default function DeviceSettings() {
     }
   };
 
-  const handleUnlinkDevice = async () => {
-    if (!patientId || !deviceId) return;
+  const handleToggleAutonomousMode = async (newValue: boolean) => {
+    if (!patientId) return;
 
-    // Show warning about caregivers being disconnected
+    const modeLabel = newValue ? 'Modo Autónomo' : 'Modo Supervisado';
+    const warningMessage = newValue
+      ? `Al activar el Modo Autónomo:\n\n• Tus cuidadores NO verán nuevos eventos de medicamentos\n• Podrán ver el historial anterior\n• Verán "Modo autónomo activado" en tu información actual\n\n¿Deseas continuar?`
+      : `Al desactivar el Modo Autónomo:\n\n• Tus cuidadores volverán a ver tus eventos de medicamentos en tiempo real\n• Tendrán acceso completo a tu información\n\n¿Deseas continuar?`;
+
     Alert.alert(
-      'Desvincular Dispositivo',
-      `¿Estás seguro de que deseas desvincular este dispositivo?\n\n⚠️ ADVERTENCIA: Todos los cuidadores conectados (${caregivers.length}) perderán acceso a tu información de medicamentos.`,
+      `Cambiar a ${modeLabel}`,
+      warningMessage,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Desvincular',
-          style: 'destructive',
+          text: 'Confirmar',
           onPress: async () => {
-            setUnlinkingDevice(deviceId);
+            setTogglingAutonomousMode(true);
             setError(null);
             setSuccess(null);
 
             try {
-              await unlinkDeviceFromUser(patientId, deviceId);
-              setSuccess('Dispositivo desvinculado exitosamente');
-              
-              // Reload data
-              setTimeout(() => {
-                loadData();
-              }, 1000);
+              await setAutonomousMode(patientId, newValue);
+              setAutonomousModeState(newValue);
+              setSuccess(
+                newValue
+                  ? 'Modo Autónomo activado. Tus datos ya no se comparten con cuidadores.'
+                  : 'Modo Supervisado activado. Tus cuidadores pueden ver tu información nuevamente.'
+              );
             } catch (err: any) {
-              console.error('[DeviceSettings] Error unlinking device:', err);
-              setError(err.userMessage || 'Error al desvincular dispositivo');
+              console.error('[DeviceSettings] Error toggling autonomous mode:', err);
+              setError(err.userMessage || 'Error al cambiar el modo');
             } finally {
-              setUnlinkingDevice(null);
+              setTogglingAutonomousMode(false);
             }
           }
         }
@@ -666,16 +675,49 @@ export default function DeviceSettings() {
                   <Text style={styles.deviceIdText}>{deviceId}</Text>
                 </View>
               </View>
-              <Button
-                onPress={handleUnlinkDevice}
-                variant="danger"
-                size="sm"
-                loading={unlinkingDevice === deviceId}
-                disabled={unlinkingDevice === deviceId}
-                accessibilityLabel="Desvincular dispositivo"
-              >
-                Desvincular
-              </Button>
+            </View>
+
+            {/* Autonomous Mode Toggle */}
+            <View style={styles.autonomousModeSection}>
+              <View style={styles.autonomousModeHeader}>
+                <Ionicons 
+                  name={autonomousMode ? "eye-off" : "eye"} 
+                  size={24} 
+                  color={autonomousMode ? colors.warning[600] : colors.primary[600]} 
+                />
+                <View style={styles.autonomousModeInfo}>
+                  <Text style={styles.autonomousModeTitle}>
+                    {autonomousMode ? 'Modo Autónomo' : 'Modo Supervisado'}
+                  </Text>
+                  <Text style={styles.autonomousModeDescription}>
+                    {autonomousMode 
+                      ? 'Tus datos no se comparten con cuidadores'
+                      : 'Tus cuidadores pueden ver tu información'
+                    }
+                  </Text>
+                </View>
+                <Switch
+                  value={autonomousMode}
+                  onValueChange={handleToggleAutonomousMode}
+                  disabled={togglingAutonomousMode}
+                  trackColor={{ false: colors.gray[300], true: colors.warning[200] }}
+                  thumbColor={autonomousMode ? colors.warning[600] : colors.gray[50]}
+                  ios_backgroundColor={colors.gray[300]}
+                  accessibilityLabel={autonomousMode ? 'Desactivar modo autónomo' : 'Activar modo autónomo'}
+                />
+              </View>
+              
+              {caregivers.length > 0 && (
+                <View style={styles.autonomousModeWarning}>
+                  <Ionicons name="information-circle" size={16} color={colors.gray[600]} />
+                  <Text style={styles.autonomousModeWarningText}>
+                    {autonomousMode 
+                      ? `${caregivers.length} cuidador${caregivers.length > 1 ? 'es' : ''} conectado${caregivers.length > 1 ? 's' : ''} (sin acceso a datos nuevos)`
+                      : `${caregivers.length} cuidador${caregivers.length > 1 ? 'es' : ''} con acceso completo`
+                    }
+                  </Text>
+                </View>
+              )}
             </View>
 
             {/* Device Stats */}
@@ -999,7 +1041,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
   },
   deviceInfo: {
     flexDirection: 'row',
@@ -1020,6 +1062,45 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
     color: colors.gray[900],
     fontFamily: 'monospace',
+  },
+  autonomousModeSection: {
+    backgroundColor: colors.gray[50],
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  autonomousModeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  autonomousModeInfo: {
+    flex: 1,
+  },
+  autonomousModeTitle: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.gray[900],
+    marginBottom: spacing.xs,
+  },
+  autonomousModeDescription: {
+    fontSize: typography.fontSize.sm,
+    color: colors.gray[600],
+    lineHeight: 18,
+  },
+  autonomousModeWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray[200],
+  },
+  autonomousModeWarningText: {
+    fontSize: typography.fontSize.xs,
+    color: colors.gray[600],
+    flex: 1,
   },
   statsRow: {
     flexDirection: 'row',

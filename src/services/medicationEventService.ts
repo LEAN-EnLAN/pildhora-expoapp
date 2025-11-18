@@ -16,6 +16,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
 } from '../utils/errorHandling';
+import { isAutonomousModeEnabled } from './autonomousMode';
 
 const EVENT_QUEUE_KEY = '@medication_event_queue';
 const LAST_SYNC_KEY = '@medication_event_last_sync';
@@ -179,6 +180,17 @@ export class MedicationEventService {
 
       for (const event of pendingEvents) {
         try {
+          // Check if patient is in autonomous mode
+          const isAutonomous = await isAutonomousModeEnabled(event.patientId);
+          
+          if (isAutonomous) {
+            console.log('[MedicationEventService] Patient in autonomous mode, skipping event sync:', event.id);
+            // Mark as delivered but don't sync to Firestore
+            // This prevents the event from being visible to caregivers
+            event.syncStatus = 'delivered';
+            continue;
+          }
+
           // Convert timestamp to Firestore Timestamp
           const eventData = {
             ...event,

@@ -25,6 +25,8 @@ import { DeviceConnectivityCard } from '../../src/components/caregiver/DeviceCon
 import { LastMedicationStatusCard } from '../../src/components/caregiver/LastMedicationStatusCard';
 import QuickActionsPanel from '../../src/components/caregiver/QuickActionsPanel';
 import { ScreenWrapper } from '../../src/components/caregiver';
+import { AutonomousModeBanner } from '../../src/components/caregiver/AutonomousModeBanner';
+import { usePatientAutonomousMode } from '../../src/hooks/usePatientAutonomousMode';
 import {
   DeviceConnectivityCardSkeleton,
   LastMedicationStatusCardSkeleton,
@@ -424,6 +426,9 @@ function CaregiverDashboardContent() {
                 style={styles.card}
               />
 
+              {/* Autonomous Mode Banner */}
+              <AutonomousModeBannerWrapper patientId={selectedPatient.id} />
+
               {/* Last Medication Status Card */}
               <LastMedicationStatusCard
                 patientId={selectedPatient.id}
@@ -452,6 +457,26 @@ function CaregiverDashboardContent() {
         </ScrollView>
       </Container>
     </ScreenWrapper>
+  );
+}
+
+/**
+ * Wrapper component to show autonomous mode banner when patient is in autonomous mode
+ */
+function AutonomousModeBannerWrapper({ patientId }: { patientId: string }) {
+  const { isAutonomous, isLoading } = usePatientAutonomousMode(patientId);
+
+  if (isLoading || !isAutonomous) {
+    return null;
+  }
+
+  return (
+    <View style={styles.card}>
+      <AutonomousModeBanner 
+        message="Modo autónomo activado - Los datos actuales no están siendo compartidos"
+        size="md"
+      />
+    </View>
   );
 }
 

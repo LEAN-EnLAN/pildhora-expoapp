@@ -4,10 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../../../theme/tokens';
 import { useWizardContext } from '../WizardContext';
 import { announceForAccessibility, triggerHapticFeedback, HapticFeedbackType } from '../../../../utils/accessibility';
-import { getDbInstance, getRdbInstance } from '../../../../services/firebase';
-import { doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
-import { ref, set } from 'firebase/database';
-import { linkDeviceToUser } from '../../../../services/deviceLinking';
+import { provisionDevice, checkDeviceExists } from '../../../../services/deviceProvisioning';
 import { 
   DeviceProvisioningErrorCode, 
   parseDeviceProvisioningError,
@@ -46,91 +43,33 @@ export function VerificationStep() {
         throw new Error('No se proporcionó un ID de dispositivo');
       }
 
-      const db = await getDbInstance();
-      if (!db) {
-        throw new Error('Error de conexión a la base de datos');
-      }
-
-      // Step 1: Verify device exists and is unclaimed (Requirement 3.4, 4.1, 4.2)
+      // Step 1: Check if device already exists
       setCurrentStep('Verificando disponibilidad del dispositivo...');
-      await new Promise(resolve => setTimeout(resolve, 800)); // UX delay
+      await new Promise(resolve => setTimeout(resolve, 800));
 
-      // Check if device document already exists
-      const deviceRef = doc(db, 'devices', deviceId);
-      const deviceDoc = await getDoc(deviceRef);
-
-      if (deviceDoc.exists()) {
-        const deviceData = deviceDoc.data();
-        
-        // Check if device is already claimed by another patient
-        if (deviceData.primaryPatientId && deviceData.primaryPatientId !== userId) {
-          throw new Error('Este dispositivo ya está registrado a otro paciente. Por favor, verifica el ID del dispositivo.');
-        }
-        
-        // Check if device is already claimed by this patient
-        if (deviceData.primaryPatientId === userId && deviceData.provisioningStatus === 'active') {
-          console.log('[VerificationStep] Device already provisioned to this user, proceeding with link verification');
-          // Device is already provisioned to this user, just ensure links are in place
-          setCurrentStep('Verificando vínculos existentes...');
-          await new Promise(resolve => setTimeout(resolve, 600));
-          
-          // Ensure deviceLink exists
-          await linkDeviceToUser(userId, deviceId);
-          
-          // Ensure RTDB mapping exists
-          const rdb = await getRdbInstance();
-          if (rdb) {
-            const deviceRtdbRef = ref(rdb, `users/${userId}/devices/${deviceId}`);
-            await set(deviceRtdbRef, true);
-          }
-          
-          setCurrentStep('¡Dispositivo verificado exitosamente!');
-          setVerificationState('success');
-          setCanProceed(true);
-          await triggerHapticFeedback(HapticFeedbackType.SUCCESS);
-          announceForAccessibility('Dispositivo verificado y vinculado exitosamente');
-          return;
-        }
+      const deviceExists = await checkDeviceExists(deviceId);
+      
+      if (deviceExists) {
+        setCurrentStep('Verificando vínculos existentes...');
+        await new Promise(resolve => setTimeout(resolve, 600));
       }
 
-      // Step 2: Create device document in Firestore (Requirement 4.1, 4.4)
+      // Step 2: Provision device (creates device, deviceConfig, deviceLink, updates user)
       setCurrentStep('Registrando dispositivo...');
       await new Promise(resolve => setTimeout(resolve, 600));
 
-      // Create new device document with patient as owner
-      await setDoc(deviceRef, {
-        primaryPatientId: userId,
-        provisioningStatus: 'active',
-        provisionedAt: serverTimestamp(),
-        provisionedBy: userId,
-        wifiConfigured: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        desiredConfig: {
-          alarmMode: formData.alarmMode || 'both',
-          ledIntensity: formData.ledIntensity || 75,
-          ledColor: formData.ledColor || '#3B82F6',
-          volume: formData.volume || 75,
-        },
+      await provisionDevice({
+        deviceId,
+        userId,
+        wifiSSID: formData.wifiSSID,
+        wifiPassword: formData.wifiPassword,
+        alarmMode: formData.alarmMode || 'both',
+        ledIntensity: formData.ledIntensity || 75,
+        ledColor: formData.ledColor || '#3B82F6',
+        volume: formData.volume || 75,
       });
 
-      // Step 3: Create deviceLink document (Requirement 4.4)
-      setCurrentStep('Vinculando dispositivo a tu cuenta...');
-      await new Promise(resolve => setTimeout(resolve, 600));
-
-      await linkDeviceToUser(userId, deviceId);
-
-      // Step 4: Update RTDB users/{userId}/devices mapping (Requirement 4.5)
-      setCurrentStep('Sincronizando con el servidor...');
-      await new Promise(resolve => setTimeout(resolve, 600));
-
-      const rdb = await getRdbInstance();
-      if (rdb) {
-        const deviceRtdbRef = ref(rdb, `users/${userId}/devices/${deviceId}`);
-        await set(deviceRtdbRef, true);
-      }
-
-      // Success!
+      // Step 3: Complete
       setCurrentStep('¡Dispositivo verificado exitosamente!');
       setVerificationState('success');
       setCanProceed(true);
@@ -140,11 +79,13 @@ export function VerificationStep() {
     } catch (error: any) {
       console.error('[VerificationStep] Verification failed:', error);
       
-      // Parse error to appropriate error code using centralized handler
+      // Parse error to appropriate error code
       let parsedErrorCode: DeviceProvisioningErrorCode;
       
-      if (error.message && error.message.includes('ya está registrado')) {
+      if (error.code === 'DEVICE_ALREADY_CLAIMED') {
         parsedErrorCode = DeviceProvisioningErrorCode.DEVICE_ALREADY_CLAIMED;
+      } else if (error.code === 'PERMISSION_DENIED') {
+        parsedErrorCode = DeviceProvisioningErrorCode.PERMISSION_DENIED;
       } else {
         parsedErrorCode = parseDeviceProvisioningError(error);
       }

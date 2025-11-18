@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Modal as RNModal, TouchableOpacity, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from './Button';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme/tokens';
@@ -51,11 +51,12 @@ export const DeleteMedicationDialog: React.FC<DeleteMedicationDialogProps> = ({
     medication.currentQuantity <= medication.lowQuantityThreshold;
 
   return (
-    <Modal
+    <RNModal
       visible={visible}
       transparent
       animationType="fade"
       onRequestClose={handleCancel}
+      statusBarTranslucent
     >
       <View style={styles.overlay}>
         <View style={styles.dialog}>
@@ -197,7 +198,7 @@ export const DeleteMedicationDialog: React.FC<DeleteMedicationDialogProps> = ({
           </View>
         </View>
       </View>
-    </Modal>
+    </RNModal>
   );
 };
 
@@ -205,18 +206,19 @@ export const DeleteMedicationDialog: React.FC<DeleteMedicationDialogProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.lg,
+    padding: spacing.xl,
   },
   dialog: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
+    borderRadius: borderRadius['2xl'],
     padding: spacing.xl,
     width: '100%',
-    maxWidth: 500,
-    ...shadows.lg,
+    maxWidth: 480,
+    maxHeight: '90%',
+    ...shadows.xl,
   },
   header: {
     alignItems: 'center',
