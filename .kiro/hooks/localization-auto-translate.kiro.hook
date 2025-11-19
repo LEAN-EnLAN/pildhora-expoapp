@@ -1,0 +1,19 @@
+{
+  "enabled": true,
+  "name": "Auto-Translate to Spanish",
+  "description": "Monitors changes to localization files (JSON, YAML, TypeScript) containing user-facing text in the primary language. When changes are detected, identifies new or modified text and generates Spanish translations while maintaining context and locale-specific conventions.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/i18n/translations/en.ts",
+      "src/i18n/translations/*.json",
+      "src/i18n/translations/*.yaml",
+      "src/i18n/**/*.ts"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Analyze the changes to the localization files and identify any new or modified English text strings. For each change:\n\n1. Extract the new or modified English text with its key/path\n2. Generate accurate Spanish translations that:\n   - Maintain the original meaning and context\n   - Use appropriate formal/informal tone (use formal \"usted\" for medical/elderly context)\n   - Follow Spanish locale conventions (date formats, number formats, etc.)\n   - Preserve any placeholders, variables, or formatting tokens (e.g., {name}, %s, etc.)\n   - Respect character limits if the original text appears length-constrained\n3. Update the Spanish translation file (src/i18n/translations/es.ts) with the new translations\n4. Ensure consistency with existing translation patterns in the codebase\n5. Flag any translations that may need human review due to medical terminology or cultural nuances\n\nProvide the updated Spanish translations in the same structure as the English source file."
+  }
+}

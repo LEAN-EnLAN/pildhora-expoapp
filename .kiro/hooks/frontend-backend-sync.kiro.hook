@@ -1,0 +1,21 @@
+{
+  "enabled": true,
+  "name": "Frontend to Backend Sync",
+  "description": "Automatically updates Firebase backend (Firestore rules, Cloud Functions, RTDB rules) when key frontend changes are detected in components, services, or types",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/components/**/*.tsx",
+      "src/components/**/*.ts",
+      "src/services/*.ts",
+      "src/types/index.ts",
+      "app/**/*.tsx",
+      "src/hooks/*.ts"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Frontend changes detected. Analyze the modified files and determine what backend updates are needed:\n\n1. **Review Changes**: Examine the modified frontend code for:\n   - New data models or type changes in src/types/index.ts\n   - New Firestore queries or mutations in services\n   - New authentication flows or permission requirements\n   - New device state requirements or RTDB paths\n   - New Cloud Function triggers needed\n\n2. **Update Firebase Backend**:\n   - Update firestore.rules with new security rules for any new collections or fields\n   - Update database.rules.json for any new RTDB paths or device state changes\n   - Create or modify Cloud Functions in functions/src/ for new backend logic\n   - Update firestore.indexes.json if new composite queries are added\n\n3. **Deploy Changes**:\n   - Use `firebase deploy --only firestore:rules` for Firestore rules\n   - Use `firebase deploy --only database` for RTDB rules  \n   - Use `firebase deploy --only functions` for Cloud Functions\n   - Verify deployment success and test the integration\n\n4. **Document Changes**: Create or update relevant markdown documentation explaining the backend changes made to support the frontend feature.\n\nProvide a summary of all backend changes made and deployment commands executed."
+  }
+}

@@ -1,38 +1,170 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useMemo, useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { Card } from '../../ui/Card';
-import { colors, spacing, typography } from '../../../theme/tokens';
+import { colors, spacing, typography, borderRadius } from '../../../theme/tokens';
 import { useDeviceLinks } from '../../../hooks/useDeviceLinks';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../store';
+import { usePatientAutonomousMode } from '../../../hooks/usePatientAutonomousMode';
+import { getRdbInstance, getDbInstance } from '../../../services/firebase';
+import { ref, onValue, off } from 'firebase/database';
+import { doc, getDoc } from 'firebase/firestore';
 
 interface DeviceStatusCardProps {
   deviceId?: string;
-  batteryLevel?: number | null;
+  style?: any;
+}
+
+interface DeviceData {
+  batteryLevel: number | null;
   status: 'idle' | 'dispensing' | 'error' | 'offline' | 'pending';
   isOnline: boolean;
-  style?: any;
+  lastSeen: number | null;
 }
 
 export const DeviceStatusCard: React.FC<DeviceStatusCardProps> = React.memo(({
   deviceId,
-  batteryLevel,
-  status,
-  isOnline,
   style
 }) => {
+  const router = useRouter();
+  const { user } = useSelector((state: RootState) => state.auth);
+  const patientId = user?.id;
+
+  // Local state for device data
+  const [deviceData, setDeviceData] = useState<DeviceData>({
+    batteryLevel: null,
+    status: 'offline',
+    isOnline: false,
+    lastSeen: null,
+  });
+  const [loading, setLoading] = useState(true);
+
   // Real-time device links listener
   const { caregiverCount, hasCaregivers, isLoading: linksLoading } = useDeviceLinks({
     deviceId: deviceId || undefined,
     enabled: !!deviceId,
   });
 
+  // Real-time autonomous mode listener
+  const { isAutonomous, isLoading: autonomousModeLoading } = usePatientAutonomousMode(patientId);
+
+  // Fetch device data directly from Firebase RTDB
+  useEffect(() => {
+    if (!deviceId) {
+      setLoading(false);
+      return;
+    }
+
+    let unsubscribe: (() => void) | null = null;
+    let mounted = true;
+
+    const setupDeviceListener = async () => {
+      try {
+        console.log('[DeviceStatusCard] Setting up listener for device:', deviceId);
+        const rdb = await getRdbInstance();
+
+        if (!rdb) {
+          console.warn('[DeviceStatusCard] RTDB not available');
+          setLoading(false);
+          return;
+        }
+
+        const deviceStateRef = ref(rdb, `devices/${deviceId}/state`);
+
+        unsubscribe = onValue(deviceStateRef, (snapshot) => {
+          if (!mounted) return;
+
+          if (snapshot.exists()) {
+            const state = snapshot.val();
+            console.log('[DeviceStatusCard] Received device state:', state);
+
+            // Parse battery level
+            let battery: number | null = null;
+            const rawBattery = state?.battery_level ?? state?.batteryPercent ?? state?.battery_percentage ?? null;
+            if (typeof rawBattery === 'number') {
+              battery = Math.round(rawBattery);
+            } else if (typeof rawBattery === 'string') {
+              const parsed = parseFloat(rawBattery);
+              battery = isNaN(parsed) ? null : Math.round(parsed);
+            }
+
+            // Parse status
+            const rawStatus = state?.current_status || 'offline';
+            const isOnline = state?.is_online === true;
+
+            let normalizedStatus: 'idle' | 'dispensing' | 'error' | 'offline' | 'pending' = 'offline';
+
+            if (!isOnline) {
+              normalizedStatus = 'offline';
+            } else {
+              switch (rawStatus.toLowerCase()) {
+                case 'pending':
+                  normalizedStatus = 'pending';
+                  break;
+                case 'dispensing':
+                  normalizedStatus = 'dispensing';
+                  break;
+                case 'error':
+                case 'alarm_sounding':
+                case 'alarm_active':
+                  normalizedStatus = 'error';
+                  break;
+                case 'idle':
+                case 'dose_taken':
+                case 'dose_missed':
+                default:
+                  normalizedStatus = 'idle';
+                  break;
+              }
+            }
+
+            setDeviceData({
+              batteryLevel: battery,
+              status: normalizedStatus,
+              isOnline,
+              lastSeen: state?.last_seen || null,
+            });
+            setLoading(false);
+          } else {
+            console.log('[DeviceStatusCard] No device state found in RTDB');
+            setDeviceData({
+              batteryLevel: null,
+              status: 'offline',
+              isOnline: false,
+              lastSeen: null,
+            });
+            setLoading(false);
+          }
+        }, (error) => {
+          console.error('[DeviceStatusCard] Error listening to device state:', error);
+          setLoading(false);
+        });
+
+      } catch (error) {
+        console.error('[DeviceStatusCard] Error setting up device listener:', error);
+        setLoading(false);
+      }
+    };
+
+    setupDeviceListener();
+
+    return () => {
+      mounted = false;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [deviceId]);
+
   const statusText = useMemo(() => {
-    if (!isOnline) return 'Desconectado';
-    switch (status) {
+    if (!deviceData.isOnline) return 'Desconectado';
+    switch (deviceData.status) {
       case 'pending':
-        return 'Pendiente';
+        return 'Sincronizando...';
       case 'idle':
-        return 'Activo';
+        return 'Conectado';
       case 'dispensing':
         return 'Dispensando';
       case 'error':
@@ -40,159 +172,174 @@ export const DeviceStatusCard: React.FC<DeviceStatusCardProps> = React.memo(({
       case 'offline':
         return 'Desconectado';
       default:
-        return 'Desconocido';
+        return 'Conectado';
     }
-  }, [isOnline, status]);
+  }, [deviceData]);
 
   // Connection mode text and color
   const connectionMode = useMemo(() => {
     if (!deviceId) return null;
-    if (linksLoading) return { text: 'Verificando...', color: colors.gray[400], icon: 'time-outline' as const };
-    if (hasCaregivers) {
+    if (linksLoading || autonomousModeLoading) {
+      return { text: 'Verificando modo...', color: colors.gray[400], icon: 'time-outline' as const };
+    }
+
+    if (isAutonomous) {
       return {
-        text: caregiverCount === 1 ? 'Modo Cuidador (1)' : `Modo Cuidador (${caregiverCount})`,
-        color: typeof colors.primary === 'string' ? colors.primary : colors.primary[500],
-        icon: 'people' as const,
+        text: hasCaregivers
+          ? `Modo Autónomo (${caregiverCount} cuidador${caregiverCount > 1 ? 'es' : ''} sin acceso)`
+          : 'Modo Autónomo',
+        color: colors.warning[600],
+        icon: 'eye-off' as const,
       };
     }
+
+    // Default to Supervised Mode if not Autonomous
     return {
-      text: 'Modo Autónomo',
-      color: typeof colors.success === 'string' ? colors.success : colors.success[500],
-      icon: 'person' as const,
+      text: hasCaregivers
+        ? (caregiverCount === 1 ? 'Modo Supervisado (1 cuidador)' : `Modo Supervisado (${caregiverCount} cuidadores)`)
+        : 'Modo Supervisado (Sin cuidadores)',
+      color: colors.primary[500],
+      icon: 'eye' as const,
     };
-  }, [deviceId, linksLoading, hasCaregivers, caregiverCount]);
+  }, [deviceId, linksLoading, autonomousModeLoading, isAutonomous, hasCaregivers, caregiverCount]);
 
   const statusColor = useMemo(() => {
-    if (!isOnline || status === 'offline') return colors.gray[400];
-    switch (status) {
+    if (!deviceData.isOnline || deviceData.status === 'offline') return colors.gray[400];
+    switch (deviceData.status) {
       case 'pending':
-        return typeof colors.warning === 'string' ? colors.warning : colors.warning[500];
+        return colors.warning[500];
       case 'idle':
-        return typeof colors.success === 'string' ? colors.success : colors.success[500];
+        return colors.success[500];
       case 'dispensing':
-        return typeof colors.info === 'string' ? colors.info : colors.info[500];
+        return colors.primary[500];
       case 'error':
-        return typeof colors.error === 'string' ? colors.error : colors.error[500];
+        return colors.error[500];
       default:
         return colors.gray[400];
     }
-  }, [isOnline, status]);
+  }, [deviceData]);
 
   const batteryColor = useMemo(() => {
-    if (batteryLevel === null || batteryLevel === undefined) return colors.gray[400];
-    if (batteryLevel > 50) return colors.success;
-    if (batteryLevel > 20) return typeof colors.warning === 'string' ? colors.warning : colors.warning[500];
-    return typeof colors.error === 'string' ? colors.error : colors.error[500];
-  }, [batteryLevel]);
+    if (deviceData.batteryLevel === null) return colors.gray[400];
+    if (deviceData.batteryLevel > 50) return colors.success[500];
+    if (deviceData.batteryLevel > 20) return colors.warning[500];
+    return colors.error[500];
+  }, [deviceData.batteryLevel]);
 
-  const batteryLabel = useMemo(() => {
-    if (batteryLevel === null || batteryLevel === undefined) return 'Battery level not available';
-    if (batteryLevel > 50) return `Battery level ${batteryLevel} percent, good`;
-    if (batteryLevel > 20) return `Battery level ${batteryLevel} percent, low`;
-    return `Battery level ${batteryLevel} percent, critical`;
-  }, [batteryLevel]);
+  const batteryIcon = useMemo(() => {
+    if (deviceData.batteryLevel === null) return 'battery-dead-outline';
+    if (deviceData.batteryLevel > 75) return 'battery-full';
+    if (deviceData.batteryLevel > 50) return 'battery-half';
+    if (deviceData.batteryLevel > 20) return 'battery-charging';
+    return 'battery-dead';
+  }, [deviceData.batteryLevel]);
 
   return (
-    <Card 
-      variant="elevated" 
-      padding="lg" 
-      style={style}
-      accessibilityLabel={deviceId 
-        ? `Device status: ${statusText}, ${batteryLabel}`
-        : 'No device linked'
-      }
+    <TouchableOpacity
+      onPress={() => router.push('/patient/device-settings')}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel="Ir a configuración del dispositivo"
     >
-      <Text style={styles.title}>Mi dispositivo</Text>
-      
-      {deviceId ? (
-        <View style={styles.content}>
-          {/* Connection Mode Banner */}
-          {connectionMode && (
-            <View 
-              style={[
-                styles.modeBanner,
-                { backgroundColor: `${connectionMode.color}15` }
-              ]}
-              accessible={true}
-              accessibilityLabel={`Connection mode: ${connectionMode.text}`}
-            >
-              <Ionicons 
-                name={connectionMode.icon} 
-                size={20} 
-                color={connectionMode.color}
-                accessible={false}
-              />
-              <Text style={[styles.modeText, { color: connectionMode.color }]}>
-                {connectionMode.text}
-              </Text>
-            </View>
-          )}
+      <Card
+        variant="elevated"
+        padding="lg"
+        style={style}
+      >
+        <View style={styles.header}>
+          <Text style={styles.title}>Mi dispositivo</Text>
+          <Ionicons name="settings-outline" size={20} color={colors.gray[500]} />
+        </View>
 
-          <View style={styles.infoRow}>
-            <View 
-              style={styles.infoItem}
-              accessible={true}
-              accessibilityLabel={batteryLabel}
-            >
-              <Text style={styles.label}>Batería</Text>
-              <View style={styles.valueContainer}>
-                <View 
-                  style={[styles.indicator, { backgroundColor: batteryColor }]}
-                  accessible={false}
+        {deviceId ? (
+          <View style={styles.content}>
+            {/* Connection Mode Banner - Always visible if data available */}
+            {connectionMode && (
+              <View
+                style={[
+                  styles.modeBanner,
+                  { backgroundColor: `${connectionMode.color}15` }
+                ]}
+              >
+                <Ionicons
+                  name={connectionMode.icon}
+                  size={20}
+                  color={connectionMode.color}
                 />
-                <Text style={styles.value}>
-                  {batteryLevel !== null && batteryLevel !== undefined 
-                    ? `${batteryLevel}%` 
-                    : 'N/A'}
+                <Text style={[styles.modeText, { color: connectionMode.color }]}>
+                  {connectionMode.text}
                 </Text>
               </View>
-            </View>
-            
-            <View 
-              style={styles.infoItem}
-              accessible={true}
-              accessibilityLabel={`Device status: ${statusText}`}
-            >
-              <Text style={styles.label}>Estado</Text>
-              <View style={styles.valueContainer}>
-                <View 
-                  style={[styles.indicator, { backgroundColor: statusColor }]}
-                  accessible={false}
-                />
-                <Text style={styles.value}>{statusText}</Text>
+            )}
+
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                <Text style={styles.loadingText}>Cargando estado del dispositivo...</Text>
               </View>
-            </View>
+            ) : (
+              <>
+                <View style={styles.infoRow}>
+                  <View style={styles.infoItem}>
+                    <Text style={styles.label}>Batería</Text>
+                    <View style={styles.valueContainer}>
+                      <Ionicons
+                        name={batteryIcon}
+                        size={20}
+                        color={batteryColor}
+                      />
+                      <Text style={[styles.value, { color: batteryColor }]}>
+                        {deviceData.batteryLevel !== null
+                          ? `${deviceData.batteryLevel}%`
+                          : 'N/A'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.infoItem}>
+                    <Text style={styles.label}>Estado</Text>
+                    <View style={styles.valueContainer}>
+                      <View
+                        style={[styles.indicator, { backgroundColor: statusColor }]}
+                      />
+                      <Text style={styles.value}>{statusText}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.deviceIdContainer}>
+                  <Ionicons name="hardware-chip-outline" size={16} color={colors.gray[500]} />
+                  <Text style={styles.deviceId}>ID: {deviceId}</Text>
+                </View>
+              </>
+            )}
           </View>
-          
-          <Text 
-            style={styles.deviceId}
-            accessible={true}
-            accessibilityLabel={`Device ID: ${deviceId}`}
-          >
-            ID: {deviceId}
-          </Text>
-        </View>
-      ) : (
-        <View 
-          style={styles.noDeviceContainer}
-          accessible={true}
-          accessibilityLabel="No device linked"
-        >
-          <Text style={styles.noDeviceText}>
-            No hay dispositivo vinculado
-          </Text>
-        </View>
-      )}
-    </Card>
+        ) : (
+          <View style={styles.noDeviceContainer}>
+            <Ionicons name="link-outline" size={32} color={colors.gray[400]} />
+            <Text style={styles.noDeviceText}>
+              No hay dispositivo vinculado
+            </Text>
+            <Text style={styles.noDeviceSubtext}>
+              Toca aquí para vincular un dispositivo
+            </Text>
+          </View>
+        )}
+      </Card>
+    </TouchableOpacity>
   );
 });
 
 const styles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
   title: {
     fontSize: typography.fontSize.lg,
     fontWeight: typography.fontWeight.semibold,
     color: colors.gray[900],
-    marginBottom: spacing.lg,
   },
   content: {
     gap: spacing.md,
@@ -203,12 +350,20 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: 8,
-    marginBottom: spacing.sm,
+    borderRadius: borderRadius.md,
   },
   modeText: {
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
+    flex: 1,
+  },
+  loadingContainer: {
+    paddingVertical: spacing.lg,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.gray[500],
   },
   infoRow: {
     flexDirection: 'row',
@@ -226,7 +381,7 @@ const styles = StyleSheet.create({
   valueContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   indicator: {
     width: 8,
@@ -234,21 +389,36 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   value: {
-    fontSize: typography.fontSize.lg,
+    fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.semibold,
     color: colors.gray[900],
   },
+  deviceIdContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray[200],
+  },
   deviceId: {
     fontSize: typography.fontSize.sm,
-    color: colors.gray[500],
-    marginTop: spacing.sm,
+    color: colors.gray[600],
+    fontFamily: 'monospace',
   },
   noDeviceContainer: {
-    paddingVertical: spacing.lg,
     alignItems: 'center',
+    paddingVertical: spacing.xl,
+    gap: spacing.sm,
   },
   noDeviceText: {
     fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.gray[700],
+    textAlign: 'center',
+  },
+  noDeviceSubtext: {
+    fontSize: typography.fontSize.sm,
     color: colors.gray[500],
     textAlign: 'center',
   },

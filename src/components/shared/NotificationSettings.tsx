@@ -113,14 +113,14 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = React.m
     }
   }, [permissionStatus]);
 
-  const permissionStatusColor = useMemo(() => {
+  const permissionStatusColor = useMemo<string>(() => {
     switch (permissionStatus) {
       case 'granted':
-        return colors.success;
+        return colors.success[500];
       case 'denied':
-        return colors.error;
+        return colors.error[500];
       case 'undetermined':
-        return colors.warning;
+        return colors.warning[500];
       default:
         return colors.gray[400];
     }

@@ -100,9 +100,10 @@ export default function MedicationsIndex() {
     </View>
   ), [router]);
 
-  // Render mode indicator when device is connected
+  // Render mode indicator when device is connected and not in autonomous mode
   const renderModeIndicator = useCallback(() => {
-    if (!isDeviceConnected) return null;
+    // Don't show if device is not connected or if autonomous mode is enabled
+    if (!isDeviceConnected || user?.autonomousMode) return null;
 
     return (
       <View style={styles.modeIndicator}>
@@ -114,7 +115,7 @@ export default function MedicationsIndex() {
         </View>
       </View>
     );
-  }, [isDeviceConnected]);
+  }, [isDeviceConnected, user?.autonomousMode]);
 
   // Loading state with skeleton loaders
   if (loading) {

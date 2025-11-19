@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Platform, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Platform, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { SuccessMessage } from '../ui/SuccessMessage';
@@ -16,6 +16,7 @@ import {
   savePreferencesToBackend,
   savePermissionsToBackend,
 } from '../../store/slices/preferencesSlice';
+import { deleteAccount } from '../../store/slices/authSlice';
 import * as Notifications from 'expo-notifications';
 import { ensurePushTokensRegistered } from '../../services/notifications/push';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme/tokens';
@@ -168,36 +169,61 @@ export function RoleBasedSettings() {
     }
   };
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Eliminar cuenta',
+      '¿Estás seguro de que quieres eliminar tu cuenta? Esta acción no se puede deshacer y perderás todos tus datos.',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await dispatch(deleteAccount()).unwrap();
+              // Router will handle redirection based on auth state change
+            } catch (error: any) {
+              showError(error || 'Error al eliminar la cuenta');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const defaultModalities = ['urgent', 'medication', 'general'];
   const customModalities = prefs.notifications.hierarchy.filter((m) => !defaultModalities.includes(m));
-  
+
   // Get proper padding for scrollable content
   const { contentPaddingBottom } = useScrollViewPadding();
 
   return (
     <View style={styles.container}>
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Success/Error Messages */}
         {successMessage && (
           <View style={styles.messageContainer}>
-            <SuccessMessage 
-              message={successMessage} 
-              onDismiss={() => setSuccessMessage(null)} 
-              autoDismiss={true} 
-              duration={3000} 
+            <SuccessMessage
+              message={successMessage}
+              onDismiss={() => setSuccessMessage(null)}
+              autoDismiss={true}
+              duration={3000}
             />
           </View>
         )}
 
         {errorMessage && (
           <View style={styles.messageContainer}>
-            <ErrorMessage 
-              message={errorMessage} 
-              onDismiss={() => setErrorMessage(null)} 
-              variant="banner" 
+            <ErrorMessage
+              message={errorMessage}
+              onDismiss={() => setErrorMessage(null)}
+              variant="banner"
             />
           </View>
         )}
@@ -213,10 +239,10 @@ export function RoleBasedSettings() {
               <Ionicons name="person-circle-outline" size={24} color={colors.primary[500]} />
               <Text style={styles.sectionHeaderTitle}>Perfil</Text>
             </View>
-            <Ionicons 
-              name={expandedSections.has('profile') ? 'chevron-up' : 'chevron-down'} 
-              size={20} 
-              color={colors.gray[500]} 
+            <Ionicons
+              name={expandedSections.has('profile') ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={colors.gray[500]}
             />
           </TouchableOpacity>
 
@@ -258,30 +284,30 @@ export function RoleBasedSettings() {
             activeOpacity={0.7}
           >
             <View style={styles.sectionHeaderLeft}>
-              <Ionicons 
-                name={isPatient ? 'hardware-chip-outline' : 'people-outline'} 
-                size={24} 
-                color={colors.info[500]} 
+              <Ionicons
+                name={isPatient ? 'hardware-chip-outline' : 'people-outline'}
+                size={24}
+                color={colors.info[500]}
               />
               <Text style={styles.sectionHeaderTitle}>
                 {isPatient ? 'Dispositivo' : 'Pacientes'}
               </Text>
             </View>
-            <Ionicons 
-              name={expandedSections.has('management') ? 'chevron-up' : 'chevron-down'} 
-              size={20} 
-              color={colors.gray[500]} 
+            <Ionicons
+              name={expandedSections.has('management') ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={colors.gray[500]}
             />
           </TouchableOpacity>
 
           {expandedSections.has('management') && (
             <Card variant="elevated" padding="lg" style={styles.sectionCard}>
               <Text style={styles.cardDescription}>
-                {isPatient 
-                  ? 'Gestiona tu dispositivo Pillbox y las conexiones de cuidadores' 
+                {isPatient
+                  ? 'Gestiona tu dispositivo Pillbox y las conexiones de cuidadores'
                   : 'Gestiona las conexiones con tus pacientes'}
               </Text>
-              
+
               {isPatient && user?.deviceId && (
                 <View style={styles.deviceInfo}>
                   <View style={styles.deviceInfoRow}>
@@ -319,10 +345,10 @@ export function RoleBasedSettings() {
               <Ionicons name="notifications-outline" size={24} color={colors.warning[500]} />
               <Text style={styles.sectionHeaderTitle}>Notificaciones</Text>
             </View>
-            <Ionicons 
-              name={expandedSections.has('notifications') ? 'chevron-up' : 'chevron-down'} 
-              size={20} 
-              color={colors.gray[500]} 
+            <Ionicons
+              name={expandedSections.has('notifications') ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={colors.gray[500]}
             />
           </TouchableOpacity>
 
@@ -341,6 +367,26 @@ export function RoleBasedSettings() {
               />
             </View>
           )}
+        </View>
+
+        {/* Danger Zone Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.error[600], marginTop: spacing.xl }]}>Zona de Peligro</Text>
+          <Card variant="outlined" padding="lg" style={[styles.sectionCard, { borderColor: colors.error[200], backgroundColor: colors.error[50] }]}>
+            <Text style={[styles.cardDescription, { color: colors.error[700] }]}>
+              Si eliminas tu cuenta, perderás todos tus datos y no podrás recuperarlos.
+            </Text>
+            <Button
+              variant="outline"
+              size="md"
+              onPress={handleDeleteAccount}
+              style={{ borderColor: colors.error[500] }}
+              textStyle={{ color: colors.error[600] }}
+              accessibilityLabel="Eliminar cuenta"
+            >
+              Eliminar cuenta
+            </Button>
+          </Card>
         </View>
 
       </ScrollView>

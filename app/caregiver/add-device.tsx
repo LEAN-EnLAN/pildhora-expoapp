@@ -12,15 +12,14 @@ import { Button, Input, Card, LoadingSpinner, ErrorMessage, SuccessMessage, Anim
 import { DeviceConfigPanel } from '../../src/components/shared/DeviceConfigPanel';
 import { ScreenWrapper } from '../../src/components/caregiver';
 import { useScrollViewPadding } from '../../src/hooks/useScrollViewPadding';
-import { useLinkedPatients } from '../../src/hooks/useLinkedPatients';
+import { useCaregiverDevices, CaregiverLinkedDevice } from '../../src/hooks/useCaregiverDevices';
 import { useDeviceState } from '../../src/hooks/useDeviceState';
 import { colors, spacing, typography, shadows } from '../../src/theme/tokens';
-import { PatientWithDevice } from '../../src/types';
 
 export default function DeviceManagementScreen() {
   const router = useRouter();
   const userId = useSelector((state: RootState) => state.auth.user?.id);
-  
+
   // Layout dimensions for proper spacing
   const { contentPaddingBottom } = useScrollViewPadding();
 
@@ -29,7 +28,7 @@ export default function DeviceManagementScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push('/caregiver/dashboard');
   }, [router]);
-  
+
   const [deviceId, setDeviceId] = useState('');
   const [validationError, setValidationError] = useState<string>('');
   const [linking, setLinking] = useState(false);
@@ -38,9 +37,9 @@ export default function DeviceManagementScreen() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [expandedDevices, setExpandedDevices] = useState<Set<string>>(new Set());
   const [savingConfig, setSavingConfig] = useState<Record<string, boolean>>({});
-  
-  // Fetch linked patients (which includes their devices)
-  const { patients, isLoading: loadingPatients, error: patientsError, refetch } = useLinkedPatients({
+
+  // Fetch linked devices (includes those without patients)
+  const { devices, isLoading: loadingDevices, error: devicesError, refetch } = useCaregiverDevices({
     caregiverId: userId || null,
     enabled: !!userId,
   });
@@ -82,7 +81,7 @@ export default function DeviceManagementScreen() {
     setLinking(true);
     setErrorMessage(null);
     setSuccessMessage(null);
-    
+
     try {
       const db = await getDbInstance();
       if (!db) {
@@ -103,12 +102,12 @@ export default function DeviceManagementScreen() {
 
       // Link device to caregiver
       await linkDeviceToUser(userId, deviceId.trim());
-      
+
       setSuccessMessage('Dispositivo vinculado exitosamente');
       setDeviceId('');
       setValidationError('');
-      
-      // Refresh linked patients list
+
+      // Refresh linked devices list
       await refetch();
     } catch (error: any) {
       console.error('[DeviceManagement] Error linking device:', error);
@@ -128,7 +127,7 @@ export default function DeviceManagementScreen() {
     // Show confirmation dialog
     Alert.alert(
       'Confirmar desvinculación',
-      patientName 
+      patientName
         ? `¿Estás seguro de que deseas desvincular el dispositivo del paciente ${patientName}?`
         : '¿Estás seguro de que deseas desvincular este dispositivo?',
       [
@@ -143,12 +142,12 @@ export default function DeviceManagementScreen() {
             setUnlinkingDevice(deviceIdToUnlink);
             setErrorMessage(null);
             setSuccessMessage(null);
-            
+
             try {
               await unlinkDeviceFromUser(userId, deviceIdToUnlink);
               setSuccessMessage('Dispositivo desvinculado exitosamente');
-              
-              // Refresh linked patients list
+
+              // Refresh linked devices list
               await refetch();
             } catch (error: any) {
               console.error('[DeviceManagement] Error unlinking device:', error);
@@ -187,20 +186,20 @@ export default function DeviceManagementScreen() {
     setSavingConfig(prev => ({ ...prev, [deviceId]: true }));
     setErrorMessage(null);
     setSuccessMessage(null);
-    
+
     try {
       const db = await getDbInstance();
       if (!db) {
         throw new Error('No se pudo conectar a la base de datos');
       }
-      
+
       // Update Firestore desiredConfig (Cloud Function will mirror to RTDB)
       const payload = {
         led_intensity: config.ledIntensity,
         led_color_rgb: [config.ledColor.r, config.ledColor.g, config.ledColor.b],
         alarm_mode: config.alarmMode,
       };
-      
+
       await setDoc(
         doc(db, 'devices', deviceId),
         {
@@ -209,7 +208,7 @@ export default function DeviceManagementScreen() {
         },
         { merge: true }
       );
-      
+
       setSuccessMessage('Configuración guardada exitosamente');
     } catch (error: any) {
       console.error('[DeviceManagement] Error saving config:', error);
@@ -220,9 +219,9 @@ export default function DeviceManagementScreen() {
   }, []);
 
   // Render device card with status and configuration
-  const renderDeviceCard = (patient: PatientWithDevice, index: number) => {
-    const deviceId = patient.deviceId;
-    if (!deviceId) return null;
+  const renderDeviceCard = (device: CaregiverLinkedDevice, index: number) => {
+    const deviceId = device.deviceId;
+    const patientName = device.patient?.name;
 
     const isExpanded = expandedDevices.has(deviceId);
     const isSaving = savingConfig[deviceId] || false;
@@ -235,15 +234,22 @@ export default function DeviceManagementScreen() {
           <View style={styles.deviceHeader}>
             <View style={styles.deviceInfo}>
               <Text style={styles.deviceId}>{deviceId}</Text>
-              <Text style={styles.patientName}>Paciente: {patient.name}</Text>
+              {patientName ? (
+                <Text style={styles.patientName}>Paciente: {patientName}</Text>
+              ) : (
+                <View style={styles.waitingBadge}>
+                  <Ionicons name="time-outline" size={14} color={colors.warning[700]} />
+                  <Text style={styles.waitingText}>Esperando vinculación de paciente</Text>
+                </View>
+              )}
             </View>
             <Button
-              onPress={() => handleUnlink(deviceId, patient.name)}
+              onPress={() => handleUnlink(deviceId, patientName)}
               variant="danger"
               size="sm"
               loading={isUnlinking}
               disabled={isUnlinking}
-              accessibilityLabel={`Desvincular dispositivo de ${patient.name}`}
+              accessibilityLabel={`Desvincular dispositivo ${patientName ? `de ${patientName}` : ''}`}
             >
               Desvincular
             </Button>
@@ -253,7 +259,7 @@ export default function DeviceManagementScreen() {
           <DeviceStatusSection deviceId={deviceId} />
 
           {/* Expand/Collapse Button */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.expandButton}
             onPress={() => toggleDeviceExpanded(deviceId)}
             accessibilityLabel={isExpanded ? 'Ocultar configuración' : 'Mostrar configuración'}
@@ -261,10 +267,10 @@ export default function DeviceManagementScreen() {
             accessibilityRole="button"
             accessibilityState={{ expanded: isExpanded }}
           >
-            <Ionicons 
-              name={isExpanded ? 'chevron-up' : 'chevron-down'} 
-              size={20} 
-              color={colors.primary[500]} 
+            <Ionicons
+              name={isExpanded ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={colors.primary[500]}
               accessible={false}
             />
             <Text style={styles.expandButtonText}>
@@ -325,7 +331,7 @@ export default function DeviceManagementScreen() {
           </View>
         )}
 
-        {patientsError && (
+        {devicesError && (
           <View style={styles.messageContainer}>
             <ErrorMessage
               message="Error al cargar dispositivos vinculados"
@@ -341,7 +347,7 @@ export default function DeviceManagementScreen() {
               <Ionicons name="hardware-chip-outline" size={24} color={colors.primary[500]} />
               <Text style={styles.sectionTitle}>Vincular Nuevo Dispositivo</Text>
             </View>
-            
+
             <Text style={styles.sectionDescription}>
               Ingresa el ID del dispositivo para conectarlo a un paciente
             </Text>
@@ -382,14 +388,14 @@ export default function DeviceManagementScreen() {
               <Ionicons name="list-outline" size={24} color={colors.primary[500]} />
               <Text style={styles.sectionTitle}>Dispositivos Vinculados</Text>
             </View>
-            
-            {loadingPatients ? (
-              <LoadingSpinner 
-                size="large" 
-                message="Cargando dispositivos..." 
+
+            {loadingDevices ? (
+              <LoadingSpinner
+                size="large"
+                message="Cargando dispositivos..."
               />
-            ) : patients.length === 0 ? (
-              <View 
+            ) : devices.length === 0 ? (
+              <View
                 style={styles.emptyState}
                 accessible={true}
                 accessibilityRole="text"
@@ -405,9 +411,8 @@ export default function DeviceManagementScreen() {
               </View>
             ) : (
               <View style={styles.devicesList}>
-                {patients
-                  .filter(p => p.deviceId)
-                  .map((patient, index) => renderDeviceCard(patient, index))}
+                {devices
+                  .map((device, index) => renderDeviceCard(device, index))}
               </View>
             )}
           </Card>
@@ -434,7 +439,7 @@ const DeviceStatusSection: React.FC<{ deviceId: string }> = ({ deviceId }) => {
   const currentStatus = deviceState?.current_status ?? 'N/D';
 
   return (
-    <View 
+    <View
       style={styles.statusSection}
       accessible={true}
       accessibilityLabel={`Estado del dispositivo: ${isOnline ? 'En línea' : 'Desconectado'}, Batería: ${batteryLevel !== null ? `${batteryLevel} por ciento` : 'no disponible'}, Estado actual: ${currentStatus}`}
@@ -443,10 +448,10 @@ const DeviceStatusSection: React.FC<{ deviceId: string }> = ({ deviceId }) => {
       <View style={styles.statusRow}>
         <View style={styles.statusItem}>
           <View style={styles.statusLabel}>
-            <Ionicons 
-              name={isOnline ? 'wifi' : 'wifi-outline'} 
-              size={16} 
-              color={isOnline ? colors.success[500] : colors.gray[400]} 
+            <Ionicons
+              name={isOnline ? 'wifi' : 'wifi-outline'}
+              size={16}
+              color={isOnline ? colors.success[500] : colors.gray[400]}
               accessible={false}
             />
             <Text style={styles.statusLabelText}>Estado</Text>
@@ -458,10 +463,10 @@ const DeviceStatusSection: React.FC<{ deviceId: string }> = ({ deviceId }) => {
 
         <View style={styles.statusItem}>
           <View style={styles.statusLabel}>
-            <Ionicons 
-              name="battery-half" 
-              size={16} 
-              color={batteryLevel && batteryLevel > 20 ? colors.success[500] : colors.warning[500]} 
+            <Ionicons
+              name="battery-half"
+              size={16}
+              color={batteryLevel && batteryLevel > 20 ? colors.success[500] : colors.warning[500]}
               accessible={false}
             />
             <Text style={styles.statusLabelText}>Batería</Text>
@@ -508,7 +513,7 @@ const DeviceConfigPanelWrapper: React.FC<{
         if (deviceDoc.exists()) {
           const data = deviceDoc.data();
           const desired = data?.desiredConfig || {};
-          
+
           setConfig({
             alarmMode: (desired?.alarm_mode as any) ?? 'both',
             ledIntensity: (desired?.led_intensity as number) ?? 512,
@@ -652,6 +657,21 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     color: colors.gray[600],
   },
+  waitingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.warning[50],
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+  },
+  waitingText: {
+    fontSize: typography.fontSize.xs,
+    color: colors.warning[700],
+    fontWeight: typography.fontWeight.medium,
+  },
   statusSection: {
     paddingVertical: spacing.md,
     borderTopWidth: 1,
@@ -725,9 +745,3 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-
-
-
-
-
-

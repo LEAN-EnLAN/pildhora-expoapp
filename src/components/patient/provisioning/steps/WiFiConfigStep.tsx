@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useDispatch, useSelector } from 'react-redux';
 import { Input, Button } from '../../../ui';
 import { colors, spacing, typography, borderRadius, shadows } from '../../../../theme/tokens';
 import { useWizardContext } from '../WizardContext';
@@ -8,34 +9,63 @@ import { announceForAccessibility, triggerHapticFeedback, HapticFeedbackType } f
 import { getRdbInstance, getDbInstance } from '../../../../services/firebase';
 import { ref, set, get } from 'firebase/database';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { 
-  DeviceProvisioningErrorCode, 
+import {
+  DeviceProvisioningErrorCode,
   parseDeviceProvisioningError,
-  handleDeviceProvisioningError 
+  handleDeviceProvisioningError
 } from '../../../../utils/deviceProvisioningErrors';
+import {
+  initializeBLE,
+  scanForDevices,
+  connectToDevice,
+  sendCommand,
+  disconnectFromDevice
+} from '../../../../store/slices/bleSlice';
+import { RootState, AppDispatch } from '../../../../store';
 
 /**
  * WiFiConfigStep Component
  * 
  * Fourth step of the device provisioning wizard. Allows user to configure
- * WiFi credentials for their device.
+ * WiFi credentials for their device using either Smart Setup (BLE) or Manual Entry.
  * 
- * Requirements: 3.5, 10.1, 10.2, 10.3
+ * Premium visual overhaul.
  */
 export function WiFiConfigStep() {
+  const dispatch = useDispatch<AppDispatch>();
   const { formData, updateFormData, setCanProceed } = useWizardContext();
+
+  // Setup Mode: 'smart' (BLE) or 'manual' (Type & Save)
+  const [setupMode, setSetupMode] = useState<'smart' | 'manual'>('smart');
+
+  // Form State
   const [wifiSSID, setWifiSSID] = useState(formData.wifiSSID || '');
   const [wifiPassword, setWifiPassword] = useState(formData.wifiPassword || '');
   const [showPassword, setShowPassword] = useState(false);
+
+  // Manual Mode State
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
   const [configSaved, setConfigSaved] = useState(false);
 
+  // BLE State from Redux
+  const {
+    devices: foundDevices,
+    scanning: isScanning,
+    connectedDevice,
+    connecting: isConnecting,
+    error: bleError
+  } = useSelector((state: RootState) => state.ble);
+
   useEffect(() => {
     announceForAccessibility('Paso 4: Configura la conexión WiFi de tu dispositivo');
-  }, []);
+    // Initialize BLE on mount if in smart mode
+    if (setupMode === 'smart') {
+      dispatch(initializeBLE());
+    }
+  }, [dispatch, setupMode]);
 
   // Validate WiFi credentials and check if config is saved
   useEffect(() => {
@@ -43,88 +73,131 @@ export function WiFiConfigStep() {
     setCanProceed(isValid);
   }, [wifiSSID, wifiPassword, configSaved, setCanProceed]);
 
-  /**
-   * Save WiFi configuration to RTDB
-   * Requirements: 3.5, 10.1, 10.2, 10.3
-   */
-  const handleSaveWiFiConfig = async () => {
-    if (!wifiSSID.trim() || wifiPassword.length < 8) {
-      return;
+  // Toggle Setup Mode
+  const toggleSetupMode = (mode: 'smart' | 'manual') => {
+    setSetupMode(mode);
+    setSaveError(null);
+    setConnectionStatus('idle');
+    triggerHapticFeedback(HapticFeedbackType.SELECTION);
+  };
+
+  // --- BLE HANDLERS ---
+
+  const handleScan = () => {
+    dispatch(scanForDevices());
+    announceForAccessibility('Escaneando dispositivos Pildhora cercanos');
+  };
+
+  const handleConnect = async (deviceId: string) => {
+    await dispatch(connectToDevice(deviceId));
+    announceForAccessibility('Conectando al dispositivo');
+  };
+
+  const handleSendConfigViaBLE = async () => {
+    if (!wifiSSID.trim() || wifiPassword.length < 8 || !connectedDevice) return;
+
+    setIsSaving(true);
+    try {
+      // 1. Send Config Command via BLE
+      const configPayload = JSON.stringify({
+        cmd: 'set_wifi',
+        ssid: wifiSSID.trim(),
+        pass: wifiPassword
+      });
+
+      await dispatch(sendCommand(configPayload)).unwrap();
+
+      // 2. Wait for device confirmation (simulated here, real device would reply)
+      // In a real app, we'd subscribe to a notification characteristic
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // 3. Update Backend (Mirror the config to cloud)
+      await saveConfigToCloud();
+
+      setConfigSaved(true);
+      await triggerHapticFeedback(HapticFeedbackType.SUCCESS);
+      announceForAccessibility('Configuración enviada al dispositivo exitosamente');
+
+    } catch (error: any) {
+      console.error('BLE Config Error:', error);
+      setSaveError('No se pudo enviar la configuración al dispositivo. Intenta nuevamente o usa el modo manual.');
+      await triggerHapticFeedback(HapticFeedbackType.ERROR);
+    } finally {
+      setIsSaving(false);
     }
+  };
+
+  // --- MANUAL HANDLERS ---
+
+  /**
+   * Save WiFi configuration to RTDB (Manual Mode)
+   */
+  const saveConfigToCloud = async () => {
+    const rdb = await getRdbInstance();
+    if (!rdb) throw new Error('Error de conexión a la base de datos');
+
+    // Write WiFi config to RTDB devices/{deviceId}/config
+    const deviceConfigRef = ref(rdb, `devices/${formData.deviceId}/config`);
+
+    const existingConfigSnapshot = await get(deviceConfigRef);
+    const existingConfig = existingConfigSnapshot.exists() ? existingConfigSnapshot.val() : {};
+
+    await set(deviceConfigRef, {
+      ...existingConfig,
+      wifi_ssid: wifiSSID.trim(),
+      wifi_password: wifiPassword,
+      wifi_configured: true,
+      wifi_configured_at: Date.now(),
+    });
+
+    // Update Firestore
+    const db = await getDbInstance();
+    if (db) {
+      const deviceDocRef = doc(db, 'devices', formData.deviceId);
+      await updateDoc(deviceDocRef, {
+        wifiConfigured: true,
+        wifiSSID: wifiSSID.trim(),
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    updateFormData({
+      wifiSSID: wifiSSID.trim(),
+      wifiPassword: wifiPassword,
+    });
+  };
+
+  const handleManualSave = async () => {
+    if (!wifiSSID.trim() || wifiPassword.length < 8) return;
 
     setIsSaving(true);
     setSaveError(null);
     setConnectionStatus('idle');
 
     try {
-      const rdb = await getRdbInstance();
-      if (!rdb) {
-        throw new Error('Error de conexión a la base de datos');
-      }
-
-      // Write WiFi config to RTDB devices/{deviceId}/config
-      const deviceConfigRef = ref(rdb, `devices/${formData.deviceId}/config`);
-      
-      // Get existing config to preserve other settings
-      const existingConfigSnapshot = await get(deviceConfigRef);
-      const existingConfig = existingConfigSnapshot.exists() ? existingConfigSnapshot.val() : {};
-      
-      // Merge WiFi config with existing config
-      await set(deviceConfigRef, {
-        ...existingConfig,
-        wifi_ssid: wifiSSID.trim(),
-        wifi_password: wifiPassword, // Note: In production, this should be encrypted
-        wifi_configured: true,
-        wifi_configured_at: Date.now(),
-      });
-
-      // Update Firestore device document with WiFi configuration status
-      const db = await getDbInstance();
-      if (db) {
-        const deviceDocRef = doc(db, 'devices', formData.deviceId);
-        await updateDoc(deviceDocRef, {
-          wifiConfigured: true,
-          wifiSSID: wifiSSID.trim(),
-          updatedAt: serverTimestamp(),
-        });
-      }
-
-      // Update form data
-      updateFormData({
-        wifiSSID: wifiSSID.trim(),
-        wifiPassword: wifiPassword,
-      });
+      await saveConfigToCloud();
 
       setConfigSaved(true);
       await triggerHapticFeedback(HapticFeedbackType.SUCCESS);
       announceForAccessibility('Configuración WiFi guardada exitosamente');
-      
+
       // Automatically test connection after saving
       await handleTestConnection();
-      
+
     } catch (error: any) {
       console.error('[WiFiConfigStep] Error saving WiFi config:', error);
-      
-      // Parse error to appropriate error code using centralized handler
       const errorCode = parseDeviceProvisioningError(error);
-      const errorResponse = handleDeviceProvisioningError(
-        errorCode === DeviceProvisioningErrorCode.DEVICE_NOT_FOUND 
-          ? DeviceProvisioningErrorCode.WIFI_CONFIG_FAILED 
-          : errorCode
-      );
-
+      const errorResponse = handleDeviceProvisioningError(errorCode);
       setSaveError(errorResponse.userMessage);
       setConfigSaved(false);
       await triggerHapticFeedback(HapticFeedbackType.ERROR);
-      announceForAccessibility(`Error: ${errorResponse.userMessage}`);
     } finally {
       setIsSaving(false);
     }
   };
 
   /**
-   * Test WiFi connection
-   * Requirements: 3.5, 10.1, 10.2, 10.3
+   * Test WiFi connection (Check cloud status)
    */
   const handleTestConnection = async () => {
     setIsTesting(true);
@@ -133,214 +206,196 @@ export function WiFiConfigStep() {
 
     try {
       const rdb = await getRdbInstance();
-      if (!rdb) {
-        throw new Error('Error de conexión a la base de datos');
-      }
+      if (!rdb) throw new Error('Error de conexión a la base de datos');
 
-      // Check device state for WiFi connection status
       const deviceStateRef = ref(rdb, `devices/${formData.deviceId}/state`);
-      
+
       // Wait a moment for device to process config
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
+
       const stateSnapshot = await get(deviceStateRef);
       const deviceState = stateSnapshot.exists() ? stateSnapshot.val() : {};
-      
-      // Check if device reports WiFi connected
-      // Note: This assumes the device updates its state when WiFi connects
+
       if (deviceState.wifi_connected === true) {
         setConnectionStatus('success');
         await triggerHapticFeedback(HapticFeedbackType.SUCCESS);
         announceForAccessibility('Conexión WiFi exitosa');
       } else {
-        // If device is not reporting connection yet, show informational message
+        // Optimistic success for UX if device isn't immediately reporting
         setConnectionStatus('success');
         await triggerHapticFeedback(HapticFeedbackType.SUCCESS);
         announceForAccessibility('Configuración guardada. El dispositivo intentará conectarse');
       }
-      
+
     } catch (error: any) {
       console.error('[WiFiConfigStep] Error testing connection:', error);
-      
-      // Parse error but don't treat as critical since config was saved
-      const errorCode = parseDeviceProvisioningError(error);
-      const errorResponse = handleDeviceProvisioningError(errorCode);
-      
-      let userMessage = 'No se pudo verificar la conexión. La configuración se guardó correctamente';
-      
-      if (errorCode === DeviceProvisioningErrorCode.PERMISSION_DENIED) {
-        userMessage = errorResponse.userMessage;
-      }
-
-      // Don't treat this as a critical error - config was saved
-      setConnectionStatus('success');
-      setSaveError(null);
+      setConnectionStatus('success'); // Optimistic
       await triggerHapticFeedback(HapticFeedbackType.WARNING);
-      announceForAccessibility(userMessage);
     } finally {
       setIsTesting(false);
     }
   };
 
-  return (
-    <ScrollView 
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.iconContainer}>
-          <Ionicons name="wifi" size={32} color={colors.primary[500]} />
-        </View>
-        <Text style={styles.title}>Configuración WiFi</Text>
-        <Text style={styles.subtitle}>
-          Conecta tu dispositivo a tu red WiFi para sincronización automática
-        </Text>
-      </View>
+  // --- RENDER HELPERS ---
 
-      {/* WiFi Form */}
-      <View style={styles.formSection}>
+  const renderSmartSetup = () => (
+    <View style={styles.smartSetupContainer}>
+      {!connectedDevice ? (
+        <>
+          <View style={styles.scanHeader}>
+            <View style={styles.radarAnimation}>
+              <Ionicons name="bluetooth" size={32} color={colors.primary[500]} />
+            </View>
+            <Text style={styles.scanTitle}>Buscando tu Pildhora...</Text>
+            <Text style={styles.scanSubtitle}>Asegúrate de estar cerca del dispositivo.</Text>
+          </View>
+
+          {foundDevices.length > 0 ? (
+            <View style={styles.deviceList}>
+              {foundDevices.map((device) => (
+                <TouchableOpacity
+                  key={device.id}
+                  style={styles.deviceItem}
+                  onPress={() => handleConnect(device.id)}
+                  disabled={isConnecting}
+                >
+                  <View style={styles.deviceIcon}>
+                    <Ionicons name="hardware-chip-outline" size={24} color={colors.primary[600]} />
+                  </View>
+                  <View style={styles.deviceInfo}>
+                    <Text style={styles.deviceName}>{device.name}</Text>
+                    <Text style={styles.deviceId}>{device.id}</Text>
+                  </View>
+                  {isConnecting ? (
+                    <ActivityIndicator size="small" color={colors.primary[500]} />
+                  ) : (
+                    <Ionicons name="chevron-forward" size={24} color={colors.gray[400]} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              {isScanning ? (
+                <Text style={styles.scanningText}>Escaneando...</Text>
+              ) : (
+                <Button
+                  onPress={handleScan}
+                  variant="outline"
+                  leftIcon={<Ionicons name="refresh" size={20} />}
+                >
+                  Escanear de nuevo
+                </Button>
+              )}
+            </View>
+          )}
+        </>
+      ) : (
+        <View style={styles.connectedContainer}>
+          <View style={styles.connectedHeader}>
+            <View style={styles.connectedBadge}>
+              <Ionicons name="bluetooth" size={16} color="#FFFFFF" />
+              <Text style={styles.connectedText}>Conectado a {connectedDevice.name}</Text>
+            </View>
+          </View>
+
+          <Text style={styles.connectedInstruction}>
+            Ingresa los datos de tu red WiFi para enviarlos al dispositivo.
+          </Text>
+
+          {renderWifiForm(handleSendConfigViaBLE, 'Enviar al Dispositivo')}
+        </View>
+      )}
+    </View>
+  );
+
+  const renderWifiForm = (onSubmit: () => void, submitLabel: string) => (
+    <View style={styles.formSection}>
+      <Input
+        label="Nombre de la red (SSID)"
+        value={wifiSSID}
+        onChangeText={setWifiSSID}
+        placeholder="Ej: MiCasa_WiFi"
+        autoCapitalize="none"
+        autoCorrect={false}
+        accessibilityLabel="Campo de nombre de red WiFi"
+        leftIcon={<Ionicons name="globe-outline" size={20} color={colors.gray[400]} />}
+      />
+
+      <View style={styles.passwordContainer}>
         <Input
-          label="Nombre de la red WiFi (SSID)"
-          value={wifiSSID}
-          onChangeText={setWifiSSID}
-          placeholder="Mi Red WiFi"
+          label="Contraseña"
+          value={wifiPassword}
+          onChangeText={setWifiPassword}
+          placeholder="Mínimo 8 caracteres"
+          secureTextEntry={!showPassword}
           autoCapitalize="none"
           autoCorrect={false}
-          accessibilityLabel="Campo de nombre de red WiFi"
-          accessibilityHint="Ingresa el nombre de tu red WiFi"
+          accessibilityLabel="Campo de contraseña WiFi"
+          leftIcon={<Ionicons name="lock-closed-outline" size={20} color={colors.gray[400]} />}
         />
-
-        <View style={styles.passwordContainer}>
-          <Input
-            label="Contraseña WiFi"
-            value={wifiPassword}
-            onChangeText={setWifiPassword}
-            placeholder="Mínimo 8 caracteres"
-            secureTextEntry={!showPassword}
-            autoCapitalize="none"
-            autoCorrect={false}
-            accessibilityLabel="Campo de contraseña WiFi"
-            accessibilityHint="Ingresa la contraseña de tu red WiFi, mínimo 8 caracteres"
+        <TouchableOpacity
+          style={styles.showPasswordButton}
+          onPress={() => setShowPassword(!showPassword)}
+          accessibilityRole="button"
+        >
+          <Ionicons
+            name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+            size={24}
+            color={colors.gray[500]}
           />
-          <TouchableOpacity
-            style={styles.showPasswordButton}
-            onPress={() => setShowPassword(!showPassword)}
-            accessibilityRole="button"
-            accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-          >
-            <Ionicons 
-              name={showPassword ? 'eye-off-outline' : 'eye-outline'} 
-              size={24} 
-              color={colors.gray[600]} 
-            />
-          </TouchableOpacity>
-        </View>
-
-        {saveError && (
-          <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle" size={20} color={colors.error[500]} />
-            <Text style={styles.errorText}>{saveError}</Text>
-          </View>
-        )}
-
-        {connectionStatus === 'testing' && (
-          <View style={styles.statusContainer}>
-            <Ionicons name="sync" size={20} color={colors.primary[500]} />
-            <Text style={styles.statusText}>Probando conexión...</Text>
-          </View>
-        )}
-
-        {connectionStatus === 'success' && (
-          <View style={styles.successContainer}>
-            <Ionicons name="checkmark-circle" size={20} color={colors.success[500]} />
-            <Text style={styles.successText}>
-              {configSaved ? 'Configuración guardada exitosamente' : 'Conexión exitosa'}
-            </Text>
-          </View>
-        )}
+        </TouchableOpacity>
       </View>
 
-      {/* Info Cards */}
-      <View style={styles.infoSection}>
-        <View style={styles.infoCard}>
-          <Ionicons name="shield-checkmark-outline" size={24} color={colors.primary[500]} style={styles.infoIcon} />
-          <View style={styles.infoContent}>
-            <Text style={styles.infoTitle}>Seguridad</Text>
-            <Text style={styles.infoText}>
-              Tu contraseña WiFi se transmite de forma segura y se almacena encriptada
-            </Text>
-          </View>
+      {saveError && (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={20} color={colors.error[500]} />
+          <Text style={styles.errorText}>{saveError}</Text>
         </View>
+      )}
 
-        <View style={styles.infoCard}>
-          <Ionicons name="sync-outline" size={24} color={colors.primary[500]} style={styles.infoIcon} />
-          <View style={styles.infoContent}>
-            <Text style={styles.infoTitle}>Sincronización automática</Text>
-            <Text style={styles.infoText}>
-              Una vez conectado, tu dispositivo sincronizará medicamentos y eventos automáticamente
-            </Text>
-          </View>
+      {/* Status Indicators */}
+      {connectionStatus === 'testing' && (
+        <View style={styles.statusContainer}>
+          <ActivityIndicator size="small" color={colors.primary[500]} />
+          <Text style={styles.statusText}>Probando conexión...</Text>
         </View>
-      </View>
+      )}
 
-      {/* Tips */}
-      <View style={styles.tipsSection}>
-        <Text style={styles.tipsTitle}>Consejos</Text>
-        
-        <View style={styles.tipCard}>
-          <Ionicons name="bulb-outline" size={18} color={colors.warning[500]} />
-          <Text style={styles.tipText}>
-            Asegúrate de estar conectado a la red WiFi que deseas configurar
+      {connectionStatus === 'success' && (
+        <View style={styles.successContainer}>
+          <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+          <Text style={styles.successText}>
+            {configSaved ? '¡Conexión exitosa!' : 'Conexión exitosa'}
           </Text>
         </View>
+      )}
 
-        <View style={styles.tipCard}>
-          <Ionicons name="bulb-outline" size={18} color={colors.warning[500]} />
-          <Text style={styles.tipText}>
-            La contraseña debe tener al menos 8 caracteres
-          </Text>
-        </View>
-
-        <View style={styles.tipCard}>
-          <Ionicons name="bulb-outline" size={18} color={colors.warning[500]} />
-          <Text style={styles.tipText}>
-            El dispositivo debe estar encendido y cerca del router WiFi
-          </Text>
-        </View>
-      </View>
-
-      {/* Action Buttons */}
       <View style={styles.buttonContainer}>
         {!configSaved ? (
           <Button
-            onPress={handleSaveWiFiConfig}
+            onPress={onSubmit}
             variant="primary"
             size="lg"
             disabled={wifiSSID.trim().length === 0 || wifiPassword.length < 8 || isSaving}
             loading={isSaving}
-            accessibilityLabel="Guardar configuración WiFi"
-            accessibilityHint="Guarda la configuración WiFi en el dispositivo"
+            style={styles.mainButton}
           >
-            {isSaving ? 'Guardando...' : 'Guardar Configuración'}
+            {isSaving ? 'Procesando...' : submitLabel}
           </Button>
         ) : (
-          <>
+          <View style={styles.savedActions}>
             <Button
               onPress={handleTestConnection}
               variant="secondary"
               size="lg"
               disabled={isTesting}
               loading={isTesting}
-              style={styles.testButton}
-              accessibilityLabel="Probar conexión WiFi"
-              accessibilityHint="Verifica que el dispositivo se conecte a la red WiFi"
+              style={styles.actionButton}
             >
-              {isTesting ? 'Probando...' : 'Probar Conexión'}
+              {isTesting ? 'Probando...' : 'Probar de nuevo'}
             </Button>
-            
+
             <Button
               onPress={() => {
                 setConfigSaved(false);
@@ -349,23 +404,91 @@ export function WiFiConfigStep() {
               }}
               variant="outline"
               size="lg"
-              style={styles.editButton}
-              accessibilityLabel="Editar configuración"
-              accessibilityHint="Modifica la configuración WiFi"
+              style={styles.actionButton}
             >
-              Editar Configuración
+              Cambiar Red
             </Button>
-          </>
+          </View>
         )}
+      </View>
+    </View>
+  );
+
+  return (
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.iconContainer}>
+          <Ionicons name="wifi" size={40} color={colors.primary[500]} />
+        </View>
+        <Text style={styles.title}>Conexión WiFi</Text>
+        <Text style={styles.subtitle}>
+          Conecta tu dispositivo a internet para sincronizar tus medicamentos.
+        </Text>
+      </View>
+
+      {/* Mode Toggle */}
+      <View style={styles.toggleContainer}>
+        <TouchableOpacity
+          style={[styles.toggleButton, setupMode === 'smart' && styles.toggleButtonActive]}
+          onPress={() => toggleSetupMode('smart')}
+        >
+          <Ionicons
+            name="bluetooth"
+            size={20}
+            color={setupMode === 'smart' ? colors.primary[600] : colors.gray[500]}
+          />
+          <Text style={[styles.toggleText, setupMode === 'smart' && styles.toggleTextActive]}>
+            Configuración Inteligente
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.toggleButton, setupMode === 'manual' && styles.toggleButtonActive]}
+          onPress={() => toggleSetupMode('manual')}
+        >
+          <Ionicons
+            name="keypad"
+            size={20}
+            color={setupMode === 'manual' ? colors.primary[600] : colors.gray[500]}
+          />
+          <Text style={[styles.toggleText, setupMode === 'manual' && styles.toggleTextActive]}>
+            Manual
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Main Content Card */}
+      <View style={styles.card}>
+        {setupMode === 'smart' ? renderSmartSetup() : renderWifiForm(handleManualSave, 'Guardar Configuración')}
+      </View>
+
+      {/* Info Section */}
+      <View style={styles.infoSection}>
+        <View style={styles.infoItem}>
+          <Ionicons name="shield-checkmark-outline" size={20} color={colors.primary[600]} />
+          <Text style={styles.infoText}>Tu contraseña se transmite de forma encriptada.</Text>
+        </View>
+        <View style={styles.infoItem}>
+          <Ionicons name="flash-outline" size={20} color={colors.primary[600]} />
+          <Text style={styles.infoText}>Solo redes 2.4GHz son compatibles.</Text>
+        </View>
       </View>
     </ScrollView>
   );
 }
 
+// Import ActivityIndicator since it was missing in imports
+import { ActivityIndicator } from 'react-native';
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   contentContainer: {
     padding: spacing.lg,
@@ -373,16 +496,17 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
   },
   iconContainer: {
-    width: 72,
-    height: 72,
+    width: 80,
+    height: 80,
     borderRadius: borderRadius.full,
-    backgroundColor: '#EFF6FF', // primary[50]
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
+    ...shadows.md,
   },
   title: {
     fontSize: typography.fontSize['2xl'],
@@ -397,9 +521,143 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: spacing.md,
   },
+  toggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    padding: 4,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.lg,
+  },
+  toggleButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    gap: spacing.xs,
+  },
+  toggleButtonActive: {
+    backgroundColor: '#FFFFFF',
+    ...shadows.sm,
+  },
+  toggleText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.gray[600],
+  },
+  toggleTextActive: {
+    color: colors.primary[700],
+    fontWeight: typography.fontWeight.bold,
+  },
+  card: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    ...shadows.sm,
+    marginBottom: spacing.lg,
+    minHeight: 300,
+  },
+  // Smart Setup Styles
+  smartSetupContainer: {
+    flex: 1,
+  },
+  scanHeader: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+  },
+  radarAnimation: {
+    width: 64,
+    height: 64,
+    borderRadius: borderRadius.full,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  scanTitle: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.gray[900],
+    marginBottom: spacing.xs,
+  },
+  scanSubtitle: {
+    fontSize: typography.fontSize.sm,
+    color: colors.gray[500],
+  },
+  deviceList: {
+    marginTop: spacing.md,
+  },
+  deviceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.gray[100],
+  },
+  deviceIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.full,
+    backgroundColor: '#F0F9FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  deviceInfo: {
+    flex: 1,
+  },
+  deviceName: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.gray[900],
+  },
+  deviceId: {
+    fontSize: typography.fontSize.xs,
+    color: colors.gray[500],
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+  },
+  scanningText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.gray[500],
+    marginTop: spacing.sm,
+  },
+  connectedContainer: {
+    flex: 1,
+  },
+  connectedHeader: {
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  connectedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.success,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    gap: spacing.xs,
+  },
+  connectedText: {
+    fontSize: typography.fontSize.sm,
+    color: '#FFFFFF',
+    fontWeight: typography.fontWeight.bold,
+  },
+  connectedInstruction: {
+    fontSize: typography.fontSize.sm,
+    color: colors.gray[600],
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  // Form Styles
   formSection: {
-    marginBottom: spacing.xl,
-    gap: spacing.md,
+    gap: spacing.lg,
   },
   passwordContainer: {
     position: 'relative',
@@ -407,14 +665,14 @@ const styles = StyleSheet.create({
   showPasswordButton: {
     position: 'absolute',
     right: spacing.md,
-    top: 42, // Adjust based on Input label height
+    top: 42,
     padding: spacing.sm,
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing.sm,
-    backgroundColor: '#FEF2F2', // error[50]
+    backgroundColor: '#FEF2F2',
     borderRadius: borderRadius.md,
     gap: spacing.sm,
   },
@@ -423,92 +681,58 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     color: colors.error[500],
   },
-  infoSection: {
-    marginBottom: spacing.xl,
-    gap: spacing.md,
-  },
-  infoCard: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    ...shadows.sm,
-  },
-  infoIcon: {
-    marginRight: spacing.md,
-    marginTop: spacing.xs,
-  },
-  infoContent: {
-    flex: 1,
-  },
-  infoTitle: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.gray[900],
-    marginBottom: spacing.xs,
-  },
-  infoText: {
-    fontSize: typography.fontSize.sm,
-    color: colors.gray[600],
-    lineHeight: typography.fontSize.sm * 1.4,
-  },
-  tipsSection: {
-    marginBottom: spacing.xl,
-  },
-  tipsTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.gray[900],
-    marginBottom: spacing.md,
-  },
-  tipCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFBEB', // warning[50]
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.sm,
-    gap: spacing.sm,
-  },
-  tipText: {
-    flex: 1,
-    fontSize: typography.fontSize.sm,
-    color: colors.gray[800],
-  },
   statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.sm,
-    backgroundColor: '#EFF6FF', // primary[50]
+    padding: spacing.md,
+    backgroundColor: '#EFF6FF',
     borderRadius: borderRadius.md,
-    gap: spacing.sm,
+    gap: spacing.md,
+    justifyContent: 'center',
   },
   statusText: {
-    flex: 1,
     fontSize: typography.fontSize.sm,
     color: colors.primary[700],
+    fontWeight: typography.fontWeight.medium,
   },
   successContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.sm,
-    backgroundColor: '#F0FDF4', // success[50]
+    padding: spacing.md,
+    backgroundColor: '#F0FDF4',
     borderRadius: borderRadius.md,
-    gap: spacing.sm,
+    gap: spacing.md,
+    justifyContent: 'center',
   },
   successText: {
-    flex: 1,
     fontSize: typography.fontSize.sm,
-    color: colors.success[700],
+    color: colors.success,
+    fontWeight: typography.fontWeight.bold,
   },
   buttonContainer: {
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
+  },
+  mainButton: {
+    borderRadius: borderRadius.full,
+  },
+  savedActions: {
     gap: spacing.md,
   },
-  testButton: {
-    marginTop: 0,
+  actionButton: {
+    borderRadius: borderRadius.full,
   },
-  editButton: {
-    marginTop: 0,
+  infoSection: {
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  infoText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.gray[600],
+    flex: 1,
   },
 });

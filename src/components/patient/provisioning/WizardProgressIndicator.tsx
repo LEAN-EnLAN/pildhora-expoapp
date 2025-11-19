@@ -31,15 +31,15 @@ export interface WizardProgressIndicatorProps {
  * 
  * Requirements: 11.1, 11.2
  */
-export function WizardProgressIndicator({ 
-  currentStep, 
-  totalSteps, 
-  stepLabels 
+export function WizardProgressIndicator({
+  currentStep,
+  totalSteps,
+  stepLabels
 }: WizardProgressIndicatorProps) {
   const progressPercentage = Math.round(((currentStep + 1) / totalSteps) * 100);
-  
+
   return (
-    <View 
+    <View
       style={styles.container}
       accessibilityRole="progressbar"
       accessibilityLabel={`Paso ${currentStep + 1} de ${totalSteps}: ${stepLabels[currentStep]}`}
@@ -62,9 +62,9 @@ export function WizardProgressIndicator({
       {/* Progress Bar with Gradient Effect */}
       <View style={styles.progressBarContainer}>
         <View style={styles.progressBarBackground}>
-          <View 
+          <View
             style={[
-              styles.progressBarFill, 
+              styles.progressBarFill,
               { width: `${progressPercentage}%` }
             ]}
             accessibilityElementsHidden
@@ -124,11 +124,11 @@ export function WizardProgressIndicator({
               {/* Connection Line */}
               {isNotLast && (
                 <View style={styles.connectionLineContainer}>
-                  <View 
+                  <View
                     style={[
                       styles.connectionLine,
                       index < currentStep && styles.connectionLineCompleted,
-                    ]} 
+                    ]}
                   />
                 </View>
               )}
@@ -145,9 +145,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.lg,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[100],
+    backgroundColor: 'transparent', // Transparent to blend with gradient
+    // Removed borderBottomWidth to make it cleaner
   },
   header: {
     flexDirection: 'row',
@@ -161,7 +160,7 @@ const styles = StyleSheet.create({
     color: colors.gray[900],
   },
   percentageContainer: {
-    backgroundColor: '#EFF6FF', // primary[50]
+    backgroundColor: 'rgba(255, 255, 255, 0.5)', // Semi-transparent white
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
@@ -169,7 +168,7 @@ const styles = StyleSheet.create({
   percentageText: {
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.bold,
-    color: colors.primary[500],
+    color: colors.primary[600],
   },
   currentStepInfo: {
     marginBottom: spacing.md,
@@ -191,7 +190,7 @@ const styles = StyleSheet.create({
   },
   progressBarBackground: {
     height: 8,
-    backgroundColor: colors.gray[100],
+    backgroundColor: 'rgba(255, 255, 255, 0.5)', // Semi-transparent white
     borderRadius: borderRadius.full,
     overflow: 'hidden',
   },
@@ -238,8 +237,8 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   stepCirclePending: {
-    backgroundColor: colors.gray[100],
-    borderColor: colors.gray[200],
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    borderColor: 'rgba(255, 255, 255, 0.8)',
   },
   currentStepPulse: {
     width: '100%',
@@ -255,7 +254,7 @@ const styles = StyleSheet.create({
   stepNumberPending: {
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
-    color: colors.gray[400],
+    color: colors.gray[500],
   },
   stepLabel: {
     fontSize: typography.fontSize.xs,
@@ -268,10 +267,10 @@ const styles = StyleSheet.create({
   },
   stepLabelCurrent: {
     fontWeight: typography.fontWeight.bold,
-    color: colors.primary[500],
+    color: colors.primary[600],
   },
   stepLabelPending: {
-    color: colors.gray[400],
+    color: colors.gray[500],
   },
   connectionLineContainer: {
     flex: 1,
@@ -282,7 +281,7 @@ const styles = StyleSheet.create({
   connectionLine: {
     height: 2,
     width: '100%',
-    backgroundColor: colors.gray[200],
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
   },
   connectionLineCompleted: {
     backgroundColor: colors.success,

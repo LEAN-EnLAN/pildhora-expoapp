@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius } from '../../../theme/tokens';
+import { colors, spacing, typography, borderRadius, shadows } from '../../../theme/tokens';
 import {
   DeviceProvisioningErrorCode,
   handleDeviceProvisioningError,
@@ -34,7 +34,7 @@ export function DeviceProvisioningErrorDisplay({
   const supportInfo = getSupportContactInfo();
 
   return (
-    <ScrollView 
+    <ScrollView
       style={[styles.container, style]}
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
@@ -60,7 +60,7 @@ export function DeviceProvisioningErrorDisplay({
       {/* Troubleshooting Steps */}
       <View style={styles.troubleshootingSection}>
         <Text style={styles.sectionTitle}>Pasos para Solucionar</Text>
-        
+
         {errorResponse.troubleshootingSteps.map((step, index) => (
           <View key={index} style={styles.stepCard}>
             <View style={styles.stepNumber}>
@@ -78,20 +78,20 @@ export function DeviceProvisioningErrorDisplay({
             <Ionicons name="headset" size={24} color={colors.primary[500]} />
             <Text style={styles.supportTitle}>¿Necesitas Ayuda?</Text>
           </View>
-          
+
           <View style={styles.supportCard}>
             <View style={styles.supportItem}>
               <Ionicons name="mail" size={18} color={colors.gray[600]} />
               <Text style={styles.supportText}>{supportInfo.email}</Text>
             </View>
-            
+
             {supportInfo.phone && (
               <View style={styles.supportItem}>
                 <Ionicons name="call" size={18} color={colors.gray[600]} />
                 <Text style={styles.supportText}>{supportInfo.phone}</Text>
               </View>
             )}
-            
+
             <View style={styles.supportItem}>
               <Ionicons name="time" size={18} color={colors.gray[600]} />
               <Text style={styles.supportText}>{supportInfo.hours}</Text>
@@ -141,7 +141,9 @@ export function DeviceProvisioningErrorDisplay({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)', // Glassmorphism background
+    borderRadius: borderRadius.xl,
+    ...shadows.sm,
   },
   contentContainer: {
     padding: spacing.lg,
@@ -209,11 +211,12 @@ const styles = StyleSheet.create({
   },
   stepCard: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
+    backgroundColor: '#FFFFFF',
     padding: spacing.md,
     borderRadius: borderRadius.lg,
     marginBottom: spacing.md,
     gap: spacing.md,
+    ...shadows.sm,
   },
   stepNumber: {
     width: 28,
@@ -250,11 +253,12 @@ const styles = StyleSheet.create({
     color: colors.gray[900],
   },
   supportCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: '#FFFFFF',
     padding: spacing.lg,
     borderRadius: borderRadius.lg,
     marginBottom: spacing.md,
     gap: spacing.md,
+    ...shadows.sm,
   },
   supportItem: {
     flexDirection: 'row',
@@ -283,7 +287,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: '#FFFFFF',
     padding: spacing.md,
     borderRadius: borderRadius.lg,
     borderWidth: 2,

@@ -9,7 +9,6 @@ import { logout } from '../../src/store/slices/authSlice';
 import { fetchMedications } from '../../src/store/slices/medicationsSlice';
 import { startIntakesSubscription, stopIntakesSubscription } from '../../src/store/slices/intakesSlice';
 import { Card, Button, Modal, LoadingSpinner, AnimatedListItem, AppIcon, BrandedLoadingScreen } from '../../src/components/ui';
-import { AdherenceCard } from '../../src/components/screens/patient/AdherenceCard';
 import { UpcomingDoseCard } from '../../src/components/screens/patient/UpcomingDoseCard';
 import { DeviceStatusCard } from '../../src/components/screens/patient/DeviceStatusCard';
 import { MedicationListItem } from '../../src/components/screens/patient/MedicationListItem';
@@ -18,8 +17,8 @@ import { Medication, IntakeStatus } from '../../src/types';
 import { getDbInstance, getRdbInstance } from '../../src/services/firebase';
 import { addDoc, collection, Timestamp } from 'firebase/firestore';
 import { ref, get as rdbGet } from 'firebase/database';
-import { unlinkDeviceFromUser } from '../../src/services/deviceLinking';
 import { colors, spacing, typography, borderRadius, shadows } from '../../src/theme/tokens';
+import { PremiumAdherenceChart } from '../../src/components/shared/PremiumAdherenceChart';
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList<Medication>);
 
@@ -65,7 +64,6 @@ export default function PatientHome() {
   const [emergencyModalVisible, setEmergencyModalVisible] = useState(false);
   const [takingLoading, setTakingLoading] = useState(false);
   const [accountMenuVisible, setAccountMenuVisible] = useState(false);
-  const [unlinkingDevice, setUnlinkingDevice] = useState(false);
   const scrollY = React.useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -82,28 +80,45 @@ export default function PatientHome() {
 
   // Initialize and refresh device list
   const initDevice = useCallback(async () => {
+    console.log('[Home] initDevice called, patientId:', patientId);
     try {
-      if (!patientId) return;
+      if (!patientId) {
+        console.log('[Home] No patientId, skipping device init');
+        return;
+      }
       const rdb = await getRdbInstance();
-      if (!rdb) return;
-      
+      if (!rdb) {
+        console.log('[Home] RTDB not available');
+        return;
+      }
+
       // Get all linked devices for this user
+      console.log('[Home] Fetching devices from users/${patientId}/devices');
       const snap = await rdbGet(ref(rdb, `users/${patientId}/devices`));
       const val = snap.val() || {};
       const deviceIds = Object.keys(val);
-      
+
       console.log('[Home] Found linked devices:', deviceIds);
-      
+      console.log('[Home] Device data:', val);
+
       if (deviceIds.length === 0) {
-        console.log('[Home] No devices found, setting activeDeviceId to null');
-        setActiveDeviceId(null);
-        // Stop listening if we were listening to a device
-        if (deviceSlice?.listening) {
-          dispatch(stopDeviceListener());
+        if (user?.deviceId) {
+          console.log('[Home] No devices in RTDB, but user has deviceId in profile. Using that:', user.deviceId);
+          setActiveDeviceId(user.deviceId);
+          if (!deviceSlice?.listening) {
+            dispatch(startDeviceListener(user.deviceId));
+          }
+        } else {
+          console.log('[Home] No devices found, setting activeDeviceId to null');
+          setActiveDeviceId(null);
+          // Stop listening if we were listening to a device
+          if (deviceSlice?.listening) {
+            dispatch(stopDeviceListener());
+          }
         }
         return;
       }
-      
+
       // If only one device, use it
       if (deviceIds.length === 1) {
         console.log('[Home] Single device found:', deviceIds[0]);
@@ -113,7 +128,7 @@ export default function PatientHome() {
         }
         return;
       }
-      
+
       // If multiple devices, find the most recently active one
       const deviceStates = await Promise.all(
         deviceIds.map(async (id) => {
@@ -130,18 +145,18 @@ export default function PatientHome() {
           }
         })
       );
-      
+
       // Prioritize: 1) Online devices, 2) Most recently seen
       const sortedDevices = deviceStates.sort((a, b) => {
         if (a.isOnline && !b.isOnline) return -1;
         if (!a.isOnline && b.isOnline) return 1;
         return b.lastSeen - a.lastSeen;
       });
-      
+
       const selectedDevice = sortedDevices[0].id;
       console.log('[Home] Selected device from multiple:', selectedDevice);
       setActiveDeviceId(selectedDevice);
-      
+
       if (!deviceSlice?.listening) {
         dispatch(startDeviceListener(selectedDevice));
       }
@@ -153,7 +168,7 @@ export default function PatientHome() {
   // Initialize device on mount
   useEffect(() => {
     initDevice();
-    
+
     return () => {
       if (deviceSlice?.listening) {
         dispatch(stopDeviceListener());
@@ -169,7 +184,7 @@ export default function PatientHome() {
         initDevice();
       }
     });
-    
+
     return () => {
       subscription.remove();
     };
@@ -209,12 +224,12 @@ export default function PatientHome() {
         uniqueTaken.add(completionToken);
       }
     });
-    
+
     console.log('[Adherence] Today meds:', todaysMeds.length);
     console.log('[Adherence] Total doses:', totalDoses);
     console.log('[Adherence] Total intakes:', intakes.length);
     console.log('[Adherence] Unique doses taken today:', uniqueTaken.size);
-    
+
     return { takenCount: uniqueTaken.size, totalCount: totalDoses };
   }, [medications, intakes]);
 
@@ -235,7 +250,7 @@ export default function PatientHome() {
     const scheduledDate = new Date();
     scheduledDate.setHours(hh, mm, 0, 0);
     const scheduledMs = scheduledDate.getTime();
-    
+
     const completedIntake = intakes.find((intake) => {
       if (intake.status !== IntakeStatus.TAKEN) return false;
       const intakeMs = new Date(intake.scheduledTime).getTime();
@@ -246,14 +261,14 @@ export default function PatientHome() {
         : intake.medicationName === upcoming.med.name;
       return matchesTime && matchesMed;
     });
-    
+
     if (completedIntake && completedIntake.takenAt) {
       return {
         isCompleted: true,
         completedAt: new Date(completedIntake.takenAt)
       };
     }
-    
+
     return { isCompleted: false, completedAt: undefined };
   }, [upcoming, intakes]);
 
@@ -310,40 +325,7 @@ export default function PatientHome() {
     router.push('/patient/device-settings');
   }, [router]);
 
-  const handleUnlinkDevice = useCallback(async () => {
-    if (!activeDeviceId || !patientId) return;
-    
-    Alert.alert(
-      'Desenlazar dispositivo',
-      `¿Estás seguro de que deseas desenlazar el dispositivo ${activeDeviceId}?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Desenlazar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setUnlinkingDevice(true);
-              await unlinkDeviceFromUser(patientId, activeDeviceId);
-              
-              // Stop listening to the device
-              dispatch(stopDeviceListener());
-              setActiveDeviceId(null);
-              
-              Alert.alert('Éxito', 'Dispositivo desenlazado exitosamente');
-              
-              // Refresh device list
-              await initDevice();
-            } catch (error: any) {
-              Alert.alert('Error', error?.message || 'No se pudo desenlazar el dispositivo');
-            } finally {
-              setUnlinkingDevice(false);
-            }
-          },
-        },
-      ]
-    );
-  }, [activeDeviceId, patientId, dispatch, initDevice]);
+
 
   const handleAccountMenu = useCallback(() => {
     if (Platform.OS === 'ios') {
@@ -374,23 +356,23 @@ export default function PatientHome() {
         Alert.alert('Sesión requerida', 'Inicia sesión para registrar la toma.');
         return;
       }
-      
+
       console.log('[TakeMedication] Starting...');
       console.log('[TakeMedication] Medication:', upcoming.med.name);
       console.log('[TakeMedication] Patient ID:', patientId);
-      
+
       setTakingLoading(true);
-      
+
       const hh = Math.floor(upcoming.next);
       const mm = Math.round((upcoming.next - hh) * 60);
       const scheduledDate = new Date();
       scheduledDate.setHours(hh, mm, 0, 0);
-      
+
       // Check if dose has already been taken (duplicate prevention)
       if (upcoming.med.id) {
         const { canTakeDose } = await import('../../src/services/doseCompletionTracker');
         const checkResult = await canTakeDose(upcoming.med.id, scheduledDate);
-        
+
         if (!checkResult.canTake) {
           console.log('[TakeMedication] Dose already taken:', checkResult.reason);
           Alert.alert('Dosis ya registrada', checkResult.reason || 'Esta dosis ya fue registrada.');
@@ -398,12 +380,12 @@ export default function PatientHome() {
           return;
         }
       }
-      
+
       const db = await getDbInstance();
       if (!db) {
         throw new Error('Firestore no disponible');
       }
-      
+
       const intakeData = {
         medicationName: upcoming.med.name,
         dosage: upcoming.med.dosage || '',
@@ -414,28 +396,28 @@ export default function PatientHome() {
         ...(upcoming.med.id ? { medicationId: upcoming.med.id } : {}),
         caregiverId: upcoming.med.caregiverId,
       };
-      
+
       console.log('[TakeMedication] Writing intake record:', intakeData);
-      
+
       const docRef = await addDoc(collection(db, 'intakeRecords'), intakeData as any);
-      
+
       console.log('[TakeMedication] Successfully written with ID:', docRef.id);
-      
+
       // Decrement inventory if tracking is enabled
       if (upcoming.med.id && upcoming.med.trackInventory) {
         try {
           const { inventoryService } = await import('../../src/services/inventoryService');
           const doseAmount = inventoryService.parseDoseAmount(upcoming.med);
-          
+
           await inventoryService.decrementInventory(upcoming.med.id, doseAmount);
-          
+
           // Check if inventory is now low
           const isLow = await inventoryService.checkLowQuantity(upcoming.med.id);
-          
+
           if (isLow) {
             const status = await inventoryService.getInventoryStatus(upcoming.med.id);
             console.log('[TakeMedication] Low inventory detected:', status);
-            
+
             // Show low inventory warning
             Alert.alert(
               'Inventario bajo',
@@ -448,7 +430,7 @@ export default function PatientHome() {
           console.error('[TakeMedication] Error updating inventory:', inventoryError);
         }
       }
-      
+
       Alert.alert('Registrado', 'Se registró la toma de la dosis.');
     } catch (e: any) {
       console.error('[TakeMedication] Error:', e);
@@ -461,7 +443,15 @@ export default function PatientHome() {
   const deviceStatus = useMemo(() => {
     type DeviceStatusType = 'idle' | 'dispensing' | 'error' | 'offline' | 'pending';
 
+    console.log('[Home] Computing deviceStatus:', {
+      hasDeviceSlice: !!deviceSlice,
+      hasState: !!deviceSlice?.state,
+      activeDeviceId,
+      state: deviceSlice?.state
+    });
+
     if (!deviceSlice?.state) {
+      console.log('[Home] No device state available, returning offline status');
       return {
         deviceId: activeDeviceId,
         batteryLevel: null,
@@ -503,12 +493,15 @@ export default function PatientHome() {
       }
     }
 
-    return {
+    const result = {
       deviceId: activeDeviceId,
       batteryLevel: deviceSlice.state.battery_level,
       status: normalizedStatus,
       isOnline,
     };
+
+    console.log('[Home] Device status computed:', result);
+    return result;
   }, [deviceSlice, activeDeviceId]);
 
   const renderMedicationItem = useCallback(({ item, index }: { item: Medication; index: number }) => (
@@ -529,7 +522,7 @@ export default function PatientHome() {
   }
 
   return (
-    <SafeAreaView edges={['top','bottom']} style={styles.container}>
+    <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
@@ -541,7 +534,7 @@ export default function PatientHome() {
             <Text style={styles.headerSubtitle}>Hola, {displayName}</Text>
           </View>
           <View style={styles.headerActions}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.iconButton}
               onPress={handleEmergency}
               accessibilityLabel="Botón de emergencia"
@@ -550,7 +543,7 @@ export default function PatientHome() {
             >
               <Ionicons name="alert-circle" size={28} color={colors.error[500]} />
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.iconButton}
               onPress={handleAccountMenu}
               accessibilityLabel="Menú de cuenta"
@@ -564,8 +557,8 @@ export default function PatientHome() {
 
         {/* Emergency Modal */}
         {Platform.OS !== 'ios' && (
-          <Modal 
-            visible={emergencyModalVisible} 
+          <Modal
+            visible={emergencyModalVisible}
             onClose={() => setEmergencyModalVisible(false)}
             title="Emergencia"
             size="sm"
@@ -588,8 +581,8 @@ export default function PatientHome() {
 
         {/* Account Menu Modal */}
         {Platform.OS !== 'ios' && (
-          <Modal 
-            visible={accountMenuVisible} 
+          <Modal
+            visible={accountMenuVisible}
             onClose={() => setAccountMenuVisible(false)}
             title="Cuenta"
             size="sm"
@@ -597,43 +590,43 @@ export default function PatientHome() {
           >
             <Text style={styles.modalSubtitle}>Selecciona una opción:</Text>
             <View style={styles.modalActions}>
-              <Button 
-                variant="danger" 
-                size="lg" 
-                fullWidth 
-                onPress={() => { 
-                  setAccountMenuVisible(false); 
-                  handleLogout(); 
+              <Button
+                variant="danger"
+                size="lg"
+                fullWidth
+                onPress={() => {
+                  setAccountMenuVisible(false);
+                  handleLogout();
                 }}
               >
                 Salir de sesión
               </Button>
-              <Button 
-                variant="secondary" 
-                size="lg" 
-                fullWidth 
-                onPress={() => { 
-                  setAccountMenuVisible(false); 
-                  handleConfiguraciones(); 
+              <Button
+                variant="secondary"
+                size="lg"
+                fullWidth
+                onPress={() => {
+                  setAccountMenuVisible(false);
+                  handleConfiguraciones();
                 }}
               >
                 Configuraciones
               </Button>
-              <Button 
-                variant="secondary" 
-                size="lg" 
-                fullWidth 
-                onPress={() => { 
-                  setAccountMenuVisible(false); 
-                  handleMiDispositivo(); 
+              <Button
+                variant="secondary"
+                size="lg"
+                fullWidth
+                onPress={() => {
+                  setAccountMenuVisible(false);
+                  handleMiDispositivo();
                 }}
               >
                 Mi dispositivo
               </Button>
-              <Button 
-                variant="secondary" 
-                size="lg" 
-                fullWidth 
+              <Button
+                variant="secondary"
+                size="lg"
+                fullWidth
                 onPress={() => setAccountMenuVisible(false)}
               >
                 Cancelar
@@ -659,13 +652,7 @@ export default function PatientHome() {
           contentContainerStyle={styles.scrollContent}
           ListHeaderComponent={() => (
             <>
-              {/* Adherence Card */}
-              <View style={styles.section}>
-                <AdherenceCard
-                  takenCount={adherenceData.takenCount}
-                  totalCount={adherenceData.totalCount}
-                />
-              </View>
+
 
               {/* Upcoming Dose Card - Autonomous Mode (Manual) */}
               {upcoming && !deviceStatus.isOnline && (
@@ -700,7 +687,7 @@ export default function PatientHome() {
                         </View>
                       </View>
                       <View style={styles.deviceBadge}>
-                        <Ionicons name="hardware-chip-outline" size={16} color={colors.info} />
+                        <Ionicons name="hardware-chip-outline" size={16} color={colors.primary[500]} />
                         <Text style={styles.deviceBadgeText}>Automático</Text>
                       </View>
                     </View>
@@ -712,7 +699,7 @@ export default function PatientHome() {
                 <View style={styles.section}>
                   <Card variant="outlined" padding="lg">
                     <View style={styles.emptyUpcoming}>
-                      <Ionicons name="checkmark-circle-outline" size={48} color={colors.success} />
+                      <Ionicons name="checkmark-circle-outline" size={48} color={colors.success[500]} />
                       <Text style={styles.emptyUpcomingTitle}>¡Todo listo!</Text>
                       <Text style={styles.emptyUpcomingText}>
                         No hay más dosis programadas para hoy
@@ -725,43 +712,14 @@ export default function PatientHome() {
               {/* Device Status Card */}
               <View style={styles.section}>
                 <DeviceStatusCard
-                  deviceId={deviceStatus.deviceId || undefined}
-                  batteryLevel={deviceStatus.batteryLevel}
-                  status={deviceStatus.status}
-                  isOnline={deviceStatus.isOnline}
+                  deviceId={activeDeviceId || undefined}
                 />
-                
-                {/* Mode Indicator */}
-                {deviceStatus.isOnline && (
-                  <View style={styles.modeIndicator}>
-                    <Ionicons name="shield-checkmark" size={16} color={colors.success} />
-                    <Text style={styles.modeIndicatorText}>
-                      Modo supervisado: Tu cuidador gestiona tus medicamentos
-                    </Text>
-                  </View>
-                )}
-                
-                {/* Unlink Device Button */}
-                {activeDeviceId && (
-                  <View style={styles.unlinkButtonContainer}>
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onPress={handleUnlinkDevice}
-                      loading={unlinkingDevice}
-                      disabled={unlinkingDevice}
-                      fullWidth
-                    >
-                      Desenlazar dispositivo
-                    </Button>
-                  </View>
-                )}
               </View>
 
               {/* Quick Actions */}
               <View style={styles.section}>
                 <View style={styles.quickActions}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.quickActionCard}
                     onPress={() => router.push('/patient/medications')}
                     accessibilityLabel="Ver medicamentos"
@@ -774,7 +732,7 @@ export default function PatientHome() {
                     <Text style={styles.quickActionTitle} numberOfLines={1}>Medicamentos</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.quickActionCard}
                     onPress={handleHistory}
                     accessibilityLabel="Ver historial"
@@ -787,7 +745,7 @@ export default function PatientHome() {
                     <Text style={styles.quickActionTitle} numberOfLines={1}>Historial</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.quickActionCard}
                     onPress={() => router.push('/patient/device-settings')}
                     accessibilityLabel="Dispositivo"
@@ -800,6 +758,20 @@ export default function PatientHome() {
                     <Text style={styles.quickActionTitle} numberOfLines={1}>Dispositivo</Text>
                   </TouchableOpacity>
                 </View>
+              </View>
+
+              {/* Adherence Chart (Complementary) */}
+              <View style={styles.section}>
+                <Card variant="elevated" padding="lg">
+                  <View style={{ alignItems: 'center', paddingVertical: spacing.md }}>
+                    <PremiumAdherenceChart
+                      taken={adherenceData.takenCount}
+                      total={adherenceData.totalCount}
+                      size={180}
+                      strokeWidth={15}
+                    />
+                  </View>
+                </Card>
               </View>
 
               {/* Today's Medications Header */}
@@ -823,8 +795,8 @@ export default function PatientHome() {
               <Text style={styles.emptyMedicationsText}>
                 No tienes medicamentos programados para hoy
               </Text>
-              <Button 
-                variant="primary" 
+              <Button
+                variant="primary"
                 size="md"
                 onPress={() => router.push('/patient/medications')}
                 style={styles.emptyMedicationsButton}
@@ -840,8 +812,8 @@ export default function PatientHome() {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
+  container: {
+    flex: 1,
     backgroundColor: colors.background,
   },
   loadingContainer: {
@@ -849,12 +821,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'space-between', 
-    backgroundColor: colors.surface, 
-    paddingHorizontal: spacing.lg, 
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
     ...shadows.sm,
   },
@@ -866,20 +838,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  headerTitle: { 
-    fontSize: typography.fontSize.xl, 
-    fontWeight: typography.fontWeight.extrabold, 
+  headerTitle: {
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeight.extrabold,
     color: colors.primary[500],
     letterSpacing: 0.5,
   },
-  headerSubtitle: { 
-    fontSize: typography.fontSize.base, 
+  headerSubtitle: {
+    fontSize: typography.fontSize.base,
     color: colors.gray[600],
     marginTop: spacing.xs,
   },
-  headerActions: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
   iconButton: {
@@ -897,17 +869,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     marginTop: spacing.lg,
   },
-  modalSubtitle: { 
+  modalSubtitle: {
     fontSize: typography.fontSize.base,
-    color: colors.gray[600], 
+    color: colors.gray[600],
     marginBottom: spacing.lg,
   },
-  modalActions: { 
+  modalActions: {
     gap: spacing.md,
   },
-  cardTitle: { 
-    fontSize: typography.fontSize.lg, 
-    fontWeight: typography.fontWeight.semibold, 
+  cardTitle: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.semibold,
     color: colors.gray[900],
     marginLeft: spacing.sm,
   },
@@ -916,21 +888,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.lg,
   },
-  upcomingContent: { 
-    flexDirection: 'row', 
-    alignItems: 'flex-start', 
+  upcomingContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
   upcomingInfo: {
     flex: 1,
   },
-  upcomingMedName: { 
-    fontSize: typography.fontSize.xl, 
-    fontWeight: typography.fontWeight.bold, 
+  upcomingMedName: {
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeight.bold,
     color: colors.gray[900],
     marginBottom: spacing.xs,
   },
-  upcomingMedInfo: { 
+  upcomingMedInfo: {
     fontSize: typography.fontSize.base,
     color: colors.gray[600],
     marginBottom: spacing.md,
@@ -961,7 +933,7 @@ const styles = StyleSheet.create({
   },
   deviceBadgeText: {
     fontSize: typography.fontSize.sm,
-    color: colors.info,
+    color: colors.primary[500],
     fontWeight: typography.fontWeight.medium,
   },
   emptyUpcoming: {
@@ -1052,25 +1024,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   emptyMedicationsButton: {
-    marginTop: spacing.md,
-  },
-  modeIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.success + '10', // 10% opacity
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.sm,
-    marginTop: spacing.md,
-    gap: spacing.sm,
-  },
-  modeIndicatorText: {
-    flex: 1,
-    fontSize: typography.fontSize.xs,
-    color: colors.gray[700],
-    lineHeight: typography.fontSize.xs * typography.lineHeight.normal,
-  },
-  unlinkButtonContainer: {
     marginTop: spacing.md,
   },
 });

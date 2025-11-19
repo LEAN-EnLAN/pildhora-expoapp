@@ -1,11 +1,11 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { User, ApiResponse } from '../../types';
+import { User } from '../../types';
 import { getAuthInstance, getDbInstance } from '../../services/firebase';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser, GoogleAuthProvider, signInWithCredential, deleteUser } from 'firebase/auth';
 import { configureGoogleSignin, signInWithGoogleNative } from '../../services/auth/google';
 import { Platform } from 'react-native';
 import { signInWithPopup } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
 import { convertTimestamps } from '../../utils/firestoreUtils';
 
 interface AuthState {
@@ -60,14 +60,14 @@ export const updateProfile = createAsyncThunk(
       const updatedUser: User = existingUser
         ? { ...existingUser, name }
         : {
-            id: userId,
-            email: currentUser.email || '',
-            name,
-            role: 'patient',
-            createdAt: new Date(),
-            onboardingComplete: false,
-            onboardingStep: 'device_provisioning',
-          };
+          id: userId,
+          email: currentUser.email || '',
+          name,
+          role: 'patient',
+          createdAt: new Date(),
+          onboardingComplete: false,
+          onboardingStep: 'device_provisioning',
+        };
 
       return updatedUser;
     } catch (error: any) {
@@ -84,11 +84,11 @@ export const signUp = createAsyncThunk(
       // Ensure Firebase is initialized before signing up
       const auth = await getAuthInstance();
       const db = await getDbInstance();
-      
+
       if (!auth || !db) {
         throw new Error('Firebase services not initialized');
       }
-      
+
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
@@ -119,11 +119,11 @@ export const signIn = createAsyncThunk(
       // Ensure Firebase is initialized before signing in
       const auth = await getAuthInstance();
       const db = await getDbInstance();
-      
+
       if (!auth || !db) {
         throw new Error('Firebase services not initialized');
       }
-      
+
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
@@ -204,14 +204,40 @@ export const logout = createAsyncThunk(
     try {
       // Ensure Firebase is initialized before signing out
       const auth = await getAuthInstance();
-      
+
       if (!auth) {
         throw new Error('Firebase Auth not initialized');
       }
-      
+
       await signOut(auth);
     } catch (error: any) {
       return rejectWithValue(error.message);
+    }
+  }
+);
+
+export const deleteAccount = createAsyncThunk(
+  'auth/deleteAccount',
+  async (_, { rejectWithValue }) => {
+    try {
+      const auth = await getAuthInstance();
+      const db = await getDbInstance();
+
+      if (!auth || !db || !auth.currentUser) {
+        throw new Error('Firebase services not initialized or user not logged in');
+      }
+
+      const uid = auth.currentUser.uid;
+
+      // Delete from Firestore first (while we still have permission)
+      await deleteDoc(doc(db, 'users', uid));
+
+      // Delete from Auth
+      await deleteUser(auth.currentUser);
+
+      return true;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to delete account');
     }
   }
 );
@@ -223,11 +249,11 @@ export const checkAuthState = createAsyncThunk(
       // Ensure Firebase is initialized before checking auth state
       const auth = await getAuthInstance();
       const db = await getDbInstance();
-      
+
       if (!auth || !db) {
         throw new Error('Firebase services not initialized');
       }
-      
+
       return new Promise<User | null>((resolve) => {
         console.log('[Auth] Checking authentication state...');
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -375,6 +401,20 @@ const authSlice = createSlice({
         state.isAuthenticated = true;
       })
       .addCase(updateProfile.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      })
+      .addCase(deleteAccount.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteAccount.fulfilled, (state) => {
+        state.loading = false;
+        state.user = null;
+        state.isAuthenticated = false;
+        state.initializing = false;
+      })
+      .addCase(deleteAccount.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       });
