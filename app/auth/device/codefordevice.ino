@@ -10,8 +10,22 @@
 // LIBRARY: FirebaseClient by Mobizt
 #include <FirebaseClient.h>
 
-// Use the Firebase namespace to fix type errors
-using namespace Firebase;
+// Fix: Define Pins for Generic ESP8266 to prevent compilation errors
+// User can adjust these mappings later
+#ifndef D0
+#define D0 16
+#define D1 5
+#define D2 4
+#define D3 0
+#define D4 2
+#define D5 14
+#define D6 12
+#define D7 13
+#define D8 15
+#endif
+
+// Fix: 'Firebase' is not a namespace in the new library
+// using namespace Firebase; 
 
 // ---------------- CONFIGURACIÓN FIREBASE ----------------
 #define API_KEY "AIzaSyDw09rkePPjrU-AJbj-nN_K-2v5ZPvNY-w"
@@ -49,7 +63,7 @@ ESP8266WebServer server(80);
 
 // FirebaseClient objects
 WiFiClientSecure ssl_client;
-DefaultNetwork network;
+DefaultNetwork network; 
 AsyncClientClass aClient(ssl_client, getNetwork(network));
 
 FirebaseApp app;
@@ -195,7 +209,8 @@ void setup() {
       // Stream callback
       Database.get(aClient, actionPath, [](AsyncResult &aResult) {
           if (aResult.isEvent()) {
-              Serial.printf("Stream event: %s, %s\n", aResult.eventName().c_str(), aResult.path().c_str());
+              // Fix: AsyncResult does not have eventName() in this version
+              Serial.printf("Stream event: %s\n", aResult.path().c_str());
               
               String payload = aResult.payload();
               String path = aResult.path(); 
@@ -434,7 +449,8 @@ void updateDeviceState() {
   Database.set(aClient, path, object_t(json), nullptr);
   
   // Set timestamp separately
-  Database.set(aClient, path + "/last_seen", object_t(".sv", "timestamp"), nullptr);
+  // Fix: object_t constructor for server value needs a JSON string
+  Database.set(aClient, path + "/last_seen", object_t("{\".sv\": \"timestamp\"}"), nullptr);
 }
 
 // ---------------- FUNCIONES DE HARDWARE ----------------
