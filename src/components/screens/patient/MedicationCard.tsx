@@ -1,9 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Card } from '../../ui/Card';
-import { Chip } from '../../ui/Chip';
-import { colors, spacing, typography, borderRadius } from '../../../theme/tokens';
+import { colors, spacing, typography, borderRadius, shadows } from '../../../theme/tokens';
 import { Medication } from '../../../types';
 
 interface MedicationCardProps {
@@ -11,7 +9,23 @@ interface MedicationCardProps {
   onPress: () => void;
   showLowQuantityBadge?: boolean;
   currentQuantity?: number;
+  index?: number;
 }
+
+const getAccentColor = (emoji?: string): string => {
+  if (!emoji) return colors.primary[500];
+  const colorMap: Record<string, string> = {
+    '💊': '#3B82F6',
+    '💉': '#8B5CF6',
+    '🩹': '#F59E0B',
+    '💧': '#06B6D4',
+    '🧴': '#EC4899',
+    '🩺': '#10B981',
+    '🌡️': '#EF4444',
+    '😷': '#6366F1',
+  };
+  return colorMap[emoji] || colors.primary[500];
+};
 
 export const MedicationCard: React.FC<MedicationCardProps> = React.memo(({
   medication,
@@ -19,194 +33,199 @@ export const MedicationCard: React.FC<MedicationCardProps> = React.memo(({
   showLowQuantityBadge = false,
   currentQuantity,
 }) => {
-  /**
-   * Formats 24-hour time string to 12-hour format with AM/PM
-   * @param time - Time string in HH:MM format (e.g., "14:30")
-   * @returns Formatted time string (e.g., "2:30 PM")
-   */
   const formatTime = (time: string): string => {
     const [hours, minutes] = time.split(':');
     const hour = parseInt(hours, 10);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12; // Convert 0 to 12 for midnight
-    return `${displayHour}:${minutes} ${ampm}`;
+    const displayHour = hour % 12 || 12;
+    const ampm = hour >= 12 ? 'pm' : 'am';
+    return `${displayHour}:${minutes}${ampm}`;
   };
 
-  /**
-   * Converts frequency string to human-readable text
-   * Frequency is stored as comma-separated day abbreviations (e.g., "Mon,Wed,Fri")
-   * @returns User-friendly frequency description
-   */
-  const getFrequencyText = (): string => {
-    if (!medication.frequency) return 'Daily';
-    
-    const days = medication.frequency.split(',');
-    if (days.length === 7) return 'Every day';
-    if (days.length === 1) return days[0];
-    return `${days.length} days per week`;
-  };
-
-  /**
-   * Constructs complete dosage text from medication properties
-   * Combines doseValue, doseUnit, and quantityType (e.g., "500 mg tablet")
-   * Falls back to legacy dosage field if new fields are not available
-   * @returns Formatted dosage string
-   */
   const getDosageText = (): string => {
     if (medication.doseValue && medication.doseUnit) {
-      const quantityText = medication.quantityType ? ` ${medication.quantityType}` : '';
-      return `${medication.doseValue} ${medication.doseUnit}${quantityText}`;
+      return `${medication.doseValue} ${medication.doseUnit}`;
     }
-    return medication.dosage || 'No dosage specified';
+    return medication.dosage || '';
   };
 
+  const accentColor = getAccentColor(medication.emoji);
+  const isOutOfStock = currentQuantity === 0;
+  const timesCount = medication.times?.length || 0;
+
   return (
-    <Card
-      variant="outlined"
-      padding="md"
+    <Pressable
       onPress={onPress}
-      accessibilityLabel={`${medication.name}, ${getDosageText()}, scheduled at ${medication.times.map(formatTime).join(', ')}`}
-      accessibilityHint="Tap to view medication details and edit"
+      style={({ pressed }) => [
+        styles.card,
+        pressed && styles.cardPressed,
+      ]}
+      accessibilityLabel={`${medication.name}, ${getDosageText()}`}
+      accessibilityHint="Toca para ver detalles"
+      accessibilityRole="button"
     >
-      <View style={styles.header}>
-        <View style={styles.iconContainer}>
-          <Ionicons name="medkit-outline" size={24} color={colors.primary[500]} />
-        </View>
-        <View style={styles.medicationInfo}>
-          <View style={styles.nameRow}>
-            <Text style={styles.medicationName} numberOfLines={1}>
-              {medication.name}
-            </Text>
-            {showLowQuantityBadge && (
-              <View 
-                style={[
-                  styles.lowQuantityBadge,
-                  currentQuantity === 0 && styles.outOfStockBadge
-                ]}
-                accessibilityLabel={
-                  currentQuantity === 0 
-                    ? 'Medicamento agotado' 
-                    : `Inventario bajo: ${currentQuantity} dosis restantes`
-                }
-              >
-                <Ionicons 
-                  name={currentQuantity === 0 ? "alert-circle" : "warning"} 
-                  size={12} 
-                  color="#FFFFFF" 
-                />
-                <Text style={styles.badgeText}>
-                  {currentQuantity === 0 ? 'Agotado' : 'Bajo'}
-                </Text>
-              </View>
+      {/* Indicador lateral de color */}
+      <View style={[styles.accentLine, { backgroundColor: accentColor }]} />
+      
+      <View style={styles.content}>
+        {/* Fila principal */}
+        <View style={styles.mainRow}>
+          {/* Emoji */}
+          <View style={[styles.emojiBox, { backgroundColor: accentColor + '12' }]}>
+            {medication.emoji ? (
+              <Text style={styles.emoji}>{medication.emoji}</Text>
+            ) : (
+              <Ionicons name="medical" size={22} color={accentColor} />
             )}
           </View>
-          <Text style={styles.dosage} numberOfLines={1}>
-            {getDosageText()}
-          </Text>
-        </View>
-      </View>
 
-      <View style={styles.timesSection}>
-        <Text style={styles.timesLabel}>Scheduled times</Text>
-        <View style={styles.timesRow}>
-          {medication.times.map((time, index) => (
-            <Chip
-              key={`${time}-${index}`}
-              label={formatTime(time)}
-              variant="filled"
-              color="primary"
-              size="sm"
-              accessibilityLabel={`Scheduled at ${formatTime(time)}`}
-            />
-          ))}
-        </View>
-      </View>
+          {/* Info */}
+          <View style={styles.info}>
+            <Text style={styles.name} numberOfLines={1}>{medication.name}</Text>
+            <Text style={styles.dosage}>{getDosageText()}</Text>
+          </View>
 
-      <View style={styles.frequencySection}>
-        <Ionicons name="calendar-outline" size={16} color={colors.gray[600]} />
-        <Text style={styles.frequencyText}>{getFrequencyText()}</Text>
+          {/* Badge de stock bajo o flecha */}
+          {showLowQuantityBadge ? (
+            <View style={[styles.badge, isOutOfStock ? styles.badgeError : styles.badgeWarning]}>
+              <Text style={styles.badgeText}>{isOutOfStock ? 'Agotado' : 'Bajo'}</Text>
+            </View>
+          ) : (
+            <Ionicons name="chevron-forward" size={18} color={colors.gray[300]} />
+          )}
+        </View>
+
+        {/* Horarios - solo si hay */}
+        {timesCount > 0 && (
+          <View style={styles.timesRow}>
+            <Ionicons name="time-outline" size={14} color={colors.gray[400]} />
+            <Text style={styles.timesText}>
+              {medication.times.slice(0, 3).map(formatTime).join(' · ')}
+              {timesCount > 3 && ` +${timesCount - 3}`}
+            </Text>
+          </View>
+        )}
+
+        {/* Inventario - solo si está activo */}
+        {medication.trackInventory && currentQuantity !== undefined && (
+          <View style={styles.inventoryRow}>
+            <View style={styles.inventoryBarBg}>
+              <View
+                style={[
+                  styles.inventoryBarFill,
+                  {
+                    width: `${Math.min((currentQuantity / (medication.lowQuantityThreshold || 30)) * 100, 100)}%`,
+                    backgroundColor: isOutOfStock ? colors.error[400] : showLowQuantityBadge ? colors.warning[400] : colors.success[400],
+                  },
+                ]}
+              />
+            </View>
+            <Text style={styles.inventoryText}>{currentQuantity} restantes</Text>
+          </View>
+        )}
       </View>
-    </Card>
+    </Pressable>
   );
 });
 
 MedicationCard.displayName = 'MedicationCard';
 
+
 const styles = StyleSheet.create({
-  header: {
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.sm,
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: spacing.md,
+    overflow: 'hidden',
+    ...shadows.sm,
   },
-  iconContainer: {
-    width: 48,
-    height: 48,
+  cardPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.99 }],
+  },
+  accentLine: {
+    width: 4,
+  },
+  content: {
+    flex: 1,
+    padding: spacing.md,
+  },
+  mainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  emojiBox: {
+    width: 44,
+    height: 44,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.primary[50],
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
   },
-  medicationInfo: {
+  emoji: {
+    fontSize: 22,
+  },
+  info: {
     flex: 1,
   },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  medicationName: {
-    fontSize: typography.fontSize.lg,
+  name: {
+    fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.semibold,
     color: colors.gray[900],
-    flex: 1,
+    marginBottom: 2,
   },
-  lowQuantityBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.warning[500],
+  dosage: {
+    fontSize: typography.fontSize.sm,
+    color: colors.gray[500],
+  },
+  badge: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
-    gap: spacing.xs,
+    paddingVertical: 3,
+    borderRadius: borderRadius.full,
   },
-  outOfStockBadge: {
-    backgroundColor: colors.error[500],
+  badgeWarning: {
+    backgroundColor: colors.warning[100],
+  },
+  badgeError: {
+    backgroundColor: colors.error[100],
   },
   badgeText: {
     fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.semibold,
-    color: '#FFFFFF',
-  },
-  dosage: {
-    fontSize: typography.fontSize.base,
-    color: colors.gray[600],
-  },
-  timesSection: {
-    marginTop: spacing.md,
-  },
-  timesLabel: {
-    fontSize: typography.fontSize.sm,
-    color: colors.gray[600],
-    marginBottom: spacing.sm,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.gray[700],
   },
   timesRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray[100],
+    gap: spacing.xs,
   },
-  frequencySection: {
+  timesText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.gray[500],
+  },
+  inventoryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.gray[200],
+    marginTop: spacing.sm,
+    gap: spacing.sm,
   },
-  frequencyText: {
-    fontSize: typography.fontSize.sm,
-    color: colors.gray[600],
-    marginLeft: spacing.sm,
+  inventoryBarBg: {
+    flex: 1,
+    height: 4,
+    backgroundColor: colors.gray[200],
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  inventoryBarFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  inventoryText: {
+    fontSize: typography.fontSize.xs,
+    color: colors.gray[400],
   },
 });

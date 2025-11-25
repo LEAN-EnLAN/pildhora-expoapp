@@ -387,7 +387,9 @@ export enum IntakeStatus {
   /** Dose has been taken */
   TAKEN = 'taken',
   /** Dose was not taken at the scheduled time */
-  MISSED = 'missed'
+  MISSED = 'missed',
+  /** Dose was intentionally skipped by the patient */
+  SKIPPED = 'skipped'
 }
 
 /**

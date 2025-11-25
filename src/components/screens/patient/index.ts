@@ -10,3 +10,5 @@ export { HistoryRecordCard } from './HistoryRecordCard';
 export { HistoryFilterBar } from './HistoryFilterBar';
 export { EventSyncIndicator } from './EventSyncIndicator';
 export { EventSyncBadge } from './EventSyncBadge';
+export { NextDoseHeroCard } from './NextDoseHeroCard';
+export { UpcomingDosesList } from './UpcomingDosesList';

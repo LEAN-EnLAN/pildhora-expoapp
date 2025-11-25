@@ -32,11 +32,12 @@ export class LowQuantityNotificationService {
       }
 
       // Determine notification message based on quantity
+      // Note: currentQuantity refers to INVENTORY (pills in bottle), not today's doses
       const isOutOfStock = status.currentQuantity === 0;
-      const title = isOutOfStock ? '¡Medicamento agotado!' : '¡Inventario bajo!';
+      const title = isOutOfStock ? '¡Medicamento agotado!' : '⚠️ Inventario bajo';
       const message = isOutOfStock
-        ? `No quedan dosis de ${medication.name}. Reabastece lo antes posible.`
-        : `Solo quedan ${status.currentQuantity} dosis de ${medication.name} (aproximadamente ${status.daysRemaining} ${status.daysRemaining === 1 ? 'día' : 'días'}).`;
+        ? `No quedan unidades de ${medication.name} en tu inventario.\n\nReabastece lo antes posible.`
+        : `Solo quedan ${status.currentQuantity} unidades de ${medication.name} en tu inventario.\n\nAproximadamente ${status.daysRemaining} ${status.daysRemaining === 1 ? 'día' : 'días'} de tratamiento restante.`;
 
       // Show alert
       Alert.alert(title, message, [

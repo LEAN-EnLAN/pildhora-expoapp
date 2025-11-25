@@ -364,7 +364,7 @@ export function WiFiConfigStep() {
 
       {connectionStatus === 'success' && (
         <View style={styles.successContainer}>
-          <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+          <Ionicons name="checkmark-circle" size={20} color={colors.success[500]} />
           <Text style={styles.successText}>
             {configSaved ? '¡Conexión exitosa!' : 'Conexión exitosa'}
           </Text>
@@ -638,7 +638,7 @@ const styles = StyleSheet.create({
   connectedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.success,
+    backgroundColor: colors.success[500],
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
@@ -706,7 +706,7 @@ const styles = StyleSheet.create({
   },
   successText: {
     fontSize: typography.fontSize.sm,
-    color: colors.success,
+    color: colors.success[500],
     fontWeight: typography.fontWeight.bold,
   },
   buttonContainer: {

@@ -372,7 +372,7 @@ export function RoleBasedSettings() {
         {/* Danger Zone Section */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.error[600], marginTop: spacing.xl }]}>Zona de Peligro</Text>
-          <Card variant="outlined" padding="lg" style={[styles.sectionCard, { borderColor: colors.error[200], backgroundColor: colors.error[50] }]}>
+          <Card variant="outlined" padding="lg" style={[styles.sectionCard, { borderColor: colors.error[500], backgroundColor: colors.error[50] }]}>
             <Text style={[styles.cardDescription, { color: colors.error[700] }]}>
               Si eliminas tu cuenta, perderás todos tus datos y no podrás recuperarlos.
             </Text>
@@ -381,7 +381,6 @@ export function RoleBasedSettings() {
               size="md"
               onPress={handleDeleteAccount}
               style={{ borderColor: colors.error[500] }}
-              textStyle={{ color: colors.error[600] }}
               accessibilityLabel="Eliminar cuenta"
             >
               Eliminar cuenta

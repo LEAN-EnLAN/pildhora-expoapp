@@ -127,7 +127,7 @@ function ChecklistItem({ text }: { text: string }) {
   return (
     <View style={styles.checklistItem}>
       <View style={styles.checkIcon}>
-        <Ionicons name="checkmark-circle-outline" size={20} color={colors.success} />
+        <Ionicons name="checkmark-circle-outline" size={20} color={colors.success[500]} />
       </View>
       <Text style={styles.checklistText}>{text}</Text>
     </View>
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.success,
+    backgroundColor: colors.success[500],
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,

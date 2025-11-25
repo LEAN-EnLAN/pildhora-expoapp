@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Animated,
   ViewStyle,
+  TextStyle,
 } from 'react-native';
 import { colors, spacing, typography, borderRadius } from '../../theme/tokens';
 
@@ -20,6 +21,7 @@ interface ChipProps {
   leftIcon?: React.ReactNode;
   disabled?: boolean;
   style?: ViewStyle;
+  textStyle?: TextStyle;
   accessibilityLabel?: string;
   accessibilityHint?: string;
 }
@@ -35,6 +37,7 @@ export const Chip: React.FC<ChipProps> = ({
   leftIcon,
   disabled = false,
   style,
+  textStyle: customTextStyle,
   accessibilityLabel,
   accessibilityHint,
 }) => {
@@ -127,6 +130,7 @@ export const Chip: React.FC<ChipProps> = ({
     {
       color: getTextColor(),
     },
+    customTextStyle,
   ];
 
   const content = (
@@ -173,7 +177,7 @@ export const Chip: React.FC<ChipProps> = ({
   }
 
   return (
-    <View 
+    <View
       style={chipStyle}
       accessible={true}
       accessibilityLabel={accessibilityLabel || label}

@@ -630,7 +630,7 @@ const styles = StyleSheet.create({
   thresholdPreviewStatus: {
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
-    color: colors.success,
+    color: colors.success[500],
   },
   thresholdPreviewStatusLow: {
     color: colors.warning[500],

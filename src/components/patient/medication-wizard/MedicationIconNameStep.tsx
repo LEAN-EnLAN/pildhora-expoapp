@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
   TextInput as RNTextInput,
   ScrollView,
   useWindowDimensions,
-  Alert
+  Alert,
+  Keyboard
 } from 'react-native';
 import { Input } from '../../ui';
 import { useWizardContext } from './WizardContext';
-import { colors, spacing, typography, borderRadius } from '../../../theme/tokens';
+import { colors, spacing, typography, borderRadius, shadows } from '../../../theme/tokens';
 import { useDebouncedCallback } from '../../../utils/performance';
 
 // Common emojis for medications
@@ -26,15 +27,15 @@ interface MedicationIconNameStepProps {
   // No props needed - uses wizard context
 }
 
-export const MedicationIconNameStep = React.memo(function MedicationIconNameStep({}: MedicationIconNameStepProps) {
+export const MedicationIconNameStep = React.memo(function MedicationIconNameStep({ }: MedicationIconNameStepProps) {
   const { formData, updateFormData, setCanProceed } = useWizardContext();
   const { width: screenWidth } = useWindowDimensions();
-  
+
   const [emoji, setEmoji] = useState(formData.emoji || '');
   const [name, setName] = useState(formData.name || '');
   const [nameError, setNameError] = useState('');
   const [emojiError, setEmojiError] = useState('');
-  
+
   // Ref for hidden emoji input
   const emojiInputRef = useRef<RNTextInput>(null);
 
@@ -43,7 +44,7 @@ export const MedicationIconNameStep = React.memo(function MedicationIconNameStep
     // Responsive emoji button size based on screen width
     let emojiSize = 56;
     let gap = 8;
-    
+
     // Adjust sizes for different screen widths
     if (screenWidth < 360) {
       // Small phones (320-360px)
@@ -54,18 +55,18 @@ export const MedicationIconNameStep = React.memo(function MedicationIconNameStep
       emojiSize = 64;
       gap = 12;
     }
-    
+
     const horizontalPadding = spacing.lg * 2; // padding on both sides
     const availableWidth = screenWidth - horizontalPadding;
-    
+
     // Calculate how many emojis fit per row
     const emojisPerRow = Math.floor(availableWidth / (emojiSize + gap));
-    
+
     // Ensure at least 4 emojis per row on small screens, up to 10 on tablets
     const minEmojis = screenWidth < 360 ? 4 : 5;
     const maxEmojis = screenWidth >= 768 ? 10 : 8;
     const clampedEmojisPerRow = Math.max(minEmojis, Math.min(maxEmojis, emojisPerRow));
-    
+
     return {
       emojisPerRow: clampedEmojisPerRow,
       emojiSize,
@@ -76,7 +77,7 @@ export const MedicationIconNameStep = React.memo(function MedicationIconNameStep
   // Validation function
   const validateFields = useCallback((currentEmoji: string, currentName: string): boolean => {
     let isValid = true;
-    
+
     // Validate emoji
     if (!currentEmoji || currentEmoji.trim() === '') {
       setEmojiError('Selecciona un icono para tu medicamento');
@@ -84,7 +85,7 @@ export const MedicationIconNameStep = React.memo(function MedicationIconNameStep
     } else {
       setEmojiError('');
     }
-    
+
     // Validate name
     if (!currentName || currentName.trim() === '') {
       setNameError('Ingresa el nombre del medicamento');
@@ -101,7 +102,7 @@ export const MedicationIconNameStep = React.memo(function MedicationIconNameStep
     } else {
       setNameError('');
     }
-    
+
     return isValid;
   }, []);
 
@@ -126,12 +127,12 @@ export const MedicationIconNameStep = React.memo(function MedicationIconNameStep
     // This regex matches most emojis including those with modifiers and ZWJ sequences
     const emojiRegex = /(\p{Emoji_Presentation}|\p{Emoji}\uFE0F)/gu;
     const matches = text.match(emojiRegex);
-    
+
     if (matches && matches.length > 0) {
       // Return the first emoji found
       return matches[0];
     }
-    
+
     return null;
   };
 
@@ -140,6 +141,8 @@ export const MedicationIconNameStep = React.memo(function MedicationIconNameStep
     try {
       // Focus the hidden input to trigger native emoji keyboard
       if (emojiInputRef.current) {
+        // Clear previous value to ensure onChangeText triggers even for same emoji
+        emojiInputRef.current.clear();
         emojiInputRef.current.focus();
       } else {
         // Fallback if ref is not available
@@ -163,22 +166,18 @@ export const MedicationIconNameStep = React.memo(function MedicationIconNameStep
   // Handle text change from hidden emoji input
   const handleEmojiInputChange = useCallback((text: string) => {
     if (!text || text.trim() === '') {
-      // User cleared the input, close keyboard
-      emojiInputRef.current?.blur();
       return;
     }
 
     // Extract emoji from the input text
     const extractedEmoji = extractEmoji(text);
-    
+
     if (extractedEmoji) {
       // Update the selected emoji
       handleEmojiSelect(extractedEmoji);
-      
+
       // Close the keyboard after selection
-      setTimeout(() => {
-        emojiInputRef.current?.blur();
-      }, 100);
+      Keyboard.dismiss();
     } else {
       // No valid emoji found, show error
       Alert.alert(
@@ -186,9 +185,9 @@ export const MedicationIconNameStep = React.memo(function MedicationIconNameStep
         'Por favor, selecciona un emoji válido del teclado.',
         [{ text: 'OK' }]
       );
-      
+
       // Close keyboard
-      emojiInputRef.current?.blur();
+      Keyboard.dismiss();
     }
   }, [handleEmojiSelect, extractEmoji]);
 
@@ -210,10 +209,11 @@ export const MedicationIconNameStep = React.memo(function MedicationIconNameStep
   }, []);
 
   return (
-    <ScrollView 
+    <ScrollView
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
       accessible={true}
       accessibilityLabel="Paso 1: Selección de icono y nombre"
       accessibilityHint="Selecciona un icono y escribe el nombre de tu medicamento"
@@ -222,21 +222,17 @@ export const MedicationIconNameStep = React.memo(function MedicationIconNameStep
       <View style={styles.header}>
         <Text style={styles.title}>Icono y Nombre</Text>
         <Text style={styles.subtitle}>
-          Selecciona un icono y escribe el nombre de tu medicamento
+          Personaliza cómo aparecerá tu medicamento
         </Text>
       </View>
 
       {/* Emoji Preview Section */}
       <View style={styles.emojiPreviewSection}>
-        <Text style={styles.sectionLabel}>
-          Icono del medicamento <Text style={styles.required}>*</Text>
-        </Text>
-        
         <View style={styles.emojiPreviewContainer}>
-          <View 
+          <View
             style={[
               styles.emojiPreview,
-              emojiError && styles.emojiPreviewError
+              emojiError ? styles.emojiPreviewError : null
             ]}
             accessible={true}
             accessibilityLabel={emoji ? `Icono seleccionado: ${emoji}` : 'Ningún icono seleccionado'}
@@ -248,9 +244,9 @@ export const MedicationIconNameStep = React.memo(function MedicationIconNameStep
               <Text style={styles.emojiPlaceholder}>?</Text>
             )}
           </View>
-          
-          {emojiError && (
-            <Text 
+
+          {emojiError ? (
+            <Text
               style={styles.errorText}
               accessible={true}
               accessibilityRole="alert"
@@ -258,18 +254,37 @@ export const MedicationIconNameStep = React.memo(function MedicationIconNameStep
             >
               {emojiError}
             </Text>
-          )}
+          ) : null}
         </View>
+      </View>
+
+      {/* Name Input Section */}
+      <View style={styles.nameSection}>
+        <Input
+          label="Nombre del medicamento"
+          value={name}
+          onChangeText={handleNameChange}
+          placeholder="Ej: Aspirina, Ibuprofeno"
+          error={nameError}
+          helperText={`${name.length}/50 caracteres`}
+          required
+          variant="outlined"
+          size="lg"
+          maxLength={50}
+          autoCapitalize="words"
+          autoCorrect={false}
+          returnKeyType="done"
+          accessible={true}
+          accessibilityLabel="Nombre del medicamento"
+          accessibilityHint="Escribe el nombre de tu medicamento, máximo 50 caracteres"
+        />
       </View>
 
       {/* Emoji Picker Section */}
       <View style={styles.emojiPickerSection}>
         <Text style={styles.sectionLabel}>Selecciona un icono</Text>
-        <Text style={styles.helperText}>
-          Toca un icono para seleccionarlo
-        </Text>
-        
-        <View 
+
+        <View
           style={styles.emojiGrid}
           accessible={true}
           accessibilityLabel="Cuadrícula de iconos disponibles"
@@ -315,7 +330,7 @@ export const MedicationIconNameStep = React.memo(function MedicationIconNameStep
           value=""
           onChangeText={handleEmojiInputChange}
           placeholder=""
-          keyboardType="default"
+          keyboardType="default" // Default keyboard often has emoji key
           autoCapitalize="none"
           autoCorrect={false}
           accessible={false}
@@ -323,33 +338,11 @@ export const MedicationIconNameStep = React.memo(function MedicationIconNameStep
         />
       </View>
 
-      {/* Name Input Section */}
-      <View style={styles.nameSection}>
-        <Input
-          label="Nombre del medicamento"
-          value={name}
-          onChangeText={handleNameChange}
-          placeholder="Ej: Aspirina, Ibuprofeno, Vitamina C"
-          error={nameError}
-          helperText={`${name.length}/50 caracteres`}
-          required
-          variant="outlined"
-          size="lg"
-          maxLength={50}
-          autoCapitalize="words"
-          autoCorrect={false}
-          returnKeyType="done"
-          accessible={true}
-          accessibilityLabel="Nombre del medicamento"
-          accessibilityHint="Escribe el nombre de tu medicamento, máximo 50 caracteres"
-        />
-      </View>
-
       {/* Info Box */}
       <View style={styles.infoBox}>
         <Text style={styles.infoIcon}>💡</Text>
         <Text style={styles.infoText}>
-          El icono te ayudará a identificar rápidamente tu medicamento en la lista
+          El icono te ayudará a identificar rápidamente tu medicamento en la lista y en las notificaciones.
         </Text>
       </View>
     </ScrollView>
@@ -367,72 +360,69 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: spacing.xl,
+    alignItems: 'center',
   },
   title: {
     fontSize: typography.fontSize['2xl'],
     fontWeight: typography.fontWeight.bold,
     color: colors.gray[900],
     marginBottom: spacing.xs,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: typography.fontSize.base,
     color: colors.gray[600],
-    lineHeight: typography.fontSize.base * 1.5,
+    textAlign: 'center',
   },
   sectionLabel: {
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.medium,
     color: colors.gray[700],
-    marginBottom: spacing.sm,
-  },
-  required: {
-    color: '#FF3B30', // colors.error[500]
-  },
-  helperText: {
-    fontSize: typography.fontSize.xs,
-    color: colors.gray[500],
     marginBottom: spacing.md,
   },
-  
+
   // Emoji Preview
   emojiPreviewSection: {
     marginBottom: spacing.xl,
+    alignItems: 'center',
   },
   emojiPreviewContainer: {
     alignItems: 'center',
   },
   emojiPreview: {
-    width: 72,
-    height: 72,
+    width: 96,
+    height: 96,
     borderRadius: borderRadius.full,
     backgroundColor: colors.surface,
-    borderWidth: 2,
-    borderColor: colors.gray[300],
+    borderWidth: 1,
+    borderColor: colors.gray[200],
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: colors.gray[900],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    ...shadows.md,
   },
   emojiPreviewError: {
-    borderColor: '#FF3B30', // colors.error[500]
+    borderColor: colors.error[500],
+    borderWidth: 2,
   },
   emojiPreviewText: {
-    fontSize: 48,
+    fontSize: 56,
   },
   emojiPlaceholder: {
-    fontSize: 36,
-    color: colors.gray[400],
+    fontSize: 48,
+    color: colors.gray[300],
   },
   errorText: {
     fontSize: typography.fontSize.xs,
-    color: '#FF3B30', // colors.error[500]
+    color: colors.error[500],
     marginTop: spacing.sm,
     textAlign: 'center',
   },
-  
+
+  // Name Section
+  nameSection: {
+    marginBottom: spacing.xl,
+  },
+
   // Emoji Picker
   emojiPickerSection: {
     marginBottom: spacing.xl,
@@ -440,41 +430,38 @@ const styles = StyleSheet.create({
   emojiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'center', // Center the grid horizontally
-    alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.sm,
     marginBottom: spacing.md,
   },
   emojiButton: {
-    // Size will be dynamic based on screen width, but we set defaults
     width: 56,
     height: 56,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.xl,
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.gray[300],
+    borderColor: colors.gray[200],
     justifyContent: 'center',
     alignItems: 'center',
-    // Ensure minimum touch target size (48x48 dp for better accessibility)
-    minWidth: 48,
-    minHeight: 48,
+    ...shadows.sm,
   },
   emojiButtonSelected: {
-    backgroundColor: '#E6F0FF', // colors.primary[50]
-    borderColor: '#007AFF', // colors.primary[500]
+    backgroundColor: colors.primary[50],
+    borderColor: colors.primary[500],
     borderWidth: 2,
+    transform: [{ scale: 1.05 }],
   },
   emojiButtonText: {
-    fontSize: 32,
+    fontSize: 28,
   },
   nativePickerButton: {
     padding: spacing.md,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.gray[100],
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.gray[50],
     borderWidth: 1,
-    borderColor: colors.gray[300],
+    borderColor: colors.gray[200],
     alignItems: 'center',
-    minHeight: 44, // Accessibility: minimum touch target
+    marginTop: spacing.sm,
   },
   nativePickerButtonText: {
     fontSize: typography.fontSize.base,
@@ -487,21 +474,15 @@ const styles = StyleSheet.create({
     height: 0,
     width: 0,
   },
-  
-  // Name Section
-  nameSection: {
-    marginBottom: spacing.xl,
-  },
-  
+
   // Info Box
   infoBox: {
     flexDirection: 'row',
     padding: spacing.md,
-    backgroundColor: '#E6F0FF', // colors.primary[50]
-    borderRadius: borderRadius.md,
-    borderLeftWidth: 4,
-    borderLeftColor: '#007AFF', // colors.primary[500]
+    backgroundColor: colors.primary[50],
+    borderRadius: borderRadius.lg,
     gap: spacing.sm,
+    alignItems: 'flex-start',
   },
   infoIcon: {
     fontSize: 20,
@@ -509,7 +490,7 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     fontSize: typography.fontSize.sm,
-    color: colors.gray[700],
+    color: colors.primary[900],
     lineHeight: typography.fontSize.sm * 1.5,
   },
 });

@@ -349,6 +349,8 @@ export const onUserDeviceUnlinked = onValueDeleted({ ref: "/users/{uid}/devices/
  * so the pillbox can consume it. This keeps RTDB as the live config while caregivers edit in Firestore.
  */
 export const onDesiredConfigUpdated = onDocumentUpdated("devices/{deviceID}", async (event) => {
+  if (!event.data) return;
+  
   const before = event.data.before.data();
   const after = event.data.after.data();
   const deviceID = event.params.deviceID as string;
@@ -567,6 +569,8 @@ export const onDeviceLinkCreated = onDocumentCreated("deviceLinks/{linkId}", asy
  * remove mapping in RTDB and devices/{deviceID}.linkedUsers.
  */
 export const onDeviceLinkUpdated = onDocumentUpdated("deviceLinks/{linkId}", async (event) => {
+  if (!event.data) return;
+  
   const before = event.data.before.data();
   const after = event.data.after.data();
   const linkId = event.params.linkId as string;
