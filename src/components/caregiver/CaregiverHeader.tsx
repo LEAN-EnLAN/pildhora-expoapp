@@ -58,6 +58,8 @@ export interface CaregiverHeaderProps {
   showBackButton?: boolean;
   /** Callback when back button is pressed */
   onBackPress?: () => void;
+  /** Custom content to render in the header */
+  children?: React.ReactNode;
 }
 
 export default function CaregiverHeader({
@@ -69,6 +71,7 @@ export default function CaregiverHeader({
   onAccountMenu,
   showBackButton = false,
   onBackPress,
+  children,
 }: CaregiverHeaderProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -277,6 +280,7 @@ export default function CaregiverHeader({
               )}
             </>
           )}
+          {children}
         </View>
 
         {/* Right section: Action buttons */}
@@ -479,8 +483,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   actionButton: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: borderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',

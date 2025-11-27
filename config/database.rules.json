@@ -1,0 +1,50 @@
+{
+  "rules": {
+    "devices": {
+      "$deviceId": {
+        "state": {
+          ".read": "auth != null && root.child('users').child(auth.uid).child('devices').child($deviceId).val() == true",
+          ".write": "auth != null && !root.child('users').child(auth.uid).exists()"
+        },
+        "dispenseEvents": {
+          ".read": "auth != null && root.child('users').child(auth.uid).child('devices').child($deviceId).val() == true",
+          "$eventId": {
+            ".write": "auth != null && !root.child('users').child(auth.uid).exists()"
+          }
+        },
+        "lastAck": {
+          ".read": "auth != null && root.child('users').child(auth.uid).child('devices').child($deviceId).val() == true",
+          ".write": "auth != null && !root.child('users').child(auth.uid).exists()"
+        },
+        "config": {
+          ".read": "auth != null && !root.child('users').child(auth.uid).exists()",
+          ".write": "auth != null && root.child('users').child(auth.uid).child('devices').child($deviceId).val() == true"
+        },
+        "dispenseRequests": {
+          ".read": "auth != null && (root.child('users').child(auth.uid).child('devices').child($deviceId).val() == true || !root.child('users').child(auth.uid).exists())",
+          "$requestId": {
+            ".write": "auth != null && (root.child('users').child(auth.uid).child('devices').child($deviceId).val() == true || !root.child('users').child(auth.uid).exists())",
+            ".validate": "newData.hasChildren(['requestedBy','requestedAt','dose'])"
+          },
+          "$requestId/": {
+            ".write": false
+          }
+        },
+        "ownerUserId": {
+          ".read": "auth != null && root.child('users').child(auth.uid).child('devices').child($deviceId).val() == true",
+          ".write": false
+        }
+      }
+    },
+    "users": {
+      "$uid": {
+        "devices": {
+          "$deviceId": {
+            ".read": "auth != null && auth.uid == $uid",
+            ".write": "auth != null && auth.uid == $uid"
+          }
+        }
+      }
+    }
+  }
+}

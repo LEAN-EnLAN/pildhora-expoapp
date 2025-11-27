@@ -939,7 +939,7 @@ void firebaseUpdateState() {
   
   // Crear JSON con estado actual
   unsigned long timestamp = millis();
-  String body = "{\"online\":true,\"lastSeen\":" + String(timestamp) + ",\"ip\":\"" + WiFi.localIP().toString() + "\",\"firmware\":\"v2.0\"}";
+  String body = "{\"is_online\":true,\"last_seen\":" + String(timestamp) + ",\"ip\":\"" + WiFi.localIP().toString() + "\",\"firmware\":\"v2.0\",\"current_status\":\"IDLE\",\"time_synced\":true}";
 
   fbClient.print(String("PATCH ") + path + " HTTP/1.1\r\n" +
                  "Host: " + FIREBASE_HOST + "\r\n" +
@@ -1008,6 +1008,12 @@ void handleFirebase() {
     }
   }
 
+  // Procesar solicitudes de dispensación
+  if (millis() % 2000 < 50) {
+    // Poll simple cada ~2s sin depender de lastCommandPoll
+    processDispenseRequests();
+  }
+
   // Actualizar estado cada 30s (heartbeat)
   if (now - lastStateUpdate >= 30000) {
     lastStateUpdate = now;
@@ -1021,4 +1027,77 @@ void handleFirebase() {
     Serial.print("Device online - IP: ");
     Serial.println(WiFi.localIP());
   }
+}
+
+// ---------------- DISPENSE REQUESTS ----------------
+// Lee /devices/{DEVICE_ID}/dispenseRequests y procesa la primera solicitud pendiente
+void processDispenseRequests() {
+  if (WiFi.status() != WL_CONNECTED) return;
+  if (!fbClient.connect(FIREBASE_HOST, 443)) return;
+
+  String path = "/devices/" + DEVICE_ID + "/dispenseRequests.json?auth=" + FIREBASE_SECRET;
+  fbClient.print(String("GET ") + path + " HTTP/1.1\r\n" +
+                 "Host: " + FIREBASE_HOST + "\r\n" +
+                 "Connection: close\r\n\r\n");
+
+  unsigned long timeout = millis();
+  while (fbClient.available() == 0) {
+    if (millis() - timeout > 5000) { fbClient.stop(); return; }
+    delay(10);
+  }
+  while (fbClient.connected() || fbClient.available()) {
+    String line = fbClient.readStringUntil('\n');
+    line.trim();
+    if (line.length() == 0) break;
+  }
+  String payload = "";
+  while (fbClient.available()) payload += (char)fbClient.read();
+  fbClient.stop();
+  payload.trim();
+
+  if (payload.length() < 2 || !payload.startsWith("{")) return;
+  // Buscar la primera solicitud: "req_xxx": { ... }
+  int keyStart = payload.indexOf('"');
+  if (keyStart < 0) return;
+  int keyEnd = payload.indexOf('"', keyStart + 1);
+  if (keyEnd <= keyStart) return;
+  String reqId = payload.substring(keyStart + 1, keyEnd);
+
+  // Ejecutar dispensación
+  topo();
+
+  // Escribir evento en dispenseEvents
+  if (!fbClient.connect(FIREBASE_HOST, 443)) return;
+  String eventId = String(millis());
+  String eventPath = "/devices/" + DEVICE_ID + "/dispenseEvents/" + eventId + ".json?auth=" + FIREBASE_SECRET;
+  String eventBody = String("{") +
+    "\"requestedAt\":" + String(millis()) + "," +
+    "\"dispensedAt\":" + String(millis()) + "," +
+    "\"ok\":true" +
+  "}";
+  fbClient.print(String("PUT ") + eventPath + " HTTP/1.1\r\n" +
+                 "Host: " + FIREBASE_HOST + "\r\n" +
+                 "Content-Type: application/json\r\n" +
+                 "Content-Length: " + eventBody.length() + "\r\n" +
+                 "Connection: close\r\n\r\n" +
+                 eventBody);
+  while (fbClient.connected()) {
+    String line = fbClient.readStringUntil('\n');
+    if (line == "\r" || line.length() == 0) break;
+  }
+  fbClient.readString();
+  fbClient.stop();
+
+  // Borrar la solicitud procesada
+  if (!fbClient.connect(FIREBASE_HOST, 443)) return;
+  String delPath = "/devices/" + DEVICE_ID + "/dispenseRequests/" + reqId + ".json?auth=" + FIREBASE_SECRET;
+  fbClient.print(String("DELETE ") + delPath + " HTTP/1.1\r\n" +
+                 "Host: " + FIREBASE_HOST + "\r\n" +
+                 "Connection: close\r\n\r\n");
+  while (fbClient.connected()) {
+    String line = fbClient.readStringUntil('\n');
+    if (line == "\r" || line.length() == 0) break;
+  }
+  fbClient.readString();
+  fbClient.stop();
 }

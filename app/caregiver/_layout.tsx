@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Platform, StyleSheet, View, ActivityIndicator, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CaregiverHeader } from '../../src/components/caregiver';
+import CaregiverTabBar from '../../src/navigation/CaregiverTabBar';
 import { colors, spacing, shadows, borderRadius } from '../../src/theme/tokens';
 import { useNavigationPersistence } from '../../src/hooks/useNavigationPersistence';
 
@@ -36,7 +37,7 @@ export default function CaregiverLayout() {
 
   // Calculate layout dimensions
   const HEADER_HEIGHT = 90; // Base header height
-  const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 70 : 60; // Reduced height for icon-only tabs
+  const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 80 : 65; // Height for icon-only tabs
   const headerHeight = HEADER_HEIGHT + insets.top;
   const tabBarHeight = TAB_BAR_HEIGHT;
   const contentInsetTop = headerHeight;
@@ -84,7 +85,7 @@ export default function CaregiverLayout() {
       tasks: 'Tareas',
       patients: 'Pacientes',
       'device-connection': 'Vincular Paciente',
-      events: 'Eventos',
+      calendar: 'Calendario',
       'medications': 'Medicamentos',
       'add-device': 'Vincular Dispositivo',
       'settings': 'Ajustes',
@@ -115,8 +116,8 @@ export default function CaregiverLayout() {
   return (
     <LayoutDimensionsContext.Provider value={layoutDimensions}>
       <View style={styles.layoutContainer}>
-        {/* Persistent header for all caregiver screens except add-device */}
-        {pathname !== '/caregiver/add-device' && (
+        {/* Persistent header for all caregiver screens except add-device and dashboard (which has custom header) */}
+        {pathname !== '/caregiver/add-device' && pathname !== '/caregiver/dashboard' && (
           <View style={styles.headerContainer}>
             <CaregiverHeader
               caregiverName={user?.name}
@@ -128,19 +129,15 @@ export default function CaregiverLayout() {
         )}
         
         <Tabs
+          tabBar={(props) => <CaregiverTabBar {...props} />}
           screenOptions={{
             headerShown: false,
             tabBarActiveTintColor: colors.primary[600],
             tabBarInactiveTintColor: colors.gray[400],
-            tabBarStyle: styles.tabBar,
-            tabBarShowLabel: false, // Icon-only navigation
-            tabBarIconStyle: styles.tabBarIcon,
-            tabBarItemStyle: styles.tabBarItem,
+            tabBarShowLabel: false,
             tabBarAllowFontScaling: false,
             tabBarHideOnKeyboard: true,
-            tabBarBackground: () => (
-              <View style={styles.tabBarBackground} />
-            ),
+            detachInactiveScreens: true,
           }}
         >
         <Tabs.Screen
@@ -189,18 +186,18 @@ export default function CaregiverLayout() {
           }}
         />
         <Tabs.Screen
-          name="events"
+          name="calendar"
           options={{
             tabBarIcon: ({ color, focused }) => (
               <View style={[styles.tabIconWrapper, focused && styles.tabIconWrapperActive]}>
                 <Ionicons 
-                  name={focused ? 'notifications' : 'notifications-outline'} 
+                  name={focused ? 'calendar' : 'calendar-outline'} 
                   size={24} 
                   color={color} 
                 />
               </View>
             ),
-            tabBarAccessibilityLabel: 'Eventos - Ver registro de eventos de medicamentos',
+            tabBarAccessibilityLabel: 'Calendario - Ver registro de eventos y adherencia',
           }}
         />
         <Tabs.Screen
@@ -250,26 +247,6 @@ const styles = StyleSheet.create({
     zIndex: 1000,
     backgroundColor: colors.surface,
   },
-  tabBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: spacing.md,
-    right: spacing.md,
-    backgroundColor: 'transparent',
-    borderTopWidth: 0,
-    paddingTop: spacing.sm,
-    paddingBottom: Platform.OS === 'ios' ? spacing.xl : spacing.md,
-    paddingHorizontal: spacing.sm,
-    height: Platform.OS === 'ios' ? 70 : 60,
-    marginBottom: Platform.OS === 'ios' ? spacing.md : spacing.sm,
-    elevation: 0,
-  },
-  tabBarBackground: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    ...shadows.lg,
-  },
   tabBarIcon: {
     marginBottom: 0,
   },
@@ -282,8 +259,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabIconWrapper: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: borderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',

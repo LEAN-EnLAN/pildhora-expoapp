@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import React, { useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, Dimensions, Platform } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import Animated, {
     useSharedValue,
@@ -48,6 +48,10 @@ export const PremiumAdherenceChart: React.FC<PremiumAdherenceChartProps> = ({
         };
     });
 
+    const webStrokeDashoffset = useMemo(() => {
+        return circumference * (1 - percentage);
+    }, [circumference, percentage]);
+
     // Color interpolation based on progress
     // Red -> Orange -> Green
     // We can't easily animate gradient colors in SVG with Reanimated directly without some tricks,
@@ -80,19 +84,33 @@ export const PremiumAdherenceChart: React.FC<PremiumAdherenceChartProps> = ({
                 />
 
                 {/* Progress Circle */}
-                <AnimatedCircle
-                    cx={size / 2}
-                    cy={size / 2}
-                    r={radius}
-                    stroke="url(#progressGradient)"
-                    strokeWidth={strokeWidth}
-                    fill="none"
-                    strokeDasharray={circumference}
-                    animatedProps={animatedProps}
-                    strokeLinecap="round"
-                    rotation="-90"
-                    origin={`${size / 2}, ${size / 2}`}
-                />
+                {Platform.OS === 'web' ? (
+                    <Circle
+                        cx={size / 2}
+                        cy={size / 2}
+                        r={radius}
+                        stroke="url(#progressGradient)"
+                        strokeWidth={strokeWidth}
+                        fill="none"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={webStrokeDashoffset}
+                        strokeLinecap="round"
+                    />
+                ) : (
+                    <AnimatedCircle
+                        cx={size / 2}
+                        cy={size / 2}
+                        r={radius}
+                        stroke="url(#progressGradient)"
+                        strokeWidth={strokeWidth}
+                        fill="none"
+                        strokeDasharray={circumference}
+                        animatedProps={animatedProps}
+                        strokeLinecap="round"
+                        rotation="-90"
+                        origin={`${size / 2}, ${size / 2}`}
+                    />
+                )}
             </Svg>
 
             {showLabel && (

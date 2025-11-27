@@ -104,6 +104,8 @@ export const spacing = {
  * Typography System
  * Font sizes, weights, and line heights
  */
+import { Platform } from 'react-native'
+
 export const typography = {
   fontSize: {
     xs: 12,
@@ -125,6 +127,10 @@ export const typography = {
     tight: 1.25,
     normal: 1.5,
     relaxed: 1.75,
+  },
+  fontFamily: {
+    sans: Platform.OS === 'ios' ? 'System' : 'System',
+    mono: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
 };
 

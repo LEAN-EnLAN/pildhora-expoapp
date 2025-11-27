@@ -6,10 +6,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { RootState, AppDispatch } from '../../../src/store';
 import { fetchMedications } from '../../../src/store/slices/medicationsSlice';
 import { Medication } from '../../../src/types';
-import { ErrorMessage, ListSkeleton, MedicationCardSkeleton } from '../../../src/components/ui';
+import { AppBar, ErrorMessage, ListSkeleton, MedicationCardSkeleton } from '../../../src/components/ui';
 import { MedicationCard } from '../../../src/components/screens/patient';
 import { colors, spacing, typography, borderRadius, shadows } from '../../../src/theme/tokens';
 import { inventoryService } from '../../../src/services/inventoryService';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function MedicationsIndex() {
   const dispatch = useDispatch<AppDispatch>();
@@ -120,27 +121,48 @@ export default function MedicationsIndex() {
 
   if (loading && !refreshing) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView edges={['top']} style={styles.container}>
+        <AppBar
+          title="Medicamentos"
+          showBackButton={true}
+          onBackPress={() => router.push('/patient/home')}
+          rightActionIcon={<Ionicons name="add" size={24} color={colors.gray[800]} />}
+          onRightActionPress={() => router.push('/patient/medications/add')}
+        />
         <View style={styles.loadingHeader}>
           <View style={styles.skeletonSummary} />
         </View>
         <ListSkeleton count={4} ItemSkeleton={MedicationCardSkeleton} />
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView edges={['top']} style={styles.container}>
+        <AppBar
+          title="Medicamentos"
+          showBackButton={true}
+          onBackPress={() => router.push('/patient/home')}
+          rightActionIcon={<Ionicons name="add" size={24} color={colors.gray[800]} />}
+          onRightActionPress={() => router.push('/patient/medications/add')}
+        />
         <View style={styles.errorContainer}>
           <ErrorMessage message={error} onRetry={handleRetry} variant="inline" />
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView edges={['top']} style={styles.container}>
+      <AppBar
+        title="Medicamentos"
+        showBackButton={true}
+        onBackPress={() => router.push('/patient/home')}
+        rightActionIcon={<Ionicons name="add" size={24} color={colors.gray[800]} />}
+        onRightActionPress={() => router.push('/patient/medications/add')}
+      />
       <FlatList
         data={medications}
         keyExtractor={(item) => item.id}
@@ -161,7 +183,7 @@ export default function MedicationsIndex() {
         initialNumToRender={10}
         showsVerticalScrollIndicator={false}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 

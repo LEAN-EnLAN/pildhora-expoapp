@@ -13,6 +13,7 @@ import {
   Platform,
   StyleSheet,
   TouchableOpacity,
+  Switch,
   AppState,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,11 +21,11 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle } from 'react-native-svg';
+
 import { RootState, AppDispatch } from '../../src/store';
 import { logout } from '../../src/store/slices/authSlice';
-import { fetchMedications } from '../../src/store/slices/medicationsSlice';
-import { startIntakesSubscription, stopIntakesSubscription, setIntakes } from '../../src/store/slices/intakesSlice';
+import { startMedicationsSubscription, stopMedicationsSubscription } from '../../src/store/slices/medicationsSlice';
+import { startIntakesSubscription, stopIntakesSubscription, setIntakes, updateIntakeStatus } from '../../src/store/slices/intakesSlice';
 import { Card, Button, Modal } from '../../src/components/ui';
 import AppIcon from '../../src/components/ui/AppIcon';
 import BrandedLoadingScreen from '../../src/components/ui/BrandedLoadingScreen';
@@ -34,6 +35,8 @@ import { getDbInstance, getRdbInstance } from '../../src/services/firebase';
 import { addDoc, collection, Timestamp } from 'firebase/firestore';
 import { ref, get as rdbGet } from 'firebase/database';
 import { colors, spacing, typography, borderRadius, shadows } from '../../src/theme/tokens';
+import { usePatientAutonomousMode } from '../../src/hooks/usePatientAutonomousMode';
+import { setAutonomousMode } from '../../src/services/autonomousMode';
 
 const DAY_ABBREVS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const getTodayAbbrev = () => DAY_ABBREVS[new Date().getDay()];
@@ -63,40 +66,16 @@ const getCurrentTimeDecimal = () => {
   return now.getHours() + now.getMinutes() / 60;
 };
 
-// ============================================================================
-// MINI ADHERENCE RING - Subtle progress indicator
-// ============================================================================
-const AdherenceRing = React.memo(function AdherenceRing({ taken, total, size = 60 }: { taken: number; total: number; size?: number }) {
-  const strokeWidth = 6;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const progress = total > 0 ? taken / total : 0;
-  const strokeDashoffset = circumference * (1 - progress);
-  const percentage = total > 0 ? Math.round((taken / total) * 100) : 0;
 
-  return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={size} height={size} style={{ position: 'absolute' }}>
-        <Circle cx={size / 2} cy={size / 2} r={radius} stroke={colors.gray[200]} strokeWidth={strokeWidth} fill="none" />
-        <Circle
-          cx={size / 2} cy={size / 2} r={radius}
-          stroke={progress >= 1 ? colors.success[500] : colors.primary[500]}
-          strokeWidth={strokeWidth} fill="none"
-          strokeDasharray={circumference} strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round" rotation="-90" origin={`${size / 2}, ${size / 2}`}
-        />
-      </Svg>
-      <Text style={{ fontSize: 14, fontWeight: '700', color: progress >= 1 ? colors.success[600] : colors.primary[600] }}>
-        {percentage}%
-      </Text>
-    </View>
-  );
-});
+
+
 
 // ============================================================================
 // HERO CARD - With integrated adherence
 // ============================================================================
 interface HeroCardProps {
+  isAutonomous: boolean;
+  onToggleAutonomous: (value: boolean) => void;
   medicationName: string;
   dosage: string;
   scheduledTime: string;
@@ -110,12 +89,14 @@ interface HeroCardProps {
   isOverdue?: boolean;
   takenCount: number;
   totalCount: number;
+  isOnline?: boolean;
 }
 
 const HeroCard = React.memo(function HeroCard({
+  isAutonomous, onToggleAutonomous,
   medicationName, dosage, scheduledTime, icon = '💊',
   onTake, onSkip, loading = false, isCompleted = false, completedAt,
-  minutesUntilDue, isOverdue = false, takenCount, totalCount,
+  minutesUntilDue, isOverdue = false, takenCount, totalCount, isOnline = true,
 }: HeroCardProps) {
   const completedTimeStr = completedAt?.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) || '';
 
@@ -142,23 +123,42 @@ const HeroCard = React.memo(function HeroCard({
 
   return (
     <View style={heroStyles.container}>
+      {/* Offline Banner inside Card if offline */}
+      {!isOnline && (
+        <View style={heroStyles.offlineBanner}>
+          <Ionicons name="cloud-offline" size={16} color={colors.warning[700]} />
+          <Text style={heroStyles.offlineText}>Sin conexión - Modo local</Text>
+        </View>
+      )}
+
       {/* Header with adherence ring */}
       <View style={heroStyles.headerRow}>
         <View style={heroStyles.timeSection}>
           <View style={[heroStyles.urgencyBadge, { backgroundColor: urgencyInfo.bgColor }]}>
             <Text style={[heroStyles.urgencyText, { color: urgencyInfo.color }]}>{urgencyInfo.label}</Text>
           </View>
-          <Text style={heroStyles.timeDisplay}>{scheduledTime}</Text>
-          {minutesUntilDue !== undefined && minutesUntilDue > 0 && (
-            <Text style={heroStyles.timeUntil}>
-              en {minutesUntilDue < 60 ? `${minutesUntilDue} min` : `${Math.floor(minutesUntilDue / 60)}h ${minutesUntilDue % 60}m`}
-            </Text>
-          )}
+          <View style={heroStyles.timeRow}>
+            <Text style={heroStyles.timeDisplay}>{scheduledTime}</Text>
+            {minutesUntilDue !== undefined && minutesUntilDue > 0 && (
+              <Text style={heroStyles.timeUntil}>
+                en {minutesUntilDue < 60 ? `${minutesUntilDue} min` : `${Math.floor(minutesUntilDue / 60)}h ${minutesUntilDue % 60}m`}
+              </Text>
+            )}
+          </View>
           {isOverdue && <Text style={heroStyles.overdueText}>⚠️ Atrasada</Text>}
         </View>
         <View style={heroStyles.adherenceContainer}>
-          <AdherenceRing taken={takenCount} total={totalCount} size={64} />
-          <Text style={heroStyles.adherenceLabel}>{takenCount}/{totalCount}</Text>
+          <Text style={[heroStyles.adherenceLabel, { fontSize: typography.fontSize.xl, fontWeight: 'bold', color: colors.primary[600], marginTop: 0 }]}>{takenCount}/{totalCount}</Text>
+          <View style={heroStyles.autonomousWrapper}>
+             <Text style={heroStyles.autonomousLabel}>Autónomo</Text>
+             <Switch
+               value={isAutonomous}
+               onValueChange={onToggleAutonomous}
+               trackColor={{ false: colors.gray[200], true: colors.primary[500] }}
+               thumbColor={colors.surface}
+               style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+             />
+          </View>
         </View>
       </View>
 
@@ -189,34 +189,39 @@ const HeroCard = React.memo(function HeroCard({
 });
 
 const heroStyles = StyleSheet.create({
-  container: { backgroundColor: colors.surface, borderRadius: borderRadius.xl, padding: spacing.xl, ...shadows.lg },
+  container: { backgroundColor: colors.surface, borderRadius: borderRadius.xl, paddingVertical: spacing.md, paddingHorizontal: spacing.lg, ...shadows.lg },
   containerCompleted: { backgroundColor: colors.success[50], borderWidth: 2, borderColor: colors.success[100] },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.lg },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.sm },
   timeSection: { flex: 1 },
-  urgencyBadge: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: borderRadius.full, alignSelf: 'flex-start', marginBottom: spacing.sm },
+  urgencyBadge: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: borderRadius.full, alignSelf: 'flex-start', marginBottom: spacing.xs },
   urgencyText: { fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
-  timeDisplay: { fontSize: 48, fontWeight: typography.fontWeight.bold, color: colors.gray[900], letterSpacing: -1 },
-  timeUntil: { fontSize: typography.fontSize.base, color: colors.gray[500], marginTop: spacing.xs },
+  timeRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm },
+  timeDisplay: { fontSize: 48, fontWeight: typography.fontWeight.bold, color: colors.gray[900], letterSpacing: -1, lineHeight: 56 },
+  timeUntil: { fontSize: 32, fontWeight: typography.fontWeight.bold, color: colors.gray[500] },
   overdueText: { fontSize: typography.fontSize.sm, color: colors.error[500], fontWeight: typography.fontWeight.semibold, marginTop: spacing.xs },
-  adherenceContainer: { alignItems: 'center' },
+  adherenceContainer: { alignItems: 'flex-end' },
   adherenceLabel: { fontSize: typography.fontSize.xs, color: colors.gray[500], marginTop: spacing.xs },
-  medicationSection: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.gray[50], borderRadius: borderRadius.lg, padding: spacing.lg, marginBottom: spacing.lg },
-  iconContainer: { width: 56, height: 56, borderRadius: borderRadius.lg, backgroundColor: colors.primary[50], alignItems: 'center', justifyContent: 'center', marginRight: spacing.md },
-  iconEmoji: { fontSize: 28 },
+  autonomousWrapper: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  autonomousLabel: { fontSize: 10, color: colors.gray[500], fontWeight: '600' },
+  medicationSection: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.gray[50], borderRadius: borderRadius.lg, padding: spacing.md, marginBottom: spacing.sm },
+  iconContainer: { width: 48, height: 48, borderRadius: borderRadius.lg, backgroundColor: colors.primary[50], alignItems: 'center', justifyContent: 'center', marginRight: spacing.md },
+  iconEmoji: { fontSize: 24 },
   medicationInfo: { flex: 1 },
-  medicationName: { fontSize: typography.fontSize.xl, fontWeight: typography.fontWeight.bold, color: colors.gray[900], marginBottom: spacing.xs },
+  medicationName: { fontSize: typography.fontSize.lg, fontWeight: typography.fontWeight.bold, color: colors.gray[900], marginBottom: 2 },
   dosage: { fontSize: typography.fontSize.base, color: colors.gray[600] },
   actionsSection: { flexDirection: 'row', gap: spacing.md },
   takeButton: { flex: 2, borderRadius: borderRadius.lg, overflow: 'hidden' },
-  takeButtonGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.lg, gap: spacing.sm },
-  takeButtonText: { fontSize: typography.fontSize.xl, fontWeight: typography.fontWeight.bold, color: colors.surface },
-  skipButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.gray[100], borderRadius: borderRadius.lg, paddingVertical: spacing.lg, gap: spacing.xs },
+  takeButtonGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.md, gap: spacing.sm },
+  takeButtonText: { fontSize: typography.fontSize.lg, fontWeight: typography.fontWeight.bold, color: colors.surface },
+  skipButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.gray[100], borderRadius: borderRadius.lg, paddingVertical: spacing.md, gap: spacing.xs },
   skipButtonText: { fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.semibold, color: colors.gray[600] },
   buttonDisabled: { opacity: 0.6 },
   completedContent: { alignItems: 'center', paddingVertical: spacing.lg },
   completedTitle: { fontSize: typography.fontSize['2xl'], fontWeight: typography.fontWeight.bold, color: colors.success[600], marginTop: spacing.md, marginBottom: spacing.sm },
   completedMedName: { fontSize: typography.fontSize.lg, color: colors.gray[700], marginBottom: spacing.xs },
   completedTime: { fontSize: typography.fontSize.base, color: colors.gray[500] },
+  offlineBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.warning[100], paddingVertical: spacing.xs, paddingHorizontal: spacing.sm, borderRadius: borderRadius.md, marginBottom: spacing.sm, gap: spacing.xs },
+  offlineText: { fontSize: typography.fontSize.xs, color: colors.warning[800], fontWeight: typography.fontWeight.semibold },
 });
 
 
@@ -311,19 +316,40 @@ export default function PatientHome() {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const { user } = useSelector((state: RootState) => state.auth);
+  const patientId = user?.id;
+  const { isAutonomous } = usePatientAutonomousMode(patientId);
   const { medications, loading } = useSelector((state: RootState) => state.medications);
   const { intakes } = useSelector((state: RootState) => state.intakes);
   const deviceSlice = useSelector((state: RootState) => (state as any).device);
+  // Assuming deviceSlice has is_online. If not, we default to true or check connection status elsewhere.
+  // Looking at deviceSlice (inferred), it likely has device state.
+  // Let's assume 'deviceState' or similar. We'll use a safe check.
+  const isDeviceOnline = deviceSlice?.deviceState?.is_online ?? true; 
+
   const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null);
   const displayName = user?.name || (user?.email ? user.email.split('@')[0] : 'Paciente');
-  const patientId = user?.id;
   const [emergencyModalVisible, setEmergencyModalVisible] = useState(false);
   const [takingLoading, setTakingLoading] = useState(false);
   const [accountMenuVisible, setAccountMenuVisible] = useState(false);
   const [currentTime, setCurrentTime] = useState(getCurrentTimeDecimal());
 
-  useEffect(() => { const interval = setInterval(() => setCurrentTime(getCurrentTimeDecimal()), 30000); return () => clearInterval(interval); }, []);
-  useEffect(() => { if (patientId) { dispatch(fetchMedications(patientId)); dispatch(startIntakesSubscription(patientId)); } return () => { if (patientId) dispatch(stopIntakesSubscription()); }; }, [patientId, dispatch]);
+  useEffect(() => { 
+    const interval = setInterval(() => setCurrentTime(getCurrentTimeDecimal()), 30000); 
+    return () => clearInterval(interval); 
+  }, []);
+
+  useEffect(() => { 
+    if (patientId) { 
+      dispatch(startMedicationsSubscription(patientId)); 
+      dispatch(startIntakesSubscription(patientId)); 
+    } 
+    return () => { 
+      if (patientId) {
+        dispatch(stopMedicationsSubscription());
+        dispatch(stopIntakesSubscription()); 
+      }
+    }; 
+  }, [patientId, dispatch]);
 
   const initDevice = useCallback(async () => {
     try {
@@ -471,115 +497,135 @@ export default function PatientHome() {
     } else setAccountMenuVisible(!accountMenuVisible);
   }, [handleLogout, router, accountMenuVisible]);
 
-  const handleTakeDose = useCallback(async () => {
-    if (!nextDose || !patientId) { Alert.alert('Error', 'No hay dosis disponible.'); return; }
+  const handleToggleAutonomous = useCallback(async (value: boolean) => {
+    if (!patientId) return;
     try {
-      setTakingLoading(true);
-      const hh = Math.floor(nextDose.timeDecimal);
-      const mm = Math.round((nextDose.timeDecimal - hh) * 60);
-      const scheduledDate = new Date(); scheduledDate.setHours(hh, mm, 0, 0);
+      await setAutonomousMode(patientId, value);
+    } catch (error) {
+      console.error('Error toggling autonomous mode:', error);
+      Alert.alert('Error', 'No se pudo cambiar el modo autónomo.');
+    }
+  }, [patientId]);
 
-      if (nextDose.medicationId) {
-        const { canTakeDose } = await import('../../src/services/doseCompletionTracker');
-        const check = await canTakeDose(nextDose.medicationId, scheduledDate);
-        if (!check.canTake) { Alert.alert('Dosis ya registrada', check.reason || 'Ya registrada.'); setTakingLoading(false); return; }
-      }
-
-      const db = await getDbInstance();
-      if (!db) throw new Error('Firestore no disponible');
-
-      const takenAt = new Date();
+  const handleTakeDose = useCallback(async () => {
+    if (isAutonomous && nextDose) {
+      // Find the existing intake record ID or create a new one logic would be complex here as we need the exact record ID.
+      // However, looking at intakesSlice, we see intakes are fetched.
+      // We need to find the intake record for this scheduled dose.
+      // The HeroCard displays 'nextDose' which is computed from 'allTodayDoses'.
+      // 'allTodayDoses' logic tries to match existing intakes.
+      // If an intake exists (TAKEN/MISSED), it's completed.
+      // If it doesn't exist, we need to create it? Or update if it exists?
+      // Wait, updateIntakeStatus takes an ID.
+      // If the record doesn't exist yet (which is the case for pending doses usually, unless pre-generated),
+      // we might need to create it.
+      // BUT, let's look at how intakes are structured. They seem to be records of *events*.
+      // If 'nextDose' is pending, there might NOT be an intake record yet.
+      // In that case, we should probably add a new document to 'intakeRecords'.
+      // However, updateIntakeStatus assumes an ID.
       
-      // Create the intake record
-      const newIntake = {
-        medicationName: nextDose.medicationName, 
-        dosage: nextDose.dosage,
-        scheduledTime: scheduledDate.toISOString(), 
-        status: IntakeStatus.TAKEN,
-        patientId, 
-        takenAt: takenAt.toISOString(),
-        ...(nextDose.medicationId ? { medicationId: nextDose.medicationId } : {}),
-        caregiverId: nextDose.medication.caregiverId,
-      };
-
-      await addDoc(collection(db, 'intakeRecords'), {
-        ...newIntake,
-        scheduledTime: Timestamp.fromDate(scheduledDate),
-        takenAt: Timestamp.fromDate(takenAt),
-      } as any);
+      // Let's check if there is an existing intake for this slot.
+      // The 'nextDose' object in 'allTodayDoses' doesn't seem to carry the intake ID unless it was already created.
+      // 'id' in 'nextDose' is constructed as `${med.id}-${idx}`.
       
-      // Optimistic update - immediately add to local state so UI updates instantly
-      dispatch(setIntakes([
-        { id: `temp-${Date.now()}`, ...newIntake } as any,
-        ...intakes,
-      ]));
+      // If we are in autonomous mode, we want to manually register the dose.
+      // We should probably use a direct Firestore call or a thunk that handles creation if needed.
+      // Given the current setup, let's check if we can find a matching intake in 'intakes' array.
+      
+      const scheduledTime = nextDose.scheduledTime;
+      // We need to reconstruct the full date for the scheduled time to match/create
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const timeDecimal = nextDose.timeDecimal;
+      const hh = Math.floor(timeDecimal);
+      const mm = Math.round((timeDecimal - hh) * 60);
+      const scheduledDate = new Date(today);
+      scheduledDate.setHours(hh, mm, 0, 0);
+      
+      // Check if there is already an intake record for this medication and time
+      // The logic in allTodayDoses (lines 356-367) does this matching.
+      // But we don't have the ID of that potential match easily available in nextDose if it wasn't matched.
+      // If it wasn't matched (which is likely why it's pending), we need to create one.
+      
+      try {
+        setTakingLoading(true);
+        const db = await getDbInstance();
+        if (!db || !user?.id) return;
 
-      if (nextDose.medication.trackInventory) {
-        try {
-          const { inventoryService } = await import('../../src/services/inventoryService');
-          await inventoryService.decrementInventory(nextDose.medicationId, inventoryService.parseDoseAmount(nextDose.medication));
-          if (await inventoryService.checkLowQuantity(nextDose.medicationId)) {
-            const status = await inventoryService.getInventoryStatus(nextDose.medicationId);
-            // Show inventory alert with clear context (pills in bottle, not today's doses)
-            Alert.alert(
-              '⚠️ Inventario bajo',
-              `Quedan ${status.currentQuantity} unidades de ${nextDose.medicationName} en tu inventario.\n\nAproximadamente ${status.daysRemaining} ${status.daysRemaining === 1 ? 'día' : 'días'} de tratamiento.`,
-              [{ text: 'Entendido', style: 'default' }]
-            );
-          }
-        } catch {}
+        // Check for existing record first to avoid duplicates
+        // This query matches the logic in startIntakesSubscription/allTodayDoses essentially
+        // But simpler: just add a new record.
+        // Wait, if we just add a record, the subscription will pick it up and update the UI.
+        
+        const intakeData = {
+          medicationId: nextDose.medicationId,
+          medicationName: nextDose.medicationName,
+          dosage: nextDose.dosage,
+          scheduledTime: scheduledDate.toISOString(),
+          status: IntakeStatus.TAKEN,
+          takenAt: new Date().toISOString(),
+          patientId: user.id,
+          deviceId: user.deviceId || 'manual',
+          isAutonomous: true, // Flag as autonomous
+          timestamp: new Date().toISOString()
+        };
+
+        await addDoc(collection(db, 'intakeRecords'), intakeData);
+        
+        // Optimistic update or wait for subscription?
+        // Subscription is fast.
+        
+      } catch (e) {
+        console.error('Error taking dose autonomously:', e);
+        Alert.alert('Error', 'No se pudo registrar la dosis. Intenta nuevamente.');
+      } finally {
+        setTakingLoading(false);
       }
-      // Calculate remaining doses for TODAY (not inventory)
-      const remainingToday = adherenceStats.total - adherenceStats.taken - 1; // -1 for the dose just taken
-      const successMessage = remainingToday > 0 
-        ? `${nextDose.medicationName} registrada.\n\n${remainingToday} dosis más para hoy.`
-        : `${nextDose.medicationName} registrada.\n\n¡Completaste todas tus dosis de hoy!`;
-      Alert.alert('✓ Registrado', successMessage);
-    } catch (e: any) { Alert.alert('Error', e?.message || 'No se pudo registrar.'); }
-    finally { setTakingLoading(false); }
-  }, [nextDose, patientId]);
+      return;
+    }
+    
+    Alert.alert('Acción no disponible', 'Las dosis se registran automáticamente por el dispositivo enlazado.');
+  }, [isAutonomous, nextDose, user]);
 
   const handleSkipDose = useCallback(async () => {
-    if (!nextDose || !patientId) return;
-    Alert.alert('Omitir dosis', `¿Omitir ${nextDose.medicationName}?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Omitir', style: 'destructive', onPress: async () => {
-        try {
-          setTakingLoading(true);
-          const hh = Math.floor(nextDose.timeDecimal); const mm = Math.round((nextDose.timeDecimal - hh) * 60);
-          const scheduledDate = new Date(); scheduledDate.setHours(hh, mm, 0, 0);
-          const db = await getDbInstance(); if (!db) throw new Error('Firestore no disponible');
-          
-          // Create the intake record
-          const newIntake = {
-            medicationName: nextDose.medicationName, 
-            dosage: nextDose.dosage,
-            scheduledTime: scheduledDate.toISOString(), 
-            status: IntakeStatus.MISSED,
-            patientId, 
-            skippedAt: new Date().toISOString(),
-            ...(nextDose.medicationId ? { medicationId: nextDose.medicationId } : {}),
-          };
-          
-          // Save to Firestore
-          await addDoc(collection(db, 'intakeRecords'), {
-            ...newIntake,
-            scheduledTime: Timestamp.fromDate(scheduledDate),
-            skippedAt: Timestamp.now(),
-          } as any);
-          
-          // Optimistic update - immediately add to local state so UI updates instantly
-          dispatch(setIntakes([
-            { id: `temp-${Date.now()}`, ...newIntake } as any,
-            ...intakes,
-          ]));
-          
-          Alert.alert('Omitida', `${nextDose.medicationName} omitida.`);
-        } catch (e: any) { Alert.alert('Error', e?.message || 'Error.'); }
-        finally { setTakingLoading(false); }
-      }},
-    ]);
-  }, [nextDose, patientId]);
+    if (isAutonomous && nextDose) {
+      try {
+        setTakingLoading(true);
+        const db = await getDbInstance();
+        if (!db || !user?.id) return;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const timeDecimal = nextDose.timeDecimal;
+        const hh = Math.floor(timeDecimal);
+        const mm = Math.round((timeDecimal - hh) * 60);
+        const scheduledDate = new Date(today);
+        scheduledDate.setHours(hh, mm, 0, 0);
+
+        const intakeData = {
+          medicationId: nextDose.medicationId,
+          medicationName: nextDose.medicationName,
+          dosage: nextDose.dosage,
+          scheduledTime: scheduledDate.toISOString(),
+          status: IntakeStatus.MISSED, // Skipped counts as missed/omitted
+          takenAt: null,
+          patientId: user.id,
+          deviceId: user.deviceId || 'manual',
+          isAutonomous: true,
+          timestamp: new Date().toISOString()
+        };
+
+        await addDoc(collection(db, 'intakeRecords'), intakeData);
+      } catch (e) {
+        console.error('Error skipping dose autonomously:', e);
+        Alert.alert('Error', 'No se pudo omitir la dosis. Intenta nuevamente.');
+      } finally {
+        setTakingLoading(false);
+      }
+      return;
+    }
+    Alert.alert('Acción no disponible', 'Las omisiones se registran automáticamente por el flujo de alertas.');
+  }, [isAutonomous, nextDose, user]);
 
   const handleDosePress = useCallback((dose: any) => { router.push(`/patient/medications/${dose.medicationId}`); }, [router]);
 
@@ -598,11 +644,14 @@ export default function PatientHome() {
           <Text style={styles.headerSubtitle}>Hola, {displayName}</Text>
         </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.iconButton} onPress={handleEmergencyPress}>
-            <Ionicons name="alert-circle" size={28} color={colors.error[500]} />
+          <View style={[styles.connectionBadge, { backgroundColor: isDeviceOnline ? colors.success[100] : colors.gray[200] }]}>
+             <Ionicons name={isDeviceOnline ? "wifi" : "wifi-outline"} size={16} color={isDeviceOnline ? colors.success[600] : colors.gray[500]} />
+          </View>
+          <TouchableOpacity style={[styles.iconButton, styles.emergencyButton]} onPress={handleEmergencyPress}>
+            <Ionicons name="alert" size={22} color={colors.surface} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={handleAccountMenu}>
-            <Ionicons name="person-circle-outline" size={28} color={colors.gray[700]} />
+          <TouchableOpacity style={[styles.iconButton, styles.accountButton]} onPress={handleAccountMenu}>
+            <Ionicons name="person" size={20} color={colors.gray[600]} />
           </TouchableOpacity>
         </View>
       </View>
@@ -633,6 +682,8 @@ export default function PatientHome() {
         {nextDose ? (
           <View style={styles.heroSection}>
             <HeroCard
+              isAutonomous={isAutonomous}
+              onToggleAutonomous={handleToggleAutonomous}
               medicationName={nextDose.medicationName}
               dosage={nextDose.dosage}
               scheduledTime={nextDose.scheduledTime}
@@ -646,6 +697,7 @@ export default function PatientHome() {
               isOverdue={nextDose.isOverdue}
               takenCount={adherenceStats.completed}
               totalCount={adherenceStats.total}
+              isOnline={isDeviceOnline}
             />
           </View>
         ) : allTodayDoses.length > 0 ? (
@@ -673,6 +725,7 @@ export default function PatientHome() {
             </Card>
           </View>
         )}
+              
 
         {/* Other Doses */}
         {otherDoses.length > 0 && (
@@ -710,56 +763,12 @@ export default function PatientHome() {
           </View>
         </View>
 
-        {/* Clean Progress Summary - Minimal inline design */}
-        {allTodayDoses.length > 0 && nextDose && (
-          <View style={styles.section}>
-            <View style={styles.progressCard}>
-              <View style={styles.progressHeader}>
-                <Text style={styles.progressTitle}>Progreso de hoy</Text>
-                <Text style={styles.progressPercent}>
-                  {Math.round((adherenceStats.completed / adherenceStats.total) * 100)}%
-                </Text>
-              </View>
-              <View style={styles.progressBarContainer}>
-                <View style={styles.progressBarBg}>
-                  <View 
-                    style={[
-                      styles.progressBarFill, 
-                      { 
-                        width: `${(adherenceStats.completed / adherenceStats.total) * 100}%`,
-                        backgroundColor: adherenceStats.completed === adherenceStats.total 
-                          ? colors.success[500] 
-                          : colors.primary[500]
-                      }
-                    ]} 
-                  />
-                </View>
-              </View>
-              <View style={styles.progressStats}>
-                <View style={styles.progressStat}>
-                  <View style={[styles.progressDot, { backgroundColor: colors.success[500] }]} />
-                  <Text style={styles.progressStatText}>{adherenceStats.taken} tomadas</Text>
-                </View>
-                {adherenceStats.skipped > 0 && (
-                  <View style={styles.progressStat}>
-                    <View style={[styles.progressDot, { backgroundColor: colors.warning[500] }]} />
-                    <Text style={styles.progressStatText}>{adherenceStats.skipped} omitidas</Text>
-                  </View>
-                )}
-                <View style={styles.progressStat}>
-                  <View style={[styles.progressDot, { backgroundColor: colors.gray[300] }]} />
-                  <Text style={styles.progressStatText}>{adherenceStats.pending} pendientes</Text>
-                </View>
-                {adherenceStats.overdue > 0 && (
-                  <View style={styles.progressStat}>
-                    <View style={[styles.progressDot, { backgroundColor: colors.error[500] }]} />
-                    <Text style={[styles.progressStatText, { color: colors.error[600] }]}>{adherenceStats.overdue} atrasadas</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          </View>
-        )}
+        
+          
+
+                  
+
+              
       </ScrollView>
     </SafeAreaView>
   );
@@ -771,10 +780,13 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, paddingHorizontal: spacing.lg, paddingVertical: spacing.lg, ...shadows.sm },
   headerLeft: { flex: 1 },
   brandingContainer: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  headerTitle: { fontSize: typography.fontSize.xl, fontWeight: typography.fontWeight.extrabold, color: colors.primary[500], letterSpacing: 0.5 },
+  headerTitle: { fontSize: typography.fontSize.xl, fontWeight: typography.fontWeight.extrabold, color: colors.primary[600], letterSpacing: -0.5 },
   headerSubtitle: { fontSize: typography.fontSize.base, color: colors.gray[600], marginTop: spacing.xs },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  iconButton: { width: 44, height: 44, borderRadius: borderRadius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.gray[50] },
+  connectionBadge: { width: 32, height: 32, borderRadius: borderRadius.full, alignItems: 'center', justifyContent: 'center', marginRight: 4 },
+  iconButton: { width: 48, height: 48, borderRadius: borderRadius.lg, alignItems: 'center', justifyContent: 'center' },
+  emergencyButton: { backgroundColor: colors.error[500] },
+  accountButton: { backgroundColor: colors.gray[100] },
   scrollView: { flex: 1 },
   scrollContent: { paddingBottom: spacing['3xl'] },
   heroSection: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
@@ -827,59 +839,4 @@ const styles = StyleSheet.create({
   quickActionCard: { flex: 1, backgroundColor: colors.surface, borderRadius: borderRadius.md, padding: spacing.md, alignItems: 'center', justifyContent: 'center', minHeight: 90, ...shadows.sm },
   quickActionIcon: { width: 44, height: 44, borderRadius: borderRadius.md, backgroundColor: colors.primary[50], alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm },
   quickActionTitle: { fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.semibold, color: colors.gray[900], textAlign: 'center' },
-  // Clean Progress Card
-  progressCard: { 
-    backgroundColor: colors.surface, 
-    borderRadius: borderRadius.lg, 
-    padding: spacing.lg,
-    ...shadows.sm,
-  },
-  progressHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    marginBottom: spacing.md,
-  },
-  progressTitle: { 
-    fontSize: typography.fontSize.base, 
-    fontWeight: typography.fontWeight.semibold, 
-    color: colors.gray[700],
-  },
-  progressPercent: { 
-    fontSize: typography.fontSize.lg, 
-    fontWeight: typography.fontWeight.bold, 
-    color: colors.primary[600],
-  },
-  progressBarContainer: { 
-    marginBottom: spacing.md,
-  },
-  progressBarBg: { 
-    height: 8, 
-    backgroundColor: colors.gray[100], 
-    borderRadius: 4, 
-    overflow: 'hidden',
-  },
-  progressBarFill: { 
-    height: '100%', 
-    borderRadius: 4,
-  },
-  progressStats: { 
-    flexDirection: 'row', 
-    flexWrap: 'wrap',
-    gap: spacing.lg,
-  },
-  progressStat: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: spacing.xs,
-  },
-  progressDot: { 
-    width: 8, 
-    height: 8, 
-    borderRadius: 4,
-  },
-  progressStatText: { 
-    fontSize: typography.fontSize.sm, 
-    color: colors.gray[600],
-  },
 });

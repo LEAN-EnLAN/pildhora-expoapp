@@ -47,14 +47,45 @@ export const caregiverDeepLinkConfig = {
             },
           },
         },
-        events: {
-          path: 'events',
+        calendar: {
+          path: 'calendar',
           screens: {
             index: '',
-            '[id]': ':id',
           },
         },
         'add-device': 'add-device',
+      },
+    },
+  },
+};
+
+/**
+ * Deep link configuration for patient routes
+ */
+export const patientDeepLinkConfig = {
+  screens: {
+    patient: {
+      path: 'patient',
+      screens: {
+        home: 'home',
+        medications: {
+          path: 'medications',
+          screens: {
+            index: '',
+            add: 'add',
+            '[id]': ':id',
+          },
+        },
+        history: {
+          path: 'history',
+          screens: {
+            index: '',
+          },
+        },
+        settings: 'settings',
+        'device-settings': 'device-settings',
+        'device-provisioning': 'device-provisioning',
+        'edit-profile': 'edit-profile',
       },
     },
   },
@@ -170,8 +201,10 @@ export async function handleDeepLink(
 
   const { route, params } = linkData;
   
-  // Validate that route is a caregiver route
-  if (!route.startsWith('caregiver/')) {
+  // Validate supported route domains
+  const isCaregiver = route.startsWith('caregiver/');
+  const isPatient = route.startsWith('patient/');
+  if (!isCaregiver && !isPatient) {
     return false;
   }
 

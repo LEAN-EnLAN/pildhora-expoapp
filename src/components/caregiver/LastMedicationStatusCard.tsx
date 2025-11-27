@@ -290,10 +290,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray[50],
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray[100],
+    borderBottomColor: colors.gray[200],
   },
   headerContent: {
     flexDirection: 'row',

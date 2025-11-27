@@ -7,7 +7,7 @@ import { RootState, AppDispatch } from '../../../src/store';
 import { updateMedication, deleteMedication, fetchMedications } from '../../../src/store/slices/medicationsSlice';
 import { MedicationWizard, MedicationFormData } from '../../../src/components/patient/medication-wizard';
 import { MedicationDetailView } from '../../../src/components/screens/patient/MedicationDetailView';
-import { DeleteMedicationDialog } from '../../../src/components/ui';
+import { DeleteMedicationDialog, AppBar } from '../../../src/components/ui';
 import { Medication } from '../../../src/types';
 import { colors, spacing, typography } from '../../../src/theme/tokens';
 
@@ -150,7 +150,12 @@ export default function MedicationDetailScreen() {
   // Show error if medication not found
   if (!medication) {
     return (
-      <SafeAreaView edges={['bottom']} style={styles.screen}>
+      <SafeAreaView edges={['top', 'bottom']} style={styles.screen}>
+        <AppBar
+          title="Detalles"
+          showBackButton={true}
+          onBackPress={() => router.back()}
+        />
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Medicamento no encontrado</Text>
         </View>
@@ -161,7 +166,12 @@ export default function MedicationDetailScreen() {
   // Show wizard when editing
   if (isEditing) {
     return (
-      <SafeAreaView edges={['bottom']} style={styles.screen}>
+      <SafeAreaView edges={['top', 'bottom']} style={styles.screen}>
+        <AppBar
+          title="Editar Medicamento"
+          showBackButton={true}
+          onBackPress={handleWizardCancel}
+        />
         <MedicationWizard
           mode="edit"
           medication={medication}
@@ -174,7 +184,12 @@ export default function MedicationDetailScreen() {
 
   // Show detail view by default
   return (
-    <SafeAreaView edges={['bottom']} style={styles.screen}>
+    <SafeAreaView edges={['top', 'bottom']} style={styles.screen}>
+      <AppBar
+        title="Detalles del medicamento"
+        showBackButton={true}
+        onBackPress={() => router.back()}
+      />
       <MedicationDetailView
         medication={medication}
         onEdit={handleEdit}

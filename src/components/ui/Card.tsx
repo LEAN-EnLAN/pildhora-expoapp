@@ -123,8 +123,10 @@ export const Card: React.FC<CardProps> = ({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
+    borderRadius: borderRadius.lg,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.gray[200],
   },
   default: {
     ...shadows.sm,
@@ -134,7 +136,7 @@ const styles = StyleSheet.create({
   },
   outlined: {
     borderWidth: 1,
-    borderColor: colors.gray[100],
+    borderColor: colors.gray[200],
   },
   padding_none: {
     padding: 0,

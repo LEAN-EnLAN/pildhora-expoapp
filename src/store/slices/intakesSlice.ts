@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { IntakeRecord, IntakeStatus, User } from '../../types';
 import { getDbInstance, waitForFirebaseInitialization } from '../../services/firebase';
 import { collection, query, where, orderBy, onSnapshot, getDocs, writeBatch, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 import { convertTimestamps } from '../../utils/firestoreUtils';
 
 interface IntakesState {

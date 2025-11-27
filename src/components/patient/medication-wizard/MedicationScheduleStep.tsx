@@ -97,8 +97,8 @@ const CustomTimeline = React.memo(function CustomTimeline({ times, emoji = '💊
   );
 });
 
-export default function MedicationScheduleStep() {
-  const { formData, updateFormData } = useWizardContext();
+export function MedicationScheduleStep() {
+  const { formData, updateFormData, setCanProceed } = useWizardContext();
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [tempDate, setTempDate] = useState(new Date());
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -114,6 +114,13 @@ export default function MedicationScheduleStep() {
       });
     }
   }, []);
+
+  // Validate step
+  useEffect(() => {
+    const hasTimes = formData.times && formData.times.length > 0;
+    const hasDays = formData.frequency && formData.frequency.length > 0;
+    setCanProceed(!!hasTimes && !!hasDays);
+  }, [formData.times, formData.frequency, setCanProceed]);
 
   const handleTimeChange = (_event: any, selectedDate?: Date) => {
     if (Platform.OS === 'android') {

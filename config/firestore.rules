@@ -1,0 +1,143 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function getUser(uid) {
+      return get(/databases/$(database)/documents/users/$(uid));
+    }
+
+    function userRole() {
+      return isSignedIn() ? getUser(request.auth.uid).data.role : null;
+    }
+
+    function isCaregiver() {
+      return userRole() == "caregiver";
+    }
+
+    // users collection: allow users to read/write their own document.
+    // Caregivers can read any user (needed to see patient info).
+    match /users/{uid} {
+      allow read: if isSelf(uid) || isCaregiver();
+      allow create, update: if isSelf(uid);
+      allow delete: if isSelf(uid);
+    }
+
+    // notificationPreferences/{userId}: only that user can read/write.
+    match /notificationPreferences/{userId} {
+      allow read, write: if isSelf(userId);
+    }
+
+    // tasks: caregiver-owned tasks (caregiverId field).
+    match /tasks/{taskId} {
+      allow read: if isSignedIn() && resource.data.caregiverId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.caregiverId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.caregiverId == request.auth.uid;
+    }
+
+    // medications: documents contain patientId and caregiverId.
+    match /medications/{medicationId} {
+      // Read: Patient can read their own medications, any authenticated caregiver can read
+      allow read: if isSignedIn() &&
+        (
+          resource.data.patientId == request.auth.uid ||
+          isCaregiver()
+        );
+
+      // Create: Patient can create their own medications, caregivers can create for anyone
+      allow create: if isSignedIn() &&
+        (
+          request.resource.data.patientId == request.auth.uid ||
+          isCaregiver()
+        );
+      
+      // Update: Patient can update their own medications, caregivers can update
+      allow update: if isSignedIn() &&
+        (
+          (resource.data.patientId == request.auth.uid && request.resource.data.patientId == request.auth.uid) ||
+          isCaregiver()
+        );
+      
+      // Delete: Patient can delete their own medications, caregivers can delete
+      allow delete: if isSignedIn() &&
+        (
+          resource.data.patientId == request.auth.uid ||
+          isCaregiver()
+        );
+    }
+
+    // intakeRecords: documents contain patientId.
+    match /intakeRecords/{intakeId} {
+      allow read: if isSignedIn() &&
+        (
+          resource.data.patientId == request.auth.uid ||
+          isCaregiver()
+        );
+        
+      allow create: if isSignedIn() &&
+        (
+          request.resource.data.patientId == request.auth.uid ||
+          isCaregiver()
+        );
+        
+      allow update: if isSignedIn() &&
+        (
+          (resource.data.patientId == request.auth.uid && request.resource.data.patientId == request.auth.uid) ||
+          isCaregiver()
+        );
+        
+      allow delete: if isSignedIn() &&
+        (
+          resource.data.patientId == request.auth.uid ||
+          isCaregiver()
+        );
+    }
+
+    // devices collection
+    match /devices/{deviceId} {
+      // Helper function to check if device is linked to user via deviceLinks
+      function isLinkedToDevice(deviceId, userId) {
+        return exists(/databases/$(database)/documents/deviceLinks/$(deviceId + '_' + userId));
+      }
+
+      // Helper function to validate device creation
+      function isValidDeviceCreation() {
+        let data = request.resource.data;
+        return data.keys().hasAll(['id', 'primaryPatientId']) &&
+               data.id == deviceId &&
+               data.primaryPatientId == request.auth.uid;
+      }
+
+      allow read: if isSignedIn() &&
+        (
+          resource.data.primaryPatientId == request.auth.uid ||
+          isLinkedToDevice(deviceId, request.auth.uid) ||
+          isCaregiver()
+        );
+
+      allow create: if isSignedIn() && isValidDeviceCreation();
+
+      allow update: if isSignedIn() &&
+        (
+          resource.data.primaryPatientId == request.auth.uid ||
+          (isCaregiver() && isLinkedToDevice(deviceId, request.auth.uid))
+        );
+        
+      allow delete: if isSignedIn() && resource.data.primaryPatientId == request.auth.uid;
+    }
+    
+    // deviceLinks collection
+    match /deviceLinks/{linkId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn(); 
+    }
+  }
+}

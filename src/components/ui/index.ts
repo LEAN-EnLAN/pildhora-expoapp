@@ -21,6 +21,7 @@ export { Collapsible } from './Collapsible';
 export { default as AppIcon } from './AppIcon';
 export { default as BrandedLoadingScreen } from './BrandedLoadingScreen';
 export { default as BrandedEmptyState } from './BrandedEmptyState';
+export { AppBar } from './AppBar';
 
 // Enhanced ColorPicker
 export { ColorPicker } from './ColorPicker';

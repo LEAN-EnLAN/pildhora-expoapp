@@ -76,18 +76,46 @@ export class DeviceActionsService {
    */
   async dispenseManualDose(deviceId: string, userId: string): Promise<DeviceActionResult> {
     try {
-      console.log('[DeviceActionsService] Triggering TOPO (dispense dose):', { deviceId, userId });
-      await triggerTopo(deviceId);
-      return {
-        success: true,
-        message: 'Secuencia de dispensación iniciada en el dispositivo',
-      };
+      console.log('[DeviceActionsService] Creating dispense request:', { deviceId, userId });
+
+      const rdb = await getRdbInstance();
+      if (!rdb) {
+        return { success: false, message: 'RTDB no disponible' };
+      }
+
+      // Gatekeeper: verify device state
+      const stateSnap = await get(ref(rdb, `devices/${deviceId}/state`));
+      if (!stateSnap.exists()) {
+        return { success: false, message: 'Estado de dispositivo no encontrado' };
+      }
+      const st = stateSnap.val() || {};
+      const current = (st.current_status || '').toString().toLowerCase();
+      const timeSynced = !!st.time_synced;
+      const isIdle = current === 'idle' || current === 'ready' || current === '';
+      if (!st.is_online) {
+        return { success: false, message: 'Dispositivo desconectado' };
+      }
+      if (!timeSynced) {
+        return { success: false, message: 'Sincroniza la hora del dispositivo antes de dispensar' };
+      }
+      if (!isIdle) {
+        return { success: false, message: 'El dispositivo no está listo para dispensar' };
+      }
+
+      const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const req = {
+        requestedBy: userId,
+        requestedAt: Date.now(),
+        dose: 1,
+        status: 'pending',
+      } as any;
+
+      await set(ref(rdb, `devices/${deviceId}/dispenseRequests/${requestId}`), req);
+
+      return { success: true, message: 'Solicitud de dispensación enviada', actionId: requestId };
     } catch (error: any) {
-      console.error('[DeviceActionsService] Error triggering TOPO:', error);
-      return {
-        success: false,
-        message: error.userMessage || 'Error al iniciar la dispensación',
-      };
+      console.error('[DeviceActionsService] Error creating dispense request:', error);
+      return { success: false, message: error.userMessage || 'Error al solicitar dispensación' };
     }
   }
 

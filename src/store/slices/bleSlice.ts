@@ -10,6 +10,7 @@ interface BLEState {
   scanning: boolean;
   connecting: boolean;
   error: string | null;
+  lastNotification?: string | null;
 }
 
 const initialState: BLEState = {
@@ -19,6 +20,7 @@ const initialState: BLEState = {
   scanning: false,
   connecting: false,
   error: null,
+  lastNotification: null,
 };
 
 // Initialize BLE Manager
@@ -132,24 +134,95 @@ export const sendCommand = createAsyncThunk(
   'ble/sendCommand',
   async (command: string, { getState, rejectWithValue }) => {
     const state = getState() as { ble: BLEState };
+    const manager = state.ble.manager;
     const connectedDevice = state.ble.connectedDevice;
 
-    if (!connectedDevice) {
+    if (!manager || !connectedDevice) {
       return rejectWithValue('No device connected');
     }
 
     try {
-      // This is a placeholder - actual implementation would depend on device protocol
-      // const characteristic = await connectedDevice.writeCharacteristicWithResponseForService(
-      //   BLE_SERVICE_UUID,
-      //   BLE_CHARACTERISTIC_UUID,
-      //   command
-      // );
-      console.log('Sending command:', command);
+      const g: any = global as any;
+      const payload = typeof g.btoa === 'function' ? g.btoa(command) : command;
+      await manager.writeCharacteristicWithResponseForDevice(
+        connectedDevice.id,
+        BLE_SERVICE_UUID,
+        BLE_CHARACTERISTIC_UUID,
+        payload
+      );
       return command;
     } catch (error: any) {
       return rejectWithValue(error.message);
     }
+  }
+);
+
+export const listenForResponse = createAsyncThunk(
+  'ble/listenForResponse',
+  async (
+    args: { successPattern?: string | RegExp; timeoutMs?: number },
+    { getState, rejectWithValue }
+  ) => {
+    const state = getState() as { ble: BLEState };
+    const manager = state.ble.manager;
+    const connectedDevice = state.ble.connectedDevice;
+
+    if (!manager || !connectedDevice) {
+      return rejectWithValue('No device connected');
+    }
+
+    const successPattern = args.successPattern ?? /(wifi|WiFi|WIFI).*(ok|OK|success)/;
+    const timeoutMs = args.timeoutMs ?? 8000;
+
+    return new Promise<string>((resolve, reject) => {
+      let resolved = false;
+      const timer = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          subscription?.remove();
+          reject('Timeout waiting for device response');
+        }
+      }, timeoutMs);
+
+      const subscription = manager.monitorCharacteristicForDevice(
+        connectedDevice.id,
+        BLE_SERVICE_UUID,
+        BLE_CHARACTERISTIC_UUID,
+        (error, characteristic) => {
+          if (error) {
+            if (!resolved) {
+              resolved = true;
+              clearTimeout(timer);
+              subscription.remove();
+              reject(error.message);
+            }
+            return;
+          }
+
+          const value = characteristic?.value ?? null;
+          if (!value) {
+            return;
+          }
+
+          const g: any = global as any;
+          const decoded = typeof g.atob === 'function' ? g.atob(value) : value;
+          try {
+            const matches =
+              typeof successPattern === 'string'
+                ? decoded.includes(successPattern)
+                : successPattern.test(decoded);
+            if (matches && !resolved) {
+              resolved = true;
+              clearTimeout(timer);
+              subscription.remove();
+              resolve(decoded);
+            }
+          } catch {
+            // ignore decode errors
+          }
+        }
+      );
+    });
   }
 );
 
@@ -238,6 +311,15 @@ const bleSlice = createSlice({
         }
       })
       .addCase(disconnectFromDevice.rejected, (state, action) => {
+        state.error = action.payload as string;
+      })
+      .addCase(sendCommand.rejected, (state, action) => {
+        state.error = action.payload as string;
+      })
+      .addCase(listenForResponse.fulfilled, (state, action) => {
+        state.lastNotification = action.payload;
+      })
+      .addCase(listenForResponse.rejected, (state, action) => {
         state.error = action.payload as string;
       });
   },

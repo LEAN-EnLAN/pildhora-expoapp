@@ -1,180 +1,98 @@
-# Pildhora Pillbox App
+# Pildhora App
 
-A comprehensive smart pillbox management system with separate interfaces for elderly patients and healthcare caregivers.
+Pildhora is a comprehensive smart pillbox management system designed to bridge the gap between elderly patients and their caregivers. It combines a user-friendly mobile application with IoT hardware to ensure medication adherence and peace of mind.
 
-## Features
+## 📱 Overview
 
-### Patient App
-- Simple medication reminders
-- One-tap intake confirmation
-- Pillbox connectivity status
-- Accessible UI for elderly users
+The platform consists of two distinct interfaces within a single application:
 
-### Caregiver App
-- Full medication management (CRUD)
-- Real-time patient monitoring
-- AI-powered adherence reports
-- Task scheduling and tracking
-- Multi-patient dashboard
+*   **Patient App:** A simplified, high-contrast, and accessible interface for elderly users. It focuses on clear reminders, one-tap intake confirmation, and seamless connectivity with the physical pillbox.
+*   **Caregiver App:** A robust dashboard for family members or healthcare providers. It allows for full medication management, real-time monitoring, adherence tracking, and device configuration.
 
-## Tech Stack
+## ✨ Key Features
 
-- **Framework**: React Native with Expo
-- **Navigation**: Expo Router
-- **State Management**: Redux Toolkit + Redux Persist
-- **Backend**: Google Firebase (Auth, Firestore, Functions)
-- **AI**: Google Vertex AI (Gemini)
-- **Hardware**: BLE connectivity with ESP8266
-- **UI**: React Native Elements + React Native Paper
+### For Patients
+*   **Smart Reminders:** Timely notifications for medication intakes.
+*   **One-Tap Actions:** Easy confirmation of taken doses.
+*   **Visual Clarity:** Large text, high contrast, and intuitive icons.
+*   **Device Status:** Real-time battery and connectivity indicators for the Pildhora Pillbox.
 
-## Getting Started
+### For Caregivers
+*   **Remote Management:** Add, edit, or remove medications remotely.
+*   **Real-Time Adherence:** Instant updates when a patient takes (or misses) a dose.
+*   **AI Insights:** Powered by Google Vertex AI (Gemini) to analyze adherence patterns and generate reports.
+*   **Multi-Patient Support:** Manage multiple patients from a single dashboard.
+*   **Inventory Tracking:** Automatic tracking of pill quantities with low-stock alerts.
 
-1. **Prerequisites**
-   - Node.js 18+
-   - Expo CLI
-   - Android Studio (for Android) or Xcode (for iOS)
+## 🛠️ Tech Stack
 
-2. **Installation**
-   ```bash
-   npm install
-   ```
+*   **Framework:** React Native (Expo)
+*   **Styling:** NativeWind (Tailwind CSS) & Custom Design System
+*   **Backend:** Firebase (Auth, Firestore, Realtime Database, Functions)
+*   **AI Integration:** Google Vertex AI (Gemini)
+*   **Hardware Integration:** BLE & Wi-Fi (ESP8266 based)
+*   **State Management:** Redux Toolkit
+*   **Navigation:** Expo Router
 
-3. **Environment Setup**
-   - Copia `.env.example` a `.env`
-   - Rellena las variables de Firebase con los valores de tu proyecto:
-     ```env
-     EXPO_PUBLIC_FIREBASE_API_KEY=...
-     EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=...
-     EXPO_PUBLIC_FIREBASE_PROJECT_ID=...
-     EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=...
-     EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
-     EXPO_PUBLIC_FIREBASE_APP_ID=...
-     ```
-   - Importante: las variables deben empezar con `EXPO_PUBLIC_` para que Expo las exponga en tiempo de ejecución (no usar secretos aquí).
-   - Opciones para cargar el `.env`:
-     - Simple: exporta las variables en tu terminal antes de iniciar Expo (PowerShell):
-       ```powershell
-       $env:EXPO_PUBLIC_FIREBASE_API_KEY="..."
-       $env:EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN="..."
-       $env:EXPO_PUBLIC_FIREBASE_PROJECT_ID="..."
-       $env:EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET="..."
-       $env:EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="..."
-       $env:EXPO_PUBLIC_FIREBASE_APP_ID="..."
-       npm start
-       ```
-     - Conveniente: instala `dotenv-cli` y usa el archivo `.env` automáticamente (Windows/macOS/Linux):
-       ```bash
-       npm install --save-dev dotenv-cli
-       ```
-       Luego actualiza tus scripts a:
-       ```json
-       {
-         "scripts": {
-           "start": "dotenv -e .env -- expo start",
-           "android": "dotenv -e .env -- expo start --android",
-           "ios": "dotenv -e .env -- expo start --ios",
-           "web": "dotenv -e .env -- expo start --web"
-         }
-       }
-       ```
-   - Añade también tus claves de Google AI si las usas.
+## 🚀 Getting Started
 
-4. **Development**
-   ```bash
-   npm start
-   ```
+### Prerequisites
+*   Node.js (LTS recommended)
+*   Expo CLI
+*   iOS Simulator (Mac) or Android Emulator
 
-5. **Building**
-   ```bash
-   npm run android  # or npm run ios
-   ```
+### Installation
 
-## Project Structure
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/username/pildhora-app.git
+    cd pildhora-app
+    ```
 
-```
-src/
-├── components/          # Reusable UI components
-│   ├── ui/             # Core design system components
-│   ├── screens/        # Screen-specific components
-│   └── shared/         # Shared composite components
-├── theme/              # Design tokens and styling
-├── services/           # API and hardware services
-├── store/              # Redux state management
-├── utils/              # Utilities and constants
-├── types/              # TypeScript definitions
-└── hooks/              # Custom React hooks
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
 
-app/                    # Expo Router screens
-├── caregiver/          # Caregiver-specific screens
-├── patient/            # Patient-specific screens
-├── auth/               # Authentication screens
-└── device/             # Device management screens
+3.  **Environment Configuration:**
+    Create a `.env` file in the root directory based on `.env.example`. You will need your Firebase configuration keys.
+    ```env
+    EXPO_PUBLIC_FIREBASE_API_KEY=your_api_key
+    EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+    ...
+    ```
 
-docs/                   # Documentation
-├── DESIGN_SYSTEM.md    # Design system guide
-├── COMPONENT_DOCUMENTATION.md  # Component API docs
-├── MIGRATION_GUIDE.md  # Migration instructions
-└── ...                 # Additional documentation
-```
+### Running the App
 
-## Design System
+*   **Start the development server:**
+    ```bash
+    npm start
+    ```
+*   **Run on Android:**
+    ```bash
+    npm run android
+    ```
+*   **Run on iOS:**
+    ```bash
+    npm run ios
+    ```
 
-The application uses a comprehensive design system with reusable components and design tokens for consistent styling across all screens.
+## 📁 Project Structure
 
-### Core Components
+*   `app/`: Application screens and routing (Expo Router).
+    *   `caregiver/`: Screens specific to the caregiver flow.
+    *   `patient/`: Screens specific to the patient flow.
+*   `src/`: Core source code.
+    *   `components/`: Reusable UI components.
+    *   `hooks/`: Custom React hooks.
+    *   `services/`: API and hardware integration services.
+    *   `store/`: Redux state management.
+    *   `theme/`: Design tokens and styling constants.
 
-- **Button**: Versatile button with variants (primary, secondary, danger, ghost, outline)
-- **Card**: Container component with elevation and variants
-- **Input**: Unified text input with validation and error handling
-- **Modal**: Dialog component with animations and configurable sizes
-- **Chip**: Compact component for tags and selections
-- **ColorPicker**: Intuitive color picker with presets
-- **LoadingSpinner**: Loading indicator with size variants
-- **ErrorMessage**: Error display with retry options
-- **SuccessMessage**: Success feedback with auto-dismiss
+## 🤝 Contributing
 
-### Design Tokens
+Contributions are welcome! Please read our contributing guidelines before submitting a pull request.
 
-```typescript
-import { colors, spacing, typography, borderRadius, shadows } from '@/theme/tokens';
+## 📄 License
 
-// Use tokens for consistent styling
-<View style={{
-  padding: spacing.lg,
-  backgroundColor: colors.surface,
-  borderRadius: borderRadius.md,
-  ...shadows.md,
-}}>
-```
-
-### Documentation
-
-**Quick Start**: See [UI Refactor Documentation Index](./docs/UI_REFACTOR_INDEX.md) for complete documentation overview.
-
-**Key Documents**:
-- [Design System Guide](./docs/DESIGN_SYSTEM.md) - Complete design system documentation
-- [Component Documentation](./docs/COMPONENT_DOCUMENTATION.md) - Detailed component API reference
-- [Migration Guide](./docs/MIGRATION_GUIDE.md) - Guide for migrating to new components
-- [Storybook Guide](./docs/STORYBOOK_GUIDE.md) - Component development and testing
-- [Accessibility Compliance](./docs/ACCESSIBILITY_COMPLIANCE.md) - Accessibility guidelines
-- [Performance Optimizations](./docs/PERFORMANCE_OPTIMIZATIONS.md) - Performance best practices
-
-## Development Guidelines
-
-- Use TypeScript for all new code
-- Follow functional component patterns
-- Implement proper error handling
-- Write unit tests for business logic
-- Use JSDoc for component documentation
-- Maintain accessibility standards
-
-## Contributing
-
-1. Create a feature branch
-2. Make your changes
-3. Add tests
-4. Submit a pull request
-
-## License
-
-MIT License
+This project is licensed under the MIT License.

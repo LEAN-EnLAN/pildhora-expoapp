@@ -2,6 +2,8 @@ import { Stack, useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../src/store';
+import { View, StyleSheet } from 'react-native';
+import { colors } from '../../src/theme/tokens';
 
 export default function PatientLayout() {
   const router = useRouter();
@@ -21,14 +23,23 @@ export default function PatientLayout() {
   }, [isAuthenticated, user?.role]);
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="home" />
-      <Stack.Screen name="medications" />
-      <Stack.Screen name="history" />
-      <Stack.Screen name="settings" />
-      <Stack.Screen name="device-settings" />
-      <Stack.Screen name="device-provisioning" />
-      <Stack.Screen name="edit-profile" />
-    </Stack>
+    <View style={styles.layoutContainer}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="home" />
+        <Stack.Screen name="medications" />
+        <Stack.Screen name="history" />
+        <Stack.Screen name="settings" />
+        <Stack.Screen name="device-settings" />
+        <Stack.Screen name="device-provisioning" />
+        <Stack.Screen name="edit-profile" />
+      </Stack>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  layoutContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+});
