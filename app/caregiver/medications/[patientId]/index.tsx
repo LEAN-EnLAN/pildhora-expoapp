@@ -262,6 +262,14 @@ function CaregiverMedicationsIndexContent() {
         <Card variant="elevated" padding="lg">
           <View style={styles.chartHeader}>
             <Text style={styles.chartTitle}>Adherencia Hoy</Text>
+            <Button
+              variant="ghost"
+              size="sm"
+              onPress={() => router.push(`/caregiver/reports/${pid}`)}
+              rightIcon={<Ionicons name="chevron-forward" size={16} color={colors.primary[600]} />}
+            >
+              Ver Reportes
+            </Button>
           </View>
           <View style={{ alignItems: 'center', paddingVertical: spacing.md }}>
             <PremiumAdherenceChart
@@ -372,34 +380,37 @@ function CaregiverMedicationsIndexContent() {
   }
 
   return (
-    <View style={styles.container}>
-      <OfflineIndicator />
+    <ScreenWrapper>
+      <View style={styles.container}>
+        <OfflineIndicator />
 
-      {/* Cached Data Warning */}
-      {usingCachedData && (
-        <View style={styles.cachedDataBanner}>
-          <Ionicons name="information-circle" size={20} color={colors.warning[500]} />
-          <Text style={styles.cachedDataText}>
-            Mostrando datos guardados. Conéctate para actualizar.
-          </Text>
-        </View>
-      )}
+        {/* Cached Data Warning */}
+        {usingCachedData && (
+          <View style={styles.cachedDataBanner}>
+            <Ionicons name="information-circle" size={20} color={colors.warning[500]} />
+            <Text style={styles.cachedDataText}>
+              Mostrando datos guardados. Conéctate para actualizar.
+            </Text>
+          </View>
+        )}
 
-      <FlatList
-        data={filteredMedications}
-        keyExtractor={keyExtractor}
-        renderItem={renderMedicationItem}
-        contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
-        ListHeaderComponent={renderHeader}
-        ListEmptyComponent={renderEmptyState}
-        ListFooterComponent={renderAddButton}
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={10}
-        updateCellsBatchingPeriod={50}
-        initialNumToRender={10}
-        windowSize={10}
-      />
-    </View>
+        <FlatList
+          data={filteredMedications}
+          keyExtractor={keyExtractor}
+          renderItem={renderMedicationItem}
+          contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
+          ListHeaderComponent={renderHeader}
+          ListEmptyComponent={renderEmptyState}
+          ListFooterComponent={renderAddButton}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          updateCellsBatchingPeriod={50}
+          initialNumToRender={10}
+          windowSize={10}
+          getItemLayout={getItemLayout}
+        />
+      </View>
+    </ScreenWrapper>
   );
 }
 

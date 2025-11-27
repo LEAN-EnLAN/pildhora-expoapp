@@ -15,7 +15,6 @@ import { Button, Container, Card, Input } from '../../src/components/ui';
 import { ScreenWrapper } from '../../src/components/caregiver';
 import { validateCode, ConnectionCodeError } from '../../src/services/connectionCode';
 import { colors, spacing, typography, borderRadius } from '../../src/theme/tokens';
-import { useScrollViewPadding } from '../../src/hooks/useScrollViewPadding';
 
 /**
  * DeviceConnectionScreen
@@ -154,17 +153,16 @@ export default function DeviceConnectionScreen() {
    * Check if form is valid for submission
    */
   const isFormValid = code.length >= 6 && code.length <= 8 && !formatError;
-  const { contentPaddingBottom } = useScrollViewPadding();
 
   return (
-    <ScreenWrapper>
+    <ScreenWrapper applyTopPadding={false}>
       <Container style={styles.container}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
         >
           <ScrollView
-            contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}
+            contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
@@ -329,6 +327,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.lg,
+    paddingBottom: spacing['3xl'],
   },
   backButtonContainer: {
     marginBottom: spacing.md,

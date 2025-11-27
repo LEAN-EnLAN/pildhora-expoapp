@@ -30,28 +30,6 @@ export const es = {
     info: 'Información',
   },
 
-  // Diagnostics
-  diagnostics: {
-    title: 'Diagnósticos',
-    subtitle: 'Resumen rápido de problemas y pasos de remediación',
-    tabs: {
-      devices: 'Dispositivos',
-      connection: 'Conexión',
-      medication: 'Medicación',
-      accessibility: 'Accesibilidad',
-    },
-    search: {
-      placeholder: 'Buscar problemas, mensajes o acciones',
-      accessibilityLabel: 'Buscar en diagnósticos',
-    },
-    badge: {
-      retry: 'Reintentar',
-      attention: 'Atención',
-      validate: 'Validar',
-      newCode: 'Nuevo código',
-    },
-  },
-
   // Device Provisioning Wizard
   wizard: {
     title: 'Configurar Dispositivo',

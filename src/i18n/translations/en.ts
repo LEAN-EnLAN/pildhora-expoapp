@@ -30,28 +30,6 @@ export const en = {
     info: 'Information',
   },
 
-  // Diagnostics
-  diagnostics: {
-    title: 'Diagnostics',
-    subtitle: 'Quick overview of issues and remediation steps',
-    tabs: {
-      devices: 'Devices',
-      connection: 'Connection',
-      medication: 'Medication',
-      accessibility: 'Accessibility',
-    },
-    search: {
-      placeholder: 'Search issues, messages or actions',
-      accessibilityLabel: 'Search in diagnostics',
-    },
-    badge: {
-      retry: 'Retry',
-      attention: 'Attention',
-      validate: 'Validate',
-      newCode: 'New code',
-    },
-  },
-
   // Device Provisioning Wizard
   wizard: {
     title: 'Setup Device',

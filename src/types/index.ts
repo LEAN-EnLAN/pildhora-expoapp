@@ -808,7 +808,7 @@ export interface NotificationPreferences {
  * const eventType: MedicationEventType = 'created';
  * ```
  */
-export type MedicationEventType = 'created' | 'updated' | 'deleted' | 'dose_taken' | 'dose_missed' | 'dose_skipped';
+export type MedicationEventType = 'created' | 'updated' | 'deleted';
 
 /**
  * EventSyncStatus
