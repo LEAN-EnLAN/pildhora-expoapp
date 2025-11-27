@@ -20,7 +20,7 @@ import { useScrollViewPadding } from '../../src/hooks/useScrollViewPadding';
 import {
   waitForFirebaseInitialization,
 } from '../../src/services/firebase';
-import { Button, Container } from '../../src/components/ui';
+import { Button, Container, Modal } from '../../src/components/ui';
 import { PatientWithDevice } from '../../src/types';
 import { ScreenWrapper, CaregiverHeader } from '../../src/components/caregiver';
 import { AutonomousModeBanner } from '../../src/components/caregiver/AutonomousModeBanner';
@@ -38,6 +38,10 @@ import { useDeviceState } from '../../src/hooks/useDeviceState';
 // Components
 import { StatusRibbon } from '../../src/components/caregiver/dashboard/StatusRibbon';
 import { CompactDeviceCard } from '../../src/components/caregiver/dashboard/CompactDeviceCard';
+<<<<<<< Updated upstream
+=======
+import TopoSessionOverlay from '../../src/components/session/TopoSessionOverlay';
+>>>>>>> Stashed changes
 
 const SELECTED_PATIENT_KEY = '@caregiver_selected_patient';
 
@@ -240,6 +244,11 @@ function CaregiverDashboardContent() {
     }
   }, [refetchPatients, isOnline, handleRetryInitialization]);
 
+<<<<<<< Updated upstream
+=======
+  const [patientMenuVisible, setPatientMenuVisible] = useState(false);
+
+>>>>>>> Stashed changes
   // --- Render ---
 
   // Error States
@@ -277,9 +286,23 @@ function CaregiverDashboardContent() {
       console.error('Error signing out:', error);
     }
   };
+<<<<<<< Updated upstream
 
   return (
     <ScreenWrapper applyTopPadding={false}>
+=======
+
+  const handlePatientSelectFromMenu = (patientId: string) => {
+    handlePatientSelect(patientId);
+    setPatientMenuVisible(false);
+  };
+
+  return (
+    <ScreenWrapper applyTopPadding={false}>
+      {selectedPatient?.deviceId && selectedPatient?.id && (
+        <TopoSessionOverlay patientId={selectedPatient.id} deviceId={selectedPatient.deviceId} supervised={true} />
+      )}
+>>>>>>> Stashed changes
       <OfflineIndicator />
       
       {/* Custom Header with Patient Selector */}
@@ -296,6 +319,7 @@ function CaregiverDashboardContent() {
               </View>
               <TouchableOpacity 
                 style={styles.patientSelectorButton}
+<<<<<<< Updated upstream
                 onPress={() => {
                   if (patientsWithDevices.length > 1) {
                     const currentIndex = patientsWithDevices.findIndex(p => p.id === selectedPatientId);
@@ -305,17 +329,70 @@ function CaregiverDashboardContent() {
                 }}
                 activeOpacity={0.7}
                 disabled={patientsWithDevices.length <= 1}
+=======
+                onPress={() => setPatientMenuVisible(true)}
+                activeOpacity={0.7}
+>>>>>>> Stashed changes
               >
                 <Text style={styles.headerPatientName} numberOfLines={1}>
                   {selectedPatient?.name || 'Seleccionar'}
                 </Text>
+<<<<<<< Updated upstream
                 {patientsWithDevices.length > 1 && (
                   <Ionicons name="chevron-down" size={14} color={colors.primary[600]} />
                 )}
+=======
+                <Ionicons name="chevron-down" size={14} color={colors.primary[600]} />
+>>>>>>> Stashed changes
               </TouchableOpacity>
             </View>
         </CaregiverHeader>
       </View>
+<<<<<<< Updated upstream
+=======
+
+      {/* Patient Selection Modal */}
+      <Modal
+        visible={patientMenuVisible}
+        onClose={() => setPatientMenuVisible(false)}
+        title="Seleccionar Paciente"
+        size="sm"
+      >
+        <View style={{ gap: spacing.md }}>
+          {patientsWithDevices.length <= 1 ? (
+             <View style={{ padding: spacing.md, alignItems: 'center' }}>
+               <Text style={{ color: colors.gray[500], textAlign: 'center' }}>
+                 No hay otros pacientes disponibles.
+               </Text>
+             </View>
+          ) : (
+            patientsWithDevices.map((patient) => (
+              <Button
+                key={patient.id}
+                variant={patient.id === selectedPatientId ? 'primary' : 'outline'}
+                size="lg"
+                fullWidth
+                onPress={() => handlePatientSelectFromMenu(patient.id)}
+                leftIcon={<Ionicons name="person" size={18} color={patient.id === selectedPatientId ? 'white' : colors.primary[600]} />}
+              >
+                {patient.name}
+              </Button>
+            ))
+          )}
+          
+          <Button
+            variant="ghost"
+            size="md"
+            fullWidth
+            onPress={() => router.push('/caregiver/device-connection')}
+            style={{ marginTop: spacing.sm }}
+            leftIcon={<Ionicons name="add-circle-outline" size={20} color={colors.primary[600]} />}
+          >
+            Vincular nuevo paciente
+          </Button>
+        </View>
+      </Modal>
+>>>>>>> Stashed changes
       
       {/* Fixed Status Ribbon (Device Status Only) */}
       <View style={styles.statusRibbonContainer}>
@@ -557,7 +634,10 @@ const styles = StyleSheet.create({
   },
   headerPatientSelector: {
     marginTop: spacing.xs,
+<<<<<<< Updated upstream
     marginLeft: spacing.xs,
+=======
+>>>>>>> Stashed changes
   },
   headerLabel: {
     fontSize: 10,

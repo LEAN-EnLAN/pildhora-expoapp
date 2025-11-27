@@ -1,5 +1,9 @@
 import React, { useMemo } from 'react'
 import { View, Pressable, Platform, StyleSheet, Text } from 'react-native'
+<<<<<<< Updated upstream
+=======
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+>>>>>>> Stashed changes
 import { Ionicons } from '@expo/vector-icons'
 import { colors, spacing, borderRadius } from '../theme/tokens'
 
@@ -19,13 +23,29 @@ const iconForRoute = (name: string, focused: boolean) => {
 }
 
 export default function CaregiverTabBar({ state, descriptors, navigation }: TabBarProps) {
+<<<<<<< Updated upstream
+=======
+  const insets = useSafeAreaInsets()
+>>>>>>> Stashed changes
   const routes = useMemo(() => {
     const allowed = new Set(['dashboard', 'tasks', 'patients', 'calendar', 'settings'])
     return state.routes.filter((r: any) => allowed.has(r.name))
   }, [state.routes])
 
   return (
+<<<<<<< Updated upstream
     <View style={styles.container}>
+=======
+    <View
+      style={[
+        styles.container,
+        {
+          paddingBottom: insets.bottom + spacing.md,
+          height: (Platform.OS === 'ios' ? 64 : 56) + insets.bottom,
+        },
+      ]}
+    >
+>>>>>>> Stashed changes
       {routes.map((route: any, index: number) => {
         const { options } = descriptors[route.key]
         const label =
@@ -85,9 +105,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-around',
     paddingTop: spacing.sm,
+<<<<<<< Updated upstream
     paddingBottom: Platform.OS === 'ios' ? spacing['2xl'] : spacing.md,
     paddingHorizontal: spacing.md,
     height: Platform.OS === 'ios' ? 80 : 65,
+=======
+    paddingHorizontal: spacing.md,
+>>>>>>> Stashed changes
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.gray[200],

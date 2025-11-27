@@ -221,7 +221,6 @@ export default function CaregiverLayout() {
         <Tabs.Screen name="add-device" options={{ href: null }} />
         <Tabs.Screen name="device-connection-confirm" options={{ href: null }} />
         <Tabs.Screen name="edit-profile" options={{ href: null }} />
-        <Tabs.Screen name="reports" options={{ href: null }} />
         </Tabs>
       </View>
     </LayoutDimensionsContext.Provider>

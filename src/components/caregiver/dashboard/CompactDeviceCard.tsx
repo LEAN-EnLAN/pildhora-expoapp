@@ -68,7 +68,11 @@ export const CompactDeviceCard: React.FC<CompactDeviceCardProps> = ({
       <View style={styles.header}>
         <View style={styles.titleContainer}>
           <Ionicons name="hardware-chip-outline" size={20} color={colors.primary[600]} />
+<<<<<<< Updated upstream
           <Text style={styles.deviceName}>{deviceName}</Text>
+=======
+          <Text style={[styles.deviceName, { flexShrink: 1 }]} numberOfLines={1}>{deviceName}</Text>
+>>>>>>> Stashed changes
         </View>
         <View style={[styles.statusBadge, { backgroundColor: isOnline ? colors.success[100] : colors.error[100] }]}>
           <View style={[styles.statusDot, { backgroundColor: isOnline ? colors.success[500] : colors.error[500] }]} />
@@ -151,9 +155,17 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   titleContainer: {
+<<<<<<< Updated upstream
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+=======
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginRight: spacing.sm,
+>>>>>>> Stashed changes
   },
   deviceName: {
     fontSize: typography.fontSize.lg,

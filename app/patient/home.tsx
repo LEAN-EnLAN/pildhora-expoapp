@@ -37,6 +37,15 @@ import { ref, get as rdbGet } from 'firebase/database';
 import { colors, spacing, typography, borderRadius, shadows } from '../../src/theme/tokens';
 import { usePatientAutonomousMode } from '../../src/hooks/usePatientAutonomousMode';
 import { setAutonomousMode } from '../../src/services/autonomousMode';
+<<<<<<< Updated upstream
+=======
+import TopoSessionOverlay from '../../src/components/session/TopoSessionOverlay';
+import { useTopoSession } from '../../src/hooks/useTopoSession';
+import { sendDeviceCommand, triggerBuzzer, clearDeviceCommands } from '../../src/services/deviceCommands';
+import { recordIntakeFromTopo } from '../../src/services/intakeFromTopo';
+import { set as rdbSet } from 'firebase/database';
+import { useScrollViewPadding } from '../../src/hooks/useScrollViewPadding';
+>>>>>>> Stashed changes
 
 const DAY_ABBREVS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const getTodayAbbrev = () => DAY_ABBREVS[new Date().getDay()];
@@ -121,12 +130,17 @@ const HeroCard = React.memo(function HeroCard({
     );
   }
 
+  const { contentPaddingBottom } = useScrollViewPadding();
   return (
     <View style={heroStyles.container}>
       {/* Offline Banner inside Card if offline */}
       {!isOnline && (
         <View style={heroStyles.offlineBanner}>
+<<<<<<< Updated upstream
           <Ionicons name="cloud-offline" size={16} color={colors.warning[700]} />
+=======
+          <Ionicons name="cloud-offline" size={16} color={colors.warning[600]} />
+>>>>>>> Stashed changes
           <Text style={heroStyles.offlineText}>Sin conexión - Modo local</Text>
         </View>
       )}
@@ -221,7 +235,11 @@ const heroStyles = StyleSheet.create({
   completedMedName: { fontSize: typography.fontSize.lg, color: colors.gray[700], marginBottom: spacing.xs },
   completedTime: { fontSize: typography.fontSize.base, color: colors.gray[500] },
   offlineBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.warning[100], paddingVertical: spacing.xs, paddingHorizontal: spacing.sm, borderRadius: borderRadius.md, marginBottom: spacing.sm, gap: spacing.xs },
+<<<<<<< Updated upstream
   offlineText: { fontSize: typography.fontSize.xs, color: colors.warning[800], fontWeight: typography.fontWeight.semibold },
+=======
+  offlineText: { fontSize: typography.fontSize.xs, color: colors.warning[600], fontWeight: typography.fontWeight.semibold },
+>>>>>>> Stashed changes
 });
 
 
@@ -332,6 +350,7 @@ export default function PatientHome() {
   const [takingLoading, setTakingLoading] = useState(false);
   const [accountMenuVisible, setAccountMenuVisible] = useState(false);
   const [currentTime, setCurrentTime] = useState(getCurrentTimeDecimal());
+  const { isAlarm } = useTopoSession(patientId, activeDeviceId || undefined);
 
   useEffect(() => { 
     const interval = setInterval(() => setCurrentTime(getCurrentTimeDecimal()), 30000); 
@@ -508,7 +527,27 @@ export default function PatientHome() {
   }, [patientId]);
 
   const handleTakeDose = useCallback(async () => {
+<<<<<<< Updated upstream
     if (isAutonomous && nextDose) {
+=======
+    if (isAlarm && activeDeviceId && patientId) {
+      try {
+        setTakingLoading(true);
+        const rdb = await getRdbInstance();
+        if (rdb) await rdbSet(ref(rdb, `devices/${activeDeviceId}/commands/topo`), false);
+        await sendDeviceCommand(activeDeviceId, { topo: false });
+        await triggerBuzzer(activeDeviceId, false);
+        await clearDeviceCommands(activeDeviceId);
+        await recordIntakeFromTopo(patientId, activeDeviceId);
+      } catch (e) {
+        Alert.alert('Error', 'No se pudo confirmar la dosis.');
+      } finally {
+        setTakingLoading(false);
+      }
+      return;
+    }
+    if ((isAutonomous || !activeDeviceId) && nextDose) {
+>>>>>>> Stashed changes
       // Find the existing intake record ID or create a new one logic would be complex here as we need the exact record ID.
       // However, looking at intakesSlice, we see intakes are fetched.
       // We need to find the intake record for this scheduled dose.
@@ -542,6 +581,7 @@ export default function PatientHome() {
       const scheduledDate = new Date(today);
       scheduledDate.setHours(hh, mm, 0, 0);
       
+<<<<<<< Updated upstream
       // Check if there is already an intake record for this medication and time
       // The logic in allTodayDoses (lines 356-367) does this matching.
       // But we don't have the ID of that potential match easily available in nextDose if it wasn't matched.
@@ -577,6 +617,47 @@ export default function PatientHome() {
         
       } catch (e) {
         console.error('Error taking dose autonomously:', e);
+=======
+              // Check if there is already an intake record for this medication and time
+            // The logic in allTodayDoses (lines 356-367) does this matching.
+            // But we don't have the ID of that potential match easily available in nextDose if it wasn't matched.
+            // If it wasn't matched (which is likely why it's pending), we need to create one.
+            
+            try {
+              setTakingLoading(true);
+              const db = await getDbInstance();
+              if (!db || !user?.id) {
+                  console.error('Database or user ID missing');
+                  return;
+              }
+      
+              // Check for existing record first to avoid duplicates
+              // This query matches the logic in startIntakesSubscription/allTodayDoses essentially
+              // But simpler: just add a new record.
+              // Wait, if we just add a record, the subscription will pick it up and update the UI.
+              
+              const intakeData = {
+                medicationId: nextDose.medicationId,
+                medicationName: nextDose.medicationName,
+                dosage: nextDose.dosage,
+                scheduledTime: scheduledDate.toISOString(),
+                status: IntakeStatus.TAKEN,
+                takenAt: new Date().toISOString(),
+                patientId: user.id,
+                deviceId: user.deviceId || 'manual',
+                isAutonomous: true, // Flag as autonomous
+                timestamp: new Date().toISOString()
+              };
+      
+              console.log('Saving intake record:', intakeData);
+              await addDoc(collection(db, 'intakeRecords'), intakeData);
+              console.log('Intake record saved successfully');
+              
+              // Optimistic update or wait for subscription?
+              // Subscription is fast.
+              
+            } catch (e) {        console.error('Error taking dose autonomously:', e);
+>>>>>>> Stashed changes
         Alert.alert('Error', 'No se pudo registrar la dosis. Intenta nuevamente.');
       } finally {
         setTakingLoading(false);
@@ -584,11 +665,19 @@ export default function PatientHome() {
       return;
     }
     
+<<<<<<< Updated upstream
     Alert.alert('Acción no disponible', 'Las dosis se registran automáticamente por el dispositivo enlazado.');
   }, [isAutonomous, nextDose, user]);
 
   const handleSkipDose = useCallback(async () => {
     if (isAutonomous && nextDose) {
+=======
+    Alert.alert('Acción no disponible', 'Para registrar dosis manualmente, activa el "Modo Autónomo" o desenlaza el dispositivo.');
+  }, [isAutonomous, nextDose, user]);
+
+  const handleSkipDose = useCallback(async () => {
+    if ((isAutonomous || !activeDeviceId) && nextDose) {
+>>>>>>> Stashed changes
       try {
         setTakingLoading(true);
         const db = await getDbInstance();
@@ -616,6 +705,10 @@ export default function PatientHome() {
         };
 
         await addDoc(collection(db, 'intakeRecords'), intakeData);
+<<<<<<< Updated upstream
+=======
+        console.log('Skipped dose registered successfully');
+>>>>>>> Stashed changes
       } catch (e) {
         console.error('Error skipping dose autonomously:', e);
         Alert.alert('Error', 'No se pudo omitir la dosis. Intenta nuevamente.');
@@ -624,7 +717,11 @@ export default function PatientHome() {
       }
       return;
     }
+<<<<<<< Updated upstream
     Alert.alert('Acción no disponible', 'Las omisiones se registran automáticamente por el flujo de alertas.');
+=======
+    Alert.alert('Acción no disponible', 'Para gestionar dosis manualmente, activa el "Modo Autónomo" o desenlaza el dispositivo.');
+>>>>>>> Stashed changes
   }, [isAutonomous, nextDose, user]);
 
   const handleDosePress = useCallback((dose: any) => { router.push(`/patient/medications/${dose.medicationId}`); }, [router]);
@@ -634,6 +731,9 @@ export default function PatientHome() {
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
+      {!isAutonomous && activeDeviceId && patientId && (
+        <TopoSessionOverlay patientId={patientId} deviceId={activeDeviceId} supervised={true} />
+      )}
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -677,7 +777,7 @@ export default function PatientHome() {
         </Modal>
       )}
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]} showsVerticalScrollIndicator={false} contentInsetAdjustmentBehavior="automatic">
         {/* Hero Card or All Done */}
         {nextDose ? (
           <View style={styles.heroSection}>
@@ -788,7 +888,7 @@ const styles = StyleSheet.create({
   emergencyButton: { backgroundColor: colors.error[500] },
   accountButton: { backgroundColor: colors.gray[100] },
   scrollView: { flex: 1 },
-  scrollContent: { paddingBottom: spacing['3xl'] },
+  scrollContent: { },
   heroSection: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
   section: { paddingHorizontal: spacing.lg, marginTop: spacing.lg },
   modalActions: { gap: spacing.md },

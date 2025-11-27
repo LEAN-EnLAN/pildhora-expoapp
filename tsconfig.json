@@ -4,7 +4,16 @@
     "strict": true,
     "skipLibCheck": true
   },
+  "include": [
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "src/theme/**/*.ts",
+    "src/utils/**/*.ts",
+    "src/hooks/**/*.ts"
+  ],
   "exclude": [
-    "functions/**"
+    "functions/**",
+    "scripts/**",
+    "tests/**"
   ]
 }

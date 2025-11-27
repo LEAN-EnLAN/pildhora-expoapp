@@ -3,12 +3,14 @@ const path = require('path');
 
 const config = getDefaultConfig(__dirname);
 
-// Add resolver configuration to handle the Slider import issue
+// Add resolver configuration to handle the Slider import issue and other aliases
 config.resolver.alias = {
   // Alias react-native Slider to @react-native-community/slider
   'react-native/Libraries/Components/Slider/Slider': '@react-native-community/slider',
   // Also handle direct import from react-native
   'react-native/Slider': '@react-native-community/slider',
+  // Stub react-native-worklets to avoid web/runtime crashes when not using native worklets
+  'react-native-worklets': path.resolve(__dirname, 'src/shims/react-native-worklets.ts'),
 };
 
 // Add extra node modules to ensure proper resolution
