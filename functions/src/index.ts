@@ -762,7 +762,7 @@ export const onDispenseEventToIntake = onValueCreated({ ref: "/devices/{deviceID
         dosage,
         scheduledTime: new Date(scheduledMs),
         status: ok ? "TAKEN" : "MISSED",
-        takenAt: new Date(dispensedMs),
+        takenAt: ok ? new Date(dispensedMs) : null,
         createdBy: "device",
         requestedBy: data.requestedBy || "",
         requestedAt: new Date(data.requestedAt || dispensedMs),
