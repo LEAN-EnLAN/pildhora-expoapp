@@ -5,6 +5,7 @@ export { ErrorBoundary } from './ErrorBoundary';
 export { SyncStatusIndicator } from './SyncStatusIndicator';
 export { TestTopoButton } from './TestTopoButton';
 export { TestScheduleSyncButton } from './TestScheduleSyncButton';
+export { TestFortuButton } from './TestFortuButton';
 export { TopoAlarmOverlay } from './TopoAlarmOverlay';
 export { PastilleroScheduleList } from './PastilleroScheduleList';
 export { StatusCard } from './StatusCard';

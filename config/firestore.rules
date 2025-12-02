@@ -154,12 +154,15 @@ service cloud.firestore {
     // ============================================
     match /medications/{medicationId} {
       // Patients can read their own medications
-      // Caregivers can read medications for linked patients (unless autonomous)
+      // Caregivers can read medications for linked patients.
+      // NOTE: previously caregiver access was blocked when the patient
+      // was in autonomous mode; allow linked caregivers to read so UI
+      // features (like sync) can operate. This change intentionally
+      // relaxes that restriction for read-only access.
       allow read: if isSignedIn() && (
         resource.data.patientId == request.auth.uid ||
         resource.data.caregiverId == request.auth.uid ||
-        (isLinkedToPatient(resource.data.patientId, request.auth.uid) && 
-         !isPatientAutonomous(resource.data.patientId))
+        isLinkedToPatient(resource.data.patientId, request.auth.uid)
       );
       
       // Patients can create medications for themselves

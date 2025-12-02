@@ -26,7 +26,7 @@ import { ScreenWrapper, CaregiverHeader } from '../../src/components/caregiver';
 import { AutonomousModeBanner } from '../../src/components/caregiver/AutonomousModeBanner';
 import { usePatientAutonomousMode } from '../../src/hooks/usePatientAutonomousMode';
 import { ErrorBoundary } from '../../src/components/shared/ErrorBoundary';
-import { TestTopoButton, TestScheduleSyncButton, DeveloperToolsSection } from '../../src/components/shared';
+import { TestTopoButton, TestFortuButton, TestScheduleSyncButton, DeveloperToolsSection } from '../../src/components/shared';
 import { ErrorState } from '../../src/components/caregiver/ErrorState';
 import { OfflineIndicator } from '../../src/components/caregiver/OfflineIndicator';
 import { patientDataCache } from '../../src/services/patientDataCache';
@@ -46,10 +46,10 @@ function CaregiverDashboardContent() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
-  
+
   // Layout dimensions
   const { contentPaddingBottom } = useScrollViewPadding();
-  
+
   // State management
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -57,14 +57,14 @@ function CaregiverDashboardContent() {
   const [retryCount, setRetryCount] = useState(0);
   const [cachedPatients, setCachedPatients] = useState<PatientWithDevice[]>([]);
   const [usingCachedData, setUsingCachedData] = useState(false);
-  
+
   // Network status
   const networkStatus = useNetworkStatus();
   const isOnline = networkStatus.isOnline;
-  
+
   // Fade-in animation
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  
+
   // Per-patient state cache
   const [patientStateCache] = useState<Map<string, {
     lastViewed: Date;
@@ -183,7 +183,7 @@ function CaregiverDashboardContent() {
     if (!selectedPatientId && patientsWithDevices.length > 0) {
       const firstPatientId = patientsWithDevices[0].id;
       setSelectedPatientId(firstPatientId);
-      AsyncStorage.setItem(SELECTED_PATIENT_KEY, firstPatientId).catch(() => {});
+      AsyncStorage.setItem(SELECTED_PATIENT_KEY, firstPatientId).catch(() => { });
     }
   }, [selectedPatientId, patientsWithDevices]);
 
@@ -209,14 +209,14 @@ function CaregiverDashboardContent() {
   // Handle patient select
   const handlePatientSelect = useCallback((patientId: string) => {
     if (patientId === selectedPatientId) return;
-    
+
     patientStateCache.set(patientId, {
       lastViewed: new Date(),
       deviceId: patientsWithDevices.find(p => p.id === patientId)?.deviceId,
     });
-    
+
     setSelectedPatientId(patientId);
-    AsyncStorage.setItem(SELECTED_PATIENT_KEY, patientId).catch(() => {});
+    AsyncStorage.setItem(SELECTED_PATIENT_KEY, patientId).catch(() => { });
   }, [selectedPatientId, patientStateCache, patientsWithDevices]);
 
   // --- Data Fetching for Dashboard Content ---
@@ -239,7 +239,7 @@ function CaregiverDashboardContent() {
     if (!caregiverUid || !isInitialized) return;
 
     const criticalEventsService = new CriticalEventNotificationsService();
-    
+
     // Start monitoring for critical events
     criticalEventsService.startMonitoring(caregiverUid, (event) => {
       // Handle topo-related events
@@ -273,7 +273,7 @@ function CaregiverDashboardContent() {
     refetchPatients();
     // Re-verify firebase connection
     if (!isOnline) {
-       handleRetryInitialization();
+      handleRetryInitialization();
     }
   }, [refetchPatients, isOnline, handleRetryInitialization]);
 
@@ -318,7 +318,7 @@ function CaregiverDashboardContent() {
   return (
     <ScreenWrapper applyTopPadding={false}>
       <OfflineIndicator />
-      
+
       {/* Topo Notification Banner */}
       {topoNotification && (
         <Animated.View style={styles.topoNotificationBanner}>
@@ -328,15 +328,15 @@ function CaregiverDashboardContent() {
             topoNotification.type === 'topo_missed' && styles.topoNotificationWarning,
             topoNotification.type === 'topo_timeout' && styles.topoNotificationError,
           ]}>
-            <Ionicons 
+            <Ionicons
               name={
                 topoNotification.type === 'topo_started' ? 'notifications' :
-                topoNotification.type === 'topo_taken' ? 'checkmark-circle' :
-                topoNotification.type === 'topo_missed' ? 'close-circle' :
-                'alert-circle'
-              } 
-              size={24} 
-              color="white" 
+                  topoNotification.type === 'topo_taken' ? 'checkmark-circle' :
+                    topoNotification.type === 'topo_missed' ? 'close-circle' :
+                      'alert-circle'
+              }
+              size={24}
+              color="white"
             />
             <View style={styles.topoNotificationText}>
               <Text style={styles.topoNotificationTitle}>
@@ -356,7 +356,7 @@ function CaregiverDashboardContent() {
           </View>
         </Animated.View>
       )}
-      
+
       {/* Custom Header with Patient Selector */}
       <View style={{ zIndex: 1000 }}>
         <CaregiverHeader
@@ -364,34 +364,34 @@ function CaregiverDashboardContent() {
           onLogout={handleLogout}
           showScreenTitle={false}
         >
-           <View style={styles.headerPatientSelector}>
-              <View style={styles.labelRow}>
-                <Ionicons name="person-circle-outline" size={14} color={colors.primary[600]} />
-                <Text style={styles.headerLabel}>PACIENTE</Text>
-              </View>
-              <TouchableOpacity 
-                style={styles.patientSelectorButton}
-                onPress={() => {
-                  if (patientsWithDevices.length > 1) {
-                    const currentIndex = patientsWithDevices.findIndex(p => p.id === selectedPatientId);
-                    const nextIndex = (currentIndex + 1) % patientsWithDevices.length;
-                    handlePatientSelect(patientsWithDevices[nextIndex].id);
-                  }
-                }}
-                activeOpacity={0.7}
-                disabled={patientsWithDevices.length <= 1}
-              >
-                <Text style={styles.headerPatientName} numberOfLines={1}>
-                  {selectedPatient?.name || 'Seleccionar'}
-                </Text>
-                {patientsWithDevices.length > 1 && (
-                  <Ionicons name="chevron-down" size={14} color={colors.primary[600]} />
-                )}
-              </TouchableOpacity>
+          <View style={styles.headerPatientSelector}>
+            <View style={styles.labelRow}>
+              <Ionicons name="person-circle-outline" size={14} color={colors.primary[600]} />
+              <Text style={styles.headerLabel}>PACIENTE</Text>
             </View>
+            <TouchableOpacity
+              style={styles.patientSelectorButton}
+              onPress={() => {
+                if (patientsWithDevices.length > 1) {
+                  const currentIndex = patientsWithDevices.findIndex(p => p.id === selectedPatientId);
+                  const nextIndex = (currentIndex + 1) % patientsWithDevices.length;
+                  handlePatientSelect(patientsWithDevices[nextIndex].id);
+                }
+              }}
+              activeOpacity={0.7}
+              disabled={patientsWithDevices.length <= 1}
+            >
+              <Text style={styles.headerPatientName} numberOfLines={1}>
+                {selectedPatient?.name || 'Seleccionar'}
+              </Text>
+              {patientsWithDevices.length > 1 && (
+                <Ionicons name="chevron-down" size={14} color={colors.primary[600]} />
+              )}
+            </TouchableOpacity>
+          </View>
         </CaregiverHeader>
       </View>
-      
+
       {/* Fixed Status Ribbon (Device Status Only) */}
       <View style={styles.statusRibbonContainer}>
         <StatusRibbon
@@ -411,20 +411,20 @@ function CaregiverDashboardContent() {
           accessibilityLabel="Dashboard content"
         >
           {usingCachedData && (
-             <View style={styles.cachedDataBanner} accessible={true} accessibilityRole="alert">
-               <Ionicons name="information-circle" size={20} color={colors.warning[500]} />
-               <Text style={styles.cachedDataText}>Mostrando datos guardados</Text>
-             </View>
+            <View style={styles.cachedDataBanner} accessible={true} accessibilityRole="alert">
+              <Ionicons name="information-circle" size={20} color={colors.warning[500]} />
+              <Text style={styles.cachedDataText}>Mostrando datos guardados</Text>
+            </View>
           )}
 
           {/* Autonomous Mode Banner */}
           {selectedPatient && <AutonomousModeBannerWrapper patientId={selectedPatient.id} />}
 
           {patientsWithDevices.length === 0 ? (
-             <EmptyState onAddDevice={() => handleNavigate('add-device')} />
+            <EmptyState onAddDevice={() => handleNavigate('add-device')} />
           ) : (
             <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-              
+
               {/* Device Card */}
               <CompactDeviceCard
                 deviceId={selectedPatient?.deviceId}
@@ -440,16 +440,16 @@ function CaregiverDashboardContent() {
               <View style={styles.quickActionsContainer}>
                 <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
                 <View style={styles.actionButtonsRow}>
-                  <QuickActionButton 
-                    icon="calendar" 
-                    label="Calendario" 
-                    onPress={() => handleNavigate('calendar')} 
+                  <QuickActionButton
+                    icon="calendar"
+                    label="Calendario"
+                    onPress={() => handleNavigate('calendar')}
                     color={colors.primary[500]}
                   />
-                  <QuickActionButton 
-                    icon="medkit" 
-                    label="Medicamentos" 
-                    onPress={() => handleNavigate('medications')} 
+                  <QuickActionButton
+                    icon="medkit"
+                    label="Medicamentos"
+                    onPress={() => handleNavigate('medications')}
                     color={colors.info[500]}
                   />
                 </View>
@@ -457,7 +457,7 @@ function CaregiverDashboardContent() {
 
               {/* Device Actions */}
               <View style={styles.deviceActions}>
-                <Button 
+                <Button
                   variant="outline"
                   onPress={() => handleNavigate('add-device')}
                   leftIcon={<Ionicons name="settings-outline" size={18} color={colors.primary[600]} />}
@@ -469,8 +469,9 @@ function CaregiverDashboardContent() {
               {/* Developer Tools - Hidden by default in production */}
               <DeveloperToolsSection>
                 <TestTopoButton deviceId={selectedPatient?.deviceId || 'TEST-DEVICE-001'} />
-                <TestScheduleSyncButton 
-                  deviceId={selectedPatient?.deviceId} 
+                <TestFortuButton deviceId={selectedPatient?.deviceId || 'TEST-DEVICE-001'} />
+                <TestScheduleSyncButton
+                  deviceId={selectedPatient?.deviceId}
                   patientId={selectedPatient?.id}
                 />
               </DeveloperToolsSection>
@@ -489,7 +490,7 @@ function AutonomousModeBannerWrapper({ patientId }: { patientId: string }) {
   if (isLoading || !isAutonomous) return null;
   return (
     <View style={styles.bannerContainer}>
-      <AutonomousModeBanner 
+      <AutonomousModeBanner
         message="Modo autónomo activado"
         size="md"
       />
@@ -505,8 +506,8 @@ function EmptyState({ onAddDevice }: { onAddDevice: () => void }) {
       <Text style={styles.emptyDescription}>
         Vincula un dispositivo para comenzar
       </Text>
-      <Button 
-        variant="primary" 
+      <Button
+        variant="primary"
         size="lg"
         onPress={onAddDevice}
         style={styles.emptyButton}
@@ -519,8 +520,8 @@ function EmptyState({ onAddDevice }: { onAddDevice: () => void }) {
 
 function QuickActionButton({ icon, label, onPress, color }: { icon: any, label: string, onPress: () => void, color: string }) {
   return (
-    <TouchableOpacity 
-      style={styles.quickActionButton} 
+    <TouchableOpacity
+      style={styles.quickActionButton}
       onPress={onPress}
       activeOpacity={0.7}
     >

@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useRef, useCallback, memo } from 'react';
-import { 
-  Text, 
-  View, 
-  TouchableOpacity, 
-  ActivityIndicator, 
-  StyleSheet, 
-  Animated, 
-  Dimensions, 
+import {
+  Text,
+  View,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
+  Animated,
+  Dimensions,
   Alert,
   StatusBar,
   ScrollView,
@@ -24,7 +24,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../src/theme/tokens';
 import { AppIcon, Button } from '../src/components/ui';
-import { TestTopoButton, DeveloperToolsSection } from '../src/components/shared';
+import { TestTopoButton, TestFortuButton, DeveloperToolsSection } from '../src/components/shared';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -144,8 +144,8 @@ const LandingView = memo(({ onStart, onLogin }: { onStart: () => void; onLogin: 
           </LinearGradient>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          onPress={onLogin} 
+        <TouchableOpacity
+          onPress={onLogin}
           style={styles.loginLink}
           accessibilityLabel="Iniciar sesión si ya tienes cuenta"
         >
@@ -157,6 +157,7 @@ const LandingView = memo(({ onStart, onLogin }: { onStart: () => void; onLogin: 
         {/* Developer Tools - Hidden by default, tap 5 times to reveal */}
         <DeveloperToolsSection>
           <TestTopoButton />
+          <TestFortuButton />
         </DeveloperToolsSection>
       </View>
     </View>
@@ -167,15 +168,15 @@ const LandingView = memo(({ onStart, onLogin }: { onStart: () => void; onLogin: 
  * Role Card Component
  * Selectable card for user role
  */
-const RoleCard = memo(({ 
-  role, 
-  title, 
-  description, 
-  icon, 
-  color, 
+const RoleCard = memo(({
+  role,
+  title,
+  description,
+  icon,
+  color,
   bgColor,
-  onSelect 
-}: { 
+  onSelect
+}: {
   role: 'patient' | 'caregiver';
   title: string;
   description: string;
@@ -213,20 +214,20 @@ const RoleCard = memo(({
  * Role Selection View Component
  * Allows user to choose between Patient and Caregiver
  */
-const RoleSelectionView = memo(({ 
-  onBack, 
-  onSelect, 
-  onLogin 
-}: { 
-  onBack: () => void; 
+const RoleSelectionView = memo(({
+  onBack,
+  onSelect,
+  onLogin
+}: {
+  onBack: () => void;
   onSelect: (role: 'patient' | 'caregiver') => void;
   onLogin: () => void;
 }) => {
   return (
     <View style={styles.viewContainer}>
       <View style={styles.headerSection}>
-        <TouchableOpacity 
-          onPress={onBack} 
+        <TouchableOpacity
+          onPress={onBack}
           style={styles.backButton}
           accessibilityLabel="Volver a la pantalla de inicio"
           accessibilityRole="button"
@@ -239,8 +240,8 @@ const RoleSelectionView = memo(({
         <Text style={styles.roleSubtitle}>¿Cómo deseas utilizar Pildhora?</Text>
       </View>
 
-      <ScrollView 
-        style={styles.scrollView} 
+      <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={styles.cardsContainer}
         showsVerticalScrollIndicator={false}
       >
@@ -266,7 +267,7 @@ const RoleSelectionView = memo(({
       </ScrollView>
 
       <View style={styles.footerSection}>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={onLogin}
           accessibilityLabel="Iniciar sesión"
         >
@@ -293,7 +294,7 @@ export default function WelcomeScreen() {
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
-  
+
   // Track performance metrics
   const renderStartTime = useRef(Date.now());
 
@@ -386,7 +387,7 @@ export default function WelcomeScreen() {
           locations={[0, 0.5, 1]}
           style={StyleSheet.absoluteFill}
         />
-        
+
         {/* Decorative background elements */}
         <View style={styles.decorativeCircle1} />
         <View style={styles.decorativeCircle2} />
@@ -404,9 +405,9 @@ export default function WelcomeScreen() {
             {viewState === 'landing' ? (
               <LandingView onStart={handleStart} onLogin={handleLogin} />
             ) : (
-              <RoleSelectionView 
-                onBack={handleBackToLanding} 
-                onSelect={handleRoleSelect} 
+              <RoleSelectionView
+                onBack={handleBackToLanding}
+                onSelect={handleRoleSelect}
                 onLogin={handleLogin}
               />
             )}
@@ -469,7 +470,7 @@ const styles = StyleSheet.create({
     color: colors.gray[500],
     fontSize: typography.fontSize.sm,
   },
-  
+
   // Decorative Elements
   decorativeCircle1: {
     position: 'absolute',
