@@ -1,98 +1,109 @@
 # Pildhora App
 
-Pildhora is a comprehensive smart pillbox management system designed to bridge the gap between elderly patients and their caregivers. It combines a user-friendly mobile application with IoT hardware to ensure medication adherence and peace of mind.
+Pildhora es un sistema integral de gestión de pastilleros inteligentes diseñado para cerrar la brecha entre los pacientes de edad avanzada y sus cuidadores. Combina una aplicación móvil intuitiva con hardware IoT para garantizar la adherencia a la medicación y brindar tranquilidad.
 
-## 📱 Overview
+## 📱 Resumen
 
-The platform consists of two distinct interfaces within a single application:
+La plataforma consta de dos interfaces distintas dentro de una misma aplicación:
 
-*   **Patient App:** A simplified, high-contrast, and accessible interface for elderly users. It focuses on clear reminders, one-tap intake confirmation, and seamless connectivity with the physical pillbox.
-*   **Caregiver App:** A robust dashboard for family members or healthcare providers. It allows for full medication management, real-time monitoring, adherence tracking, and device configuration.
+*   **App del Paciente:** Una interfaz simplificada, de alto contraste y accesible para usuarios mayores. Se centra en recordatorios claros, confirmación de toma con un solo toque y conectividad fluida con el pastillero físico.
+*   **App del Cuidador:** Un panel de control robusto para familiares o proveedores de salud. Permite la gestión completa de la medicación, monitoreo en tiempo real, seguimiento de adherencia y configuración del dispositivo.
 
-## ✨ Key Features
+## ✨ Características Principales
 
-### For Patients
-*   **Smart Reminders:** Timely notifications for medication intakes.
-*   **One-Tap Actions:** Easy confirmation of taken doses.
-*   **Visual Clarity:** Large text, high contrast, and intuitive icons.
-*   **Device Status:** Real-time battery and connectivity indicators for the Pildhora Pillbox.
+### Para Pacientes
+*   **Recordatorios Inteligentes:** Notificaciones oportunas para las tomas de medicamentos.
+*   **Acciones de un Toque:** Confirmación sencilla de dosis tomadas.
+*   **Claridad Visual:** Texto grande, alto contraste e iconos intuitivos.
+*   **Estado del Dispositivo:** Indicadores en tiempo real de batería y conectividad para el Pastillero Pildhora.
 
-### For Caregivers
-*   **Remote Management:** Add, edit, or remove medications remotely.
-*   **Real-Time Adherence:** Instant updates when a patient takes (or misses) a dose.
-*   **AI Insights:** Powered by Google Vertex AI (Gemini) to analyze adherence patterns and generate reports.
-*   **Multi-Patient Support:** Manage multiple patients from a single dashboard.
-*   **Inventory Tracking:** Automatic tracking of pill quantities with low-stock alerts.
+### Para Cuidadores
+*   **Gestión Remota:** Añadir, editar o eliminar medicamentos a distancia.
+*   **Adherencia en Tiempo Real:** Actualizaciones instantáneas cuando un paciente toma (o falta a) una dosis.
+*   **Insights con IA:** Potenciado por Google Vertex AI (Gemini) para analizar patrones de adherencia y generar reportes.
+*   **Soporte Multi-Paciente:** Gestiona varios pacientes desde un solo panel.
+*   **Seguimiento de Inventario:** Rastreo automático de cantidades de pastillas con alertas de stock bajo.
 
-## 🛠️ Tech Stack
+## 🛠️ Stack Tecnológico
 
 *   **Framework:** React Native (Expo)
-*   **Styling:** NativeWind (Tailwind CSS) & Custom Design System
+*   **Estilos:** NativeWind (Tailwind CSS) y Sistema de Diseño Personalizado
 *   **Backend:** Firebase (Auth, Firestore, Realtime Database, Functions)
-*   **AI Integration:** Google Vertex AI (Gemini)
-*   **Hardware Integration:** BLE & Wi-Fi (ESP8266 based)
-*   **State Management:** Redux Toolkit
-*   **Navigation:** Expo Router
+*   **Integración de IA:** Google Vertex AI (Gemini)
+*   **Integración de Hardware:** BLE y Wi-Fi (basado en ESP8266)
+*   **Gestión de Estado:** Redux Toolkit
+*   **Navegación:** Expo Router
 
-## 🚀 Getting Started
+## 🚀 Primeros Pasos
 
-### Prerequisites
-*   Node.js (LTS recommended)
-*   Expo CLI
-*   iOS Simulator (Mac) or Android Emulator
+### Requisitos Previos
+*   Node.js (LTS recomendado)
+*   Expo CLI (`npm install -g expo-cli`)
+*   Aplicación **Expo Go** en tu dispositivo físico o un Emulador de Android / Simulador de iOS.
 
-### Installation
+### Instalación
 
-1.  **Clone the repository:**
+1.  **Clonar el repositorio:**
     ```bash
-    git clone https://github.com/username/pildhora-app.git
+    git clone https://github.com/usuario/pildhora-app.git
     cd pildhora-app
     ```
 
-2.  **Install dependencies:**
+2.  **Instalar dependencias:**
     ```bash
     npm install
     ```
 
-3.  **Environment Configuration:**
-    Create a `.env` file in the root directory based on `.env.example`. You will need your Firebase configuration keys.
+3.  **Configuración de Entorno:**
+    Crea un archivo `.env` en el directorio raíz basado en `.env.example`. Necesitarás tus llaves de configuración de Firebase.
     ```env
-    EXPO_PUBLIC_FIREBASE_API_KEY=your_api_key
-    EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-    ...
+    EXPO_PUBLIC_FIREBASE_API_KEY=tu_api_key
+    EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=tu_proyecto.firebaseapp.com
+    EXPO_PUBLIC_FIREBASE_PROJECT_ID=tu_proyecto_id
+    # Otros parámetros necesarios...
     ```
 
-### Running the App
+### Ejecución y Pruebas
 
-*   **Start the development server:**
+Para correr la aplicación en modo de desarrollo:
+
+*   **Iniciar el servidor de desarrollo:**
     ```bash
-    npm start
+    npx expo start
     ```
-*   **Run on Android:**
+    *Esto abrirá el "Expo Dev Tools" en tu terminal. Escanea el código QR con la app **Expo Go** en tu celular para probar en hardware real.*
+
+*   **Ejecutar en Android (Emulador):**
     ```bash
     npm run android
     ```
-*   **Run on iOS:**
+
+*   **Ejecutar en iOS (Simulador):**
     ```bash
     npm run ios
     ```
 
-## 📁 Project Structure
+*   **Ejecutar Pruebas Unitarias (si aplica):**
+    ```bash
+    npm test
+    ```
 
-*   `app/`: Application screens and routing (Expo Router).
-    *   `caregiver/`: Screens specific to the caregiver flow.
-    *   `patient/`: Screens specific to the patient flow.
-*   `src/`: Core source code.
-    *   `components/`: Reusable UI components.
-    *   `hooks/`: Custom React hooks.
-    *   `services/`: API and hardware integration services.
-    *   `store/`: Redux state management.
-    *   `theme/`: Design tokens and styling constants.
+## 📁 Estructura del Proyecto
 
-## 🤝 Contributing
+*   `app/`: Pantallas de la aplicación y enrutamiento (Expo Router).
+    *   `caregiver/`: Pantallas específicas para el flujo del cuidador.
+    *   `patient/`: Pantallas específicas para el flujo del paciente.
+*   `src/`: Código fuente principal.
+    *   `components/`: Componentes de UI reutilizables.
+    *   `hooks/`: Custom hooks de React.
+    *   `services/`: Servicios de API e integración con el hardware.
+    *   `store/`: Gestión de estado con Redux.
+    *   `theme/`: Tokens de diseño y constantes de estilo.
 
-Contributions are welcome! Please read our contributing guidelines before submitting a pull request.
+## 🤝 Contribuciones
 
-## 📄 License
+¡Las contribuciones son bienvenidas! Por favor, lee nuestras guías de contribución antes de enviar un pull request.
 
-This project is licensed under the MIT License.
+## 📄 Licencia
+
+Este proyecto está bajo la Licencia MIT.
