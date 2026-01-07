@@ -155,12 +155,12 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
     <Modal visible={visible} onClose={onClose} title="Seleccionar Color" size="lg">
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Large Color Preview */}
-        <View 
+        <View
           style={styles.previewContainer}
           accessible={true}
           accessibilityLabel={`Selected color: ${currentHex}, RGB ${rgb[0]}, ${rgb[1]}, ${rgb[2]}`}
         >
-          <View 
+          <View
             style={[styles.previewLarge, { backgroundColor: currentHex }]}
             accessible={false}
           />
@@ -174,7 +174,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
 
         {/* Mode Selector */}
         {showPresets && showCustomPicker && (
-          <View 
+          <View
             style={styles.modeSelector}
             accessible={true}
             accessibilityRole="radiogroup"
@@ -268,7 +268,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
                 maximumValue={1}
                 step={0.01}
                 value={s}
-                minimumTrackTintColor={colors.success}
+                minimumTrackTintColor={colors.success[500]}
                 maximumTrackTintColor={colors.gray[300]}
                 onValueChange={(val) => {
                   const [r8, g8, b8] = hsvToRgb(h, val, v);
@@ -292,7 +292,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
                 maximumValue={1}
                 step={0.01}
                 value={v}
-                minimumTrackTintColor={colors.warning}
+                minimumTrackTintColor={colors.warning[500]}
                 maximumTrackTintColor={colors.gray[300]}
                 onValueChange={(val) => {
                   const [r8, g8, b8] = hsvToRgb(h, s, val);
@@ -312,8 +312,8 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
         )}
 
         {/* Confirm Button */}
-        <TouchableOpacity 
-          style={styles.confirmButton} 
+        <TouchableOpacity
+          style={styles.confirmButton}
           onPress={handleConfirm}
           accessibilityLabel="Confirm color selection"
           accessibilityHint={`Confirms selection of color ${currentHex}`}

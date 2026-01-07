@@ -20,6 +20,8 @@ export interface WizardContextValue {
   isScreenReaderActive?: boolean;
   /** Whether reduce motion is enabled */
   isReduceMotionActive?: boolean;
+  /** Skip provisioning and enter autonomous mode */
+  onSkip?: () => void;
 }
 
 /**
@@ -68,10 +70,10 @@ export const WizardProvider: React.FC<{
  */
 export function useWizardContext(): WizardContextValue {
   const context = useContext(WizardContext);
-  
+
   if (!context) {
     throw new Error('useWizardContext must be used within a WizardProvider');
   }
-  
+
   return context;
 }

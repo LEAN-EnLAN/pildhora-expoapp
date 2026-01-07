@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { colors, spacing, typography, borderRadius } from '../../../../theme/tokens';
+import { colors, spacing, typography, borderRadius, shadows } from '../../../../theme/tokens';
 import { useWizardContext } from '../WizardContext';
 import { announceForAccessibility, triggerHapticFeedback, HapticFeedbackType } from '../../../../utils/accessibility';
 import { completeOnboarding } from '../../../../services/onboarding';
@@ -12,9 +12,9 @@ import { Button } from '../../../ui';
  * CompletionStep Component
  * 
  * Sixth and final step of the device provisioning wizard. Shows success
- * message, summary of configuration, and marks onboarding as complete.
+ * message and summary.
  * 
- * Requirements: 3.7, 3.8, 9.4
+ * Premium visual overhaul.
  */
 export function CompletionStep() {
   const router = useRouter();
@@ -28,29 +28,23 @@ export function CompletionStep() {
   }, []);
 
   /**
-   * Mark onboarding as complete in user document
-   * Requirements: 3.8, 9.4
+   * Mark onboarding as complete
    */
   const markOnboardingComplete = async () => {
     setIsCompleting(true);
-    
+
     try {
       await completeOnboarding(userId);
-      
+
       setCanProceed(true);
       await triggerHapticFeedback(HapticFeedbackType.SUCCESS);
       announceForAccessibility('Configuración completada. Tu dispositivo está listo para usar');
-      
+
     } catch (error: any) {
       console.error('[CompletionStep] Error completing onboarding:', error);
-      
+
       let userMessage = 'Error al completar la configuración';
-      
-      if (error.code === 'permission-denied') {
-        userMessage = 'No tienes permiso para completar la configuración';
-      } else if (error.code === 'unavailable') {
-        userMessage = 'Servicio no disponible. Verifica tu conexión a internet';
-      }
+      if (error.code === 'permission-denied') userMessage = 'No tienes permiso para completar la configuración';
 
       setCompletionError(userMessage);
       setCanProceed(false);
@@ -60,17 +54,13 @@ export function CompletionStep() {
     }
   };
 
-  /**
-   * Navigate to patient home
-   * Requirements: 3.8, 9.4
-   */
   const handleGoToHome = async () => {
     await triggerHapticFeedback(HapticFeedbackType.SUCCESS);
     router.replace('/patient/home');
   };
 
   return (
-    <ScrollView 
+    <ScrollView
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
@@ -78,83 +68,59 @@ export function CompletionStep() {
       {/* Success Header */}
       <View style={styles.header}>
         <View style={styles.successIconContainer}>
-          <Ionicons name="checkmark-circle" size={72} color={colors.success} />
+          <Ionicons name="trophy" size={64} color="#F59E0B" />
+          <View style={styles.confettiIcon}>
+            <Ionicons name="sparkles" size={32} color="#FCD34D" />
+          </View>
         </View>
-        <Text style={styles.title}>¡Configuración Completada!</Text>
+        <Text style={styles.title}>¡Felicitaciones!</Text>
         <Text style={styles.subtitle}>
-          Tu dispositivo está listo para ayudarte a gestionar tus medicamentos
+          Tu dispositivo Pildhora está listo para cuidar de ti.
         </Text>
       </View>
 
-      {/* Configuration Summary */}
-      <View style={styles.summarySection}>
-        <Text style={styles.summaryTitle}>Resumen de Configuración</Text>
-        
-        <View style={styles.summaryCard}>
+      {/* Summary Card */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Resumen de tu dispositivo</Text>
+
+        <View style={styles.summaryGrid}>
           <SummaryItem
-            icon="hardware-chip"
-            label="Dispositivo"
+            icon="hardware-chip-outline"
+            label="ID"
             value={formData.deviceId}
           />
           <SummaryItem
-            icon="wifi"
+            icon="wifi-outline"
             label="Red WiFi"
             value={formData.wifiSSID || 'No configurada'}
           />
           <SummaryItem
-            icon="notifications"
-            label="Modo de Alarma"
+            icon="notifications-outline"
+            label="Alarma"
             value={getAlarmModeLabel(formData.alarmMode)}
           />
           <SummaryItem
-            icon="bulb"
+            icon="bulb-outline"
             label="LED"
-            value={`${formData.ledIntensity}% intensidad`}
+            value={`${formData.ledIntensity}%`}
           />
-          {(formData.alarmMode === 'sound' || formData.alarmMode === 'both') && (
-            <SummaryItem
-              icon="volume-high"
-              label="Volumen"
-              value={`${formData.volume}%`}
-            />
-          )}
         </View>
       </View>
 
       {/* Next Steps */}
       <View style={styles.nextStepsSection}>
-        <Text style={styles.nextStepsTitle}>Próximos Pasos</Text>
-        
-        <View style={styles.stepsList}>
-          <NextStepItem
-            number={1}
-            icon="medical"
-            title="Agregar Medicamentos"
-            description="Comienza agregando tus medicamentos y horarios"
-          />
-          <NextStepItem
-            number={2}
-            icon="calendar"
-            title="Configurar Horarios"
-            description="Establece los horarios para cada medicamento"
-          />
-          <NextStepItem
-            number={3}
-            icon="notifications"
-            title="Recibir Recordatorios"
-            description="Tu dispositivo te notificará cuando sea hora de tomar tus medicamentos"
-          />
-        </View>
-      </View>
+        <Text style={styles.sectionTitle}>¿Qué sigue?</Text>
 
-      {/* Tips Card */}
-      <View style={styles.tipsCard}>
-        <Ionicons name="information-circle" size={24} color={colors.primary[500]} style={styles.tipsIcon} />
-        <View style={styles.tipsContent}>
-          <Text style={styles.tipsTitle}>Consejo</Text>
-          <Text style={styles.tipsText}>
-            Puedes modificar la configuración de tu dispositivo en cualquier momento desde el menú de ajustes
-          </Text>
+        <View style={styles.stepCard}>
+          <View style={styles.stepIconContainer}>
+            <Ionicons name="medical" size={24} color={colors.primary[500]} />
+          </View>
+          <View style={styles.stepContent}>
+            <Text style={styles.stepTitle}>Agrega tus medicamentos</Text>
+            <Text style={styles.stepDescription}>
+              Configura tus horarios y dosis en la siguiente pantalla.
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -175,10 +141,9 @@ export function CompletionStep() {
             size="lg"
             disabled={isCompleting}
             loading={isCompleting}
-            accessibilityLabel="Ir al inicio"
-            accessibilityHint="Navega a la pantalla principal de paciente"
+            style={styles.mainButton}
           >
-            Ir al Inicio
+            Comenzar a usar Pildhora
           </Button>
         </View>
       )}
@@ -186,64 +151,25 @@ export function CompletionStep() {
   );
 }
 
-/**
- * Get alarm mode label in Spanish
- */
 function getAlarmModeLabel(mode: string): string {
   const labels: Record<string, string> = {
-    sound: 'Solo Sonido',
-    vibrate: 'Solo Vibración',
-    both: 'Sonido y Vibración',
-    silent: 'Silencioso',
+    sound: 'Sonido',
+    vibrate: 'Vibración',
+    both: 'Ambos',
+    silent: 'Silencio',
   };
   return labels[mode] || mode;
 }
 
-/**
- * SummaryItem Component
- */
-interface SummaryItemProps {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  value: string;
-}
-
-function SummaryItem({ icon, label, value }: SummaryItemProps) {
+function SummaryItem({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap, label: string, value: string }) {
   return (
     <View style={styles.summaryItem}>
-      <View style={styles.summaryItemIcon}>
-        <Ionicons name={icon} size={20} color={colors.primary[500]} />
+      <View style={styles.summaryIconWrapper}>
+        <Ionicons name={icon} size={18} color={colors.primary[600]} />
       </View>
-      <View style={styles.summaryItemContent}>
-        <Text style={styles.summaryItemLabel}>{label}</Text>
-        <Text style={styles.summaryItemValue}>{value}</Text>
-      </View>
-    </View>
-  );
-}
-
-/**
- * NextStepItem Component
- */
-interface NextStepItemProps {
-  number: number;
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  description: string;
-}
-
-function NextStepItem({ number, icon, title, description }: NextStepItemProps) {
-  return (
-    <View style={styles.nextStepItem}>
-      <View style={styles.nextStepNumber}>
-        <Text style={styles.nextStepNumberText}>{number}</Text>
-      </View>
-      <View style={styles.nextStepIcon}>
-        <Ionicons name={icon} size={24} color={colors.primary[500]} />
-      </View>
-      <View style={styles.nextStepContent}>
-        <Text style={styles.nextStepTitle}>{title}</Text>
-        <Text style={styles.nextStepDescription}>{description}</Text>
+      <View>
+        <Text style={styles.summaryLabel}>{label}</Text>
+        <Text style={styles.summaryValue} numberOfLines={1}>{value}</Text>
       </View>
     </View>
   );
@@ -252,7 +178,7 @@ function NextStepItem({ number, icon, title, description }: NextStepItemProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   contentContainer: {
     padding: spacing.lg,
@@ -263,7 +189,19 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   successIconContainer: {
-    marginBottom: spacing.md,
+    width: 120,
+    height: 120,
+    borderRadius: borderRadius.full,
+    backgroundColor: '#FEF3C7', // amber[100]
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+    ...shadows.lg,
+  },
+  confettiIcon: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
   },
   title: {
     fontSize: typography.fontSize['3xl'],
@@ -278,135 +216,98 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: spacing.md,
   },
-  summarySection: {
+  card: {
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
     marginBottom: spacing.xl,
+    ...shadows.sm,
   },
-  summaryTitle: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.semibold,
+  cardTitle: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
     color: colors.gray[900],
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
   },
-  summaryCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
+  summaryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
   },
   summaryItem: {
+    width: '47%',
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: spacing.sm,
+    borderRadius: borderRadius.lg,
+    gap: spacing.sm,
   },
-  summaryItemIcon: {
-    width: 40,
-    height: 40,
+  summaryIconWrapper: {
+    width: 32,
+    height: 32,
     borderRadius: borderRadius.full,
-    backgroundColor: '#EFF6FF', // primary[50]
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
   },
-  summaryItemContent: {
-    flex: 1,
+  summaryLabel: {
+    fontSize: typography.fontSize.xs,
+    color: colors.gray[500],
   },
-  summaryItemLabel: {
+  summaryValue: {
     fontSize: typography.fontSize.sm,
-    color: colors.gray[600],
-    marginBottom: spacing.xs,
-  },
-  summaryItemValue: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.medium,
+    fontWeight: typography.fontWeight.bold,
     color: colors.gray[900],
   },
   nextStepsSection: {
     marginBottom: spacing.xl,
   },
-  nextStepsTitle: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.semibold,
+  sectionTitle: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
     color: colors.gray[900],
     marginBottom: spacing.md,
+    textAlign: 'center',
   },
-  stepsList: {
-    gap: spacing.md,
-  },
-  nextStepItem: {
+  stepCard: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-  },
-  nextStepNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[500],
     alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.sm,
+    backgroundColor: '#FFFFFF',
+    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    ...shadows.md,
   },
-  nextStepNumberText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.surface,
-  },
-  nextStepIcon: {
-    width: 40,
-    height: 40,
+  stepIconContainer: {
+    width: 48,
+    height: 48,
     borderRadius: borderRadius.full,
-    backgroundColor: '#EFF6FF', // primary[50]
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
   },
-  nextStepContent: {
+  stepContent: {
     flex: 1,
   },
-  nextStepTitle: {
+  stepTitle: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.bold,
     color: colors.gray[900],
     marginBottom: spacing.xs,
   },
-  nextStepDescription: {
+  stepDescription: {
     fontSize: typography.fontSize.sm,
     color: colors.gray[600],
-    lineHeight: typography.fontSize.sm * 1.4,
-  },
-  tipsCard: {
-    flexDirection: 'row',
-    backgroundColor: '#EFF6FF', // primary[50]
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.md,
-  },
-  tipsIcon: {
-    marginRight: spacing.md,
-    marginTop: spacing.xs,
-  },
-  tipsContent: {
-    flex: 1,
-  },
-  tipsTitle: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.gray[900],
-    marginBottom: spacing.xs,
-  },
-  tipsText: {
-    fontSize: typography.fontSize.sm,
-    color: colors.gray[700],
-    lineHeight: typography.fontSize.sm * 1.4,
   },
   errorCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF2F2', // error[50]
+    backgroundColor: '#FEF2F2',
     padding: spacing.md,
     borderRadius: borderRadius.md,
     gap: spacing.sm,
+    marginBottom: spacing.lg,
   },
   errorText: {
     flex: 1,
@@ -414,6 +315,10 @@ const styles = StyleSheet.create({
     color: colors.error[500],
   },
   navigationSection: {
-    marginTop: spacing.lg,
+    marginTop: spacing.sm,
+  },
+  mainButton: {
+    borderRadius: borderRadius.full,
+    height: 56,
   },
 });

@@ -3,13 +3,46 @@
  */
 
 /**
+ * Convert various date formats to a Date object
+ * Handles Date objects, ISO strings, and Firestore Timestamps
+ */
+function toDate(date: any): Date {
+  if (!date) {
+    return new Date();
+  }
+  
+  // Already a Date object
+  if (date instanceof Date) {
+    return date;
+  }
+  
+  // ISO string
+  if (typeof date === 'string') {
+    return new Date(date);
+  }
+  
+  // Firestore Timestamp object (has toDate method)
+  if (date.toDate && typeof date.toDate === 'function') {
+    return date.toDate();
+  }
+  
+  // Firestore Timestamp object (has seconds property)
+  if (date.seconds !== undefined) {
+    return new Date(date.seconds * 1000);
+  }
+  
+  // Fallback: try to create a Date from whatever we have
+  return new Date(date);
+}
+
+/**
  * Convert a date to a relative time string (e.g., "2 hours ago", "3 days ago")
- * @param date - The date to convert (Date object or ISO string)
+ * @param date - The date to convert (Date object, ISO string, or Firestore Timestamp)
  * @returns Relative time string
  */
-export function getRelativeTimeString(date: Date | string): string {
+export function getRelativeTimeString(date: Date | string | any): string {
   const now = new Date();
-  const targetDate = typeof date === 'string' ? new Date(date) : date;
+  const targetDate = toDate(date);
   
   const diffMs = now.getTime() - targetDate.getTime();
   const diffSeconds = Math.floor(diffMs / 1000);
@@ -39,11 +72,11 @@ export function getRelativeTimeString(date: Date | string): string {
 
 /**
  * Format a date to a readable string with time
- * @param date - The date to format (Date object or ISO string)
+ * @param date - The date to format (Date object, ISO string, or Firestore Timestamp)
  * @returns Formatted date string (e.g., "Dec 15, 2023 at 2:30 PM")
  */
-export function formatDateTime(date: Date | string): string {
-  const targetDate = typeof date === 'string' ? new Date(date) : date;
+export function formatDateTime(date: Date | string | any): string {
+  const targetDate = toDate(date);
   
   const options: Intl.DateTimeFormatOptions = {
     month: 'short',
@@ -59,11 +92,11 @@ export function formatDateTime(date: Date | string): string {
 
 /**
  * Check if a date is today
- * @param date - The date to check (Date object or ISO string)
+ * @param date - The date to check (Date object, ISO string, or Firestore Timestamp)
  * @returns True if the date is today
  */
-export function isToday(date: Date | string): boolean {
-  const targetDate = typeof date === 'string' ? new Date(date) : date;
+export function isToday(date: Date | string | any): boolean {
+  const targetDate = toDate(date);
   const today = new Date();
   
   return (
@@ -75,11 +108,11 @@ export function isToday(date: Date | string): boolean {
 
 /**
  * Check if a date is yesterday
- * @param date - The date to check (Date object or ISO string)
+ * @param date - The date to check (Date object, ISO string, or Firestore Timestamp)
  * @returns True if the date is yesterday
  */
-export function isYesterday(date: Date | string): boolean {
-  const targetDate = typeof date === 'string' ? new Date(date) : date;
+export function isYesterday(date: Date | string | any): boolean {
+  const targetDate = toDate(date);
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   

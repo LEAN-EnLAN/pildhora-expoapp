@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useRouter } from 'expo-router';
 import { RootState, AppDispatch } from '../../src/store';
 import { updateProfile } from '../../src/store/slices/authSlice';
-import { Card, Button, SuccessMessage, ErrorMessage } from '../../src/components/ui';
+import { Card, Button, SuccessMessage, ErrorMessage, AppBar } from '../../src/components/ui';
 import { PHTextField } from '../../src/components/ui/PHTextField';
 import { colors, spacing, typography, borderRadius } from '../../src/theme/tokens';
 
@@ -60,14 +60,18 @@ export default function EditProfileScreen() {
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
+      <AppBar 
+        title="Editar perfil" 
+        showBackButton 
+        onBackPress={() => router.back()} 
+      />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
+        {/* Header - Subtitle only now since AppBar handles title */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Editar perfil</Text>
           <Text style={styles.headerSubtitle}>
             Ajusta cómo aparece tu información sin cambiar tu inicio de sesión.
           </Text>

@@ -1,5 +1,6 @@
-import { getRdbInstance } from './firebase';
-import { ref, set, get } from 'firebase/database';
+import { getDeviceRdbInstance } from './firebase';
+import { ref, get, push, set } from 'firebase/database';
+import { triggerTopo, triggerBuzzer, clearDeviceCommands } from './deviceCommands';
 
 /**
  * Device action types that can be triggered by caregivers
@@ -36,32 +37,61 @@ interface DeviceActionRequest {
  * Service for triggering device actions from the caregiver app
  * 
  * This service allows caregivers to send commands to patient devices
- * through Firebase Realtime Database. The device firmware monitors
- * the actions node and executes commands.
+ * through Cloud Functions.
  * 
  * Requirements: 8.4 - Enable device action triggers for caregivers
  */
 export class DeviceActionsService {
   /**
-   * Trigger a test alarm on the device
+   * Trigger a test alarm on the device (buzzer)
    * 
    * @param deviceId - Device identifier
    * @param userId - User ID triggering the action (caregiver)
    * @returns Action result
    */
   async triggerTestAlarm(deviceId: string, userId: string): Promise<DeviceActionResult> {
-    return this.triggerAction(deviceId, 'test_alarm', userId);
+    try {
+      console.log('[DeviceActionsService] Triggering test alarm (buzzer):', { deviceId, userId });
+      await triggerBuzzer(deviceId, true);
+      return {
+        success: true,
+        message: 'Alarma de prueba activada en el dispositivo',
+      };
+    } catch (error: any) {
+      console.error('[DeviceActionsService] Error triggering test alarm:', error);
+      return {
+        success: false,
+        message: error.userMessage || 'Error al activar la alarma de prueba',
+      };
+    }
   }
 
   /**
-   * Trigger manual dose dispensing
+   * Trigger manual dose dispensing (TOPO sequence)
    * 
    * @param deviceId - Device identifier
    * @param userId - User ID triggering the action (caregiver)
    * @returns Action result
    */
   async dispenseManualDose(deviceId: string, userId: string): Promise<DeviceActionResult> {
-    return this.triggerAction(deviceId, 'dispense_dose', userId);
+    try {
+      console.log('[DeviceActionsService] Creating dispense request:', { deviceId, userId });
+      const rdb = await getDeviceRdbInstance();
+      if (!rdb) return { success: false, message: 'RTDB no disponible' };
+      const listRef = ref(rdb, `devices/${deviceId}/actions`);
+      const newRef = push(listRef);
+      const actionId = newRef.key as string;
+      await set(newRef, {
+        actionType: 'dispense_dose',
+        requestedBy: userId,
+        requestedAt: Date.now(),
+        status: 'pending',
+      });
+      return { success: true, message: 'Solicitud de dispensación enviada', actionId };
+    } catch (error: any) {
+      console.error('[DeviceActionsService] Error creating dispense request:', error);
+      return { success: false, message: error.message || 'Error al solicitar dispensación' };
+    }
   }
 
   /**
@@ -87,14 +117,27 @@ export class DeviceActionsService {
   }
 
   /**
-   * Clear active alarm on device
+   * Clear active alarm on device (reset all commands)
    * 
    * @param deviceId - Device identifier
    * @param userId - User ID triggering the action (caregiver)
    * @returns Action result
    */
   async clearAlarm(deviceId: string, userId: string): Promise<DeviceActionResult> {
-    return this.triggerAction(deviceId, 'clear_alarm', userId);
+    try {
+      console.log('[DeviceActionsService] Clearing alarm (reset commands):', deviceId);
+      await clearDeviceCommands(deviceId);
+      return {
+        success: true,
+        message: 'Alarma silenciada correctamente',
+      };
+    } catch (error: any) {
+      console.error('[DeviceActionsService] Error clearing alarm:', error);
+      return {
+        success: false,
+        message: error.userMessage || 'Error al silenciar la alarma',
+      };
+    }
   }
 
   /**
@@ -112,65 +155,18 @@ export class DeviceActionsService {
   ): Promise<DeviceActionResult> {
     try {
       console.log('[DeviceActionsService] Triggering action:', { deviceId, actionType, userId });
-
-      // Validate inputs
-      if (!deviceId || !userId) {
-        return {
-          success: false,
-          message: 'Device ID and User ID are required',
-        };
-      }
-
-      // Get RTDB instance
-      const rdb = await getRdbInstance();
-      if (!rdb) {
-        return {
-          success: false,
-          message: 'Firebase Realtime Database not available',
-        };
-      }
-
-      // Check if device is online
-      const deviceStateRef = ref(rdb, `devices/${deviceId}/state`);
-      const deviceStateSnapshot = await get(deviceStateRef);
-      
-      if (!deviceStateSnapshot.exists()) {
-        return {
-          success: false,
-          message: 'Device not found',
-        };
-      }
-
-      const deviceState = deviceStateSnapshot.val();
-      if (!deviceState.is_online) {
-        return {
-          success: false,
-          message: 'Device is offline. Please ensure the device is connected.',
-        };
-      }
-
-      // Generate action ID
-      const actionId = `action_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-      // Create action request
-      const actionRequest: DeviceActionRequest = {
+      const rdb = await getDeviceRdbInstance();
+      if (!rdb) return { success: false, message: 'RTDB no disponible' };
+      const listRef = ref(rdb, `devices/${deviceId}/actions`);
+      const newRef = push(listRef);
+      const actionId = newRef.key as string;
+      await set(newRef, {
         actionType,
         requestedBy: userId,
         requestedAt: Date.now(),
         status: 'pending',
-      };
-
-      // Write action to RTDB
-      const actionRef = ref(rdb, `devices/${deviceId}/actions/${actionId}`);
-      await set(actionRef, actionRequest);
-
-      console.log('[DeviceActionsService] Action triggered successfully:', actionId);
-
-      return {
-        success: true,
-        message: this.getSuccessMessage(actionType),
-        actionId,
-      };
+      });
+      return { success: true, message: this.getSuccessMessage(actionType), actionId };
     } catch (error: any) {
       console.error('[DeviceActionsService] Error triggering action:', error);
       return {
@@ -209,7 +205,7 @@ export class DeviceActionsService {
    */
   async getActionStatus(deviceId: string, actionId: string): Promise<DeviceActionRequest | null> {
     try {
-      const rdb = await getRdbInstance();
+      const rdb = await getDeviceRdbInstance();
       if (!rdb) {
         return null;
       }

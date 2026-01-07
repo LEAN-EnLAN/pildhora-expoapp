@@ -1,6 +1,6 @@
-import { getAuthInstance, getDbInstance, getRdbInstance } from './firebase';
+﻿import { getAuthInstance, getDbInstance, getDeviceRdbInstance } from './firebase';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, set, get } from 'firebase/database';
+import { ref, set, get, update } from 'firebase/database';
 import { DeviceConfig } from '../types';
 
 // Error types for device configuration
@@ -22,16 +22,35 @@ function validateDeviceId(deviceId: string): void {
     throw new DeviceConfigError(
       'Invalid device ID: must be a non-empty string',
       'INVALID_DEVICE_ID',
-      'El ID del dispositivo no es válido.',
+      'El ID del dispositivo no es vÃ¡lido.',
       false
     );
   }
 
-  if (deviceId.trim().length < 3) {
+  if (deviceId.trim().length < 5) {
     throw new DeviceConfigError(
-      'Invalid device ID: must be at least 3 characters',
+      'Invalid device ID: must be at least 5 characters',
       'DEVICE_ID_TOO_SHORT',
-      'El ID del dispositivo debe tener al menos 3 caracteres.',
+      'El ID del dispositivo debe tener al menos 5 caracteres.',
+      false
+    );
+  }
+
+  if (deviceId.length > 100) {
+    throw new DeviceConfigError(
+      'Invalid device ID: must be less than 100 characters',
+      'DEVICE_ID_TOO_LONG',
+      'El ID del dispositivo es demasiado largo.',
+      false
+    );
+  }
+
+  // Check for invalid characters (allow alphanumeric, hyphens, underscores, and hash)
+  if (!/^[a-zA-Z0-9_\-#]+$/.test(deviceId)) {
+    throw new DeviceConfigError(
+      'Invalid device ID: contains invalid characters',
+      'INVALID_DEVICE_ID_FORMAT',
+      'El ID del dispositivo solo puede contener letras, nÃºmeros, guiones, guiones bajos y el sÃ­mbolo #.',
       false
     );
   }
@@ -43,7 +62,7 @@ function validateAlarmMode(alarmMode: string): void {
     throw new DeviceConfigError(
       `Invalid alarm mode: ${alarmMode}`,
       'INVALID_ALARM_MODE',
-      'El modo de alarma seleccionado no es válido.',
+      'El modo de alarma seleccionado no es vÃ¡lido.',
       false
     );
   }
@@ -54,7 +73,7 @@ function validateLedIntensity(intensity: number): void {
     throw new DeviceConfigError(
       'Invalid LED intensity: must be a number',
       'INVALID_LED_INTENSITY',
-      'La intensidad del LED debe ser un número.',
+      'La intensidad del LED debe ser un nÃºmero.',
       false
     );
   }
@@ -74,7 +93,7 @@ function validateLedColor(color: { r: number; g: number; b: number }): void {
     throw new DeviceConfigError(
       'Invalid LED color: must be an object with r, g, b properties',
       'INVALID_LED_COLOR',
-      'El color del LED no es válido.',
+      'El color del LED no es vÃ¡lido.',
       false
     );
   }
@@ -85,7 +104,7 @@ function validateLedColor(color: { r: number; g: number; b: number }): void {
     throw new DeviceConfigError(
       'Invalid LED color: r, g, b must be numbers',
       'INVALID_LED_COLOR_VALUES',
-      'Los valores de color deben ser números.',
+      'Los valores de color deben ser nÃºmeros.',
       false
     );
   }
@@ -105,7 +124,7 @@ function validateDeviceConfig(config: Partial<DeviceConfig>): void {
     throw new DeviceConfigError(
       'Invalid device config: must be an object',
       'INVALID_CONFIG',
-      'La configuración del dispositivo no es válida.',
+      'La configuraciÃ³n del dispositivo no es vÃ¡lida.',
       false
     );
   }
@@ -134,7 +153,7 @@ async function validateAuthentication(): Promise<string> {
     throw new DeviceConfigError(
       'Firebase Auth not initialized',
       'AUTH_NOT_INITIALIZED',
-      'Error de autenticación. Por favor, reinicia la aplicación.',
+      'Error de autenticaciÃ³n. Por favor, reinicia la aplicaciÃ³n.',
       true
     );
   }
@@ -145,9 +164,15 @@ async function validateAuthentication(): Promise<string> {
     throw new DeviceConfigError(
       'User not authenticated',
       'NOT_AUTHENTICATED',
-      'No has iniciado sesión. Por favor, inicia sesión e intenta nuevamente.',
+      'No has iniciado sesiÃ³n. Por favor, inicia sesiÃ³n e intenta nuevamente.',
       false
     );
+  }
+
+  try {
+    await currentUser.getIdToken(true);
+  } catch (e: any) {
+    console.warn('[DeviceConfig] Failed to refresh ID token', { code: e?.code, message: e?.message });
   }
 
   return currentUser.uid;
@@ -206,7 +231,15 @@ function handleFirebaseError(error: any, operation: string): never {
       throw new DeviceConfigError(
         `Permission denied for ${operation}`,
         'PERMISSION_DENIED',
-        'No tienes permiso para modificar la configuración del dispositivo.',
+        'No tienes permiso para modificar la configuraciÃ³n del dispositivo.',
+        false
+      );
+
+    case 'unauthenticated':
+      throw new DeviceConfigError(
+        `User not authenticated during ${operation}`,
+        'UNAUTHENTICATED',
+        'Tu sesiÃ³n ha expirado. Por favor, inicia sesiÃ³n nuevamente.',
         false
       );
     
@@ -214,7 +247,7 @@ function handleFirebaseError(error: any, operation: string): never {
       throw new DeviceConfigError(
         `Service unavailable for ${operation}`,
         'SERVICE_UNAVAILABLE',
-        'El servicio no está disponible. Por favor, verifica tu conexión a internet.',
+        'El servicio no estÃ¡ disponible. Por favor, verifica tu conexiÃ³n a internet.',
         true
       );
     
@@ -223,8 +256,16 @@ function handleFirebaseError(error: any, operation: string): never {
       throw new DeviceConfigError(
         `Operation timeout for ${operation}`,
         'TIMEOUT',
-        'La operación tardó demasiado tiempo. Por favor, intenta nuevamente.',
+        'La operaciÃ³n tardÃ³ demasiado tiempo. Por favor, intenta nuevamente.',
         true
+      );
+
+    case 'functions/unauthenticated':
+      throw new DeviceConfigError(
+        `User not authenticated during ${operation}`,
+        'UNAUTHENTICATED',
+        'Tu sesiÃ³n ha expirado. Por favor, inicia sesiÃ³n nuevamente.',
+        false
       );
     
     case 'not-found':
@@ -239,14 +280,14 @@ function handleFirebaseError(error: any, operation: string): never {
       throw new DeviceConfigError(
         `Unknown error during ${operation}: ${error.message}`,
         'UNKNOWN_ERROR',
-        'Ocurrió un error inesperado. Por favor, intenta nuevamente.',
+        'OcurriÃ³ un error inesperado. Por favor, intenta nuevamente.',
         true
       );
   }
 }
 
 /**
- * Save device configuration to Firestore and RTDB
+ * Save device configuration via Cloud Function
  * @param deviceId - The device ID
  * @param config - Partial device configuration to save
  * @returns Promise that resolves when configuration is saved
@@ -264,86 +305,45 @@ export async function saveDeviceConfig(
     // Validate inputs
     validateDeviceId(deviceId);
     validateDeviceConfig({ ...config, deviceId });
-    
-    // Get Firebase instances
     const db = await getDbInstance();
-    const rdb = await getRdbInstance();
-    
-    if (!db) {
-      throw new DeviceConfigError(
-        'Firebase Firestore not initialized',
-        'FIRESTORE_NOT_INITIALIZED',
-        'Error de conexión. Por favor, reinicia la aplicación.',
-        true
-      );
-    }
+    const rdb = await getDeviceRdbInstance();
+    if (!db) throw new DeviceConfigError('Firestore not initialized', 'FIRESTORE_NOT_INITIALIZED', 'Error interno');
+    if (!rdb) throw new DeviceConfigError('RTDB not initialized', 'RTDB_NOT_INITIALIZED', 'Error de conexión.');
 
-    if (!rdb) {
-      throw new DeviceConfigError(
-        'Firebase Realtime Database not initialized',
-        'RTDB_NOT_INITIALIZED',
-        'Error de conexión. Por favor, reinicia la aplicación.',
-        true
-      );
-    }
-    
-    // Prepare configuration data
-    const configData = {
-      ...config,
-      lastUpdated: serverTimestamp(),
-      syncStatus: 'pending'
+    await retryOperation(async () => {
+      const cfgRef = ref(rdb, `devices/${deviceId}/config`);
+      const currentSnap = await get(cfgRef);
+      const current = currentSnap.exists() ? (currentSnap.val() as any) : {};
+      const payload = { ...current, ...config, updatedAt: Date.now() } as any;
+      try {
+        await update(cfgRef, payload);
+      } catch {
+        await set(cfgRef, payload);
+      }
+    });
+
+    // Mirror desired configuration to Firestore so UI and future saves stay in sync
+    const firestorePayload: Record<string, any> = {
+      updatedAt: serverTimestamp(),
+      'desiredConfig.updated_at': serverTimestamp(),
+      'desiredConfig.updated_by': userId,
     };
-    
-    // Save to Firestore with retry logic
-    await retryOperation(async () => {
-      const configRef = doc(db, 'deviceConfigs', deviceId);
-      console.log('[DeviceConfig] Saving to Firestore:', `deviceConfigs/${deviceId}`);
-      await setDoc(configRef, configData, { merge: true });
-      console.log('[DeviceConfig] Successfully saved to Firestore');
-    });
 
-    // Mirror desiredConfig into devices/{deviceId}.desiredConfig so the Cloud Function can sync it to RTDB
-    await retryOperation(async () => {
-      const deviceRef = doc(db, 'devices', deviceId);
-      console.log('[DeviceConfig] Saving desiredConfig to Firestore devices:', `devices/${deviceId}`);
-      await setDoc(
-        deviceRef,
-        {
-          desiredConfig: {
-            ...(config.alarmMode !== undefined ? { alarmMode: config.alarmMode } : {}),
-            ...(config.ledIntensity !== undefined ? { ledIntensity: config.ledIntensity } : {}),
-            ...(config.ledColor !== undefined ? { ledColor: config.ledColor } : {}),
-          },
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-      console.log('[DeviceConfig] Successfully saved desiredConfig to Firestore devices');
-    });
-    
-    // Legacy RTDB direct write disabled in favor of desiredConfig + Cloud Function mirroring
-    if (false && (config.alarmMode !== undefined || config.ledIntensity !== undefined || config.ledColor !== undefined)) {
-      await retryOperation(async () => {
-        const rtdbConfig: any = {};
-        
-        if (config.alarmMode !== undefined) {
-          rtdbConfig.alarm_mode = config.alarmMode;
-        }
-        
-        if (config.ledIntensity !== undefined) {
-          rtdbConfig.led_intensity = config.ledIntensity;
-        }
-        
-        if (config.ledColor !== undefined) {
-          rtdbConfig.led_color = config.ledColor;
-        }
-        
-        const deviceConfigRef = ref(rdb, `devices/${deviceId}/config`);
-        console.log('[DeviceConfig] Saving to RTDB:', `devices/${deviceId}/config`);
-        await set(deviceConfigRef, rtdbConfig);
-        console.log('[DeviceConfig] Successfully saved to RTDB');
-      });
+    if (config.alarmMode !== undefined) {
+      firestorePayload['desiredConfig.alarm_mode'] = config.alarmMode;
     }
+    if (config.ledIntensity !== undefined) {
+      firestorePayload['desiredConfig.led_intensity'] = config.ledIntensity;
+    }
+    if (config.ledColor) {
+      firestorePayload['desiredConfig.led_color_rgb'] = [
+        config.ledColor.r,
+        config.ledColor.g,
+        config.ledColor.b,
+      ];
+    }
+
+    await setDoc(doc(db, 'devices', deviceId), firestorePayload, { merge: true });
     
   } catch (error: any) {
     handleFirebaseError(error, 'saveDeviceConfig');
@@ -351,11 +351,11 @@ export async function saveDeviceConfig(
 }
 
 /**
- * Get device configuration from Firestore
+ * Get device configuration and status via Cloud Function
  * @param deviceId - The device ID
- * @returns Promise that resolves with the device configuration
+ * @returns Promise that resolves with the device configuration and status
  */
-export async function getDeviceConfig(deviceId: string): Promise<DeviceConfig | null> {
+export async function getDeviceConfig(deviceId: string): Promise<any> {
   console.log('[DeviceConfig] getDeviceConfig called', { deviceId: deviceId.substring(0, 8) + '...' });
   
   try {
@@ -364,102 +364,41 @@ export async function getDeviceConfig(deviceId: string): Promise<DeviceConfig | 
     
     // Validate inputs
     validateDeviceId(deviceId);
-    
-    // Get Firebase instances
     const db = await getDbInstance();
-    
-    if (!db) {
-      throw new DeviceConfigError(
-        'Firebase Firestore not initialized',
-        'FIRESTORE_NOT_INITIALIZED',
-        'Error de conexión. Por favor, reinicia la aplicación.',
-        true
-      );
-    }
-    
-    // Get from Firestore with retry logic
-    const config = await retryOperation(async () => {
-      const configRef = doc(db, 'deviceConfigs', deviceId);
-      console.log('[DeviceConfig] Reading from Firestore:', `deviceConfigs/${deviceId}`);
-      const configDoc = await getDoc(configRef);
-      
-      if (!configDoc.exists()) {
-        console.log('[DeviceConfig] No configuration found for device');
-        return null;
+    const rdb = await getDeviceRdbInstance();
+    if (!db || !rdb) throw new DeviceConfigError('Firebase not initialized', 'FIREBASE_NOT_INITIALIZED', 'Error interno');
+
+    let firestoreDesired: any = {};
+    let firestoreLast: any = {};
+    try {
+      const snap = await getDoc(doc(db, 'devices', deviceId));
+      if (snap.exists()) {
+        const data = snap.data() as any;
+        firestoreDesired = data?.desiredConfig || {};
+        firestoreLast = data?.lastKnownState || {};
       }
-      
-      const data = configDoc.data();
-      console.log('[DeviceConfig] Successfully retrieved configuration');
-      
-      return {
-        deviceId,
-        alarmMode: data.alarmMode || 'both',
-        ledIntensity: data.ledIntensity ?? 512,
-        ledColor: data.ledColor || { r: 255, g: 255, b: 255 },
-        lastUpdated: data.lastUpdated?.toDate?.() || new Date(),
-        syncStatus: data.syncStatus || 'synced'
-      } as DeviceConfig;
-    });
-    
-    return config;
+    } catch (e: any) {
+      console.warn('[DeviceConfig] Firestore read denied or failed, continuing with RTDB only', { code: e?.code, message: e?.message });
+    }
+
+    let rdbState: any = {};
+    let rdbConfig: any = {};
+    try {
+      const stateRef = ref(rdb, `devices/${deviceId}/state`);
+      const configRef = ref(rdb, `devices/${deviceId}/config`);
+      const [stateSnap, configSnap] = await Promise.all([get(stateRef), get(configRef)]);
+      rdbState = stateSnap.exists() ? (stateSnap.val() as any) : {};
+      rdbConfig = configSnap.exists() ? (configSnap.val() as any) : {};
+    } catch (e: any) {
+      console.warn('[DeviceConfig] RTDB read denied or failed', { code: e?.code, message: e?.message });
+    }
+
+    return {
+      firestore: { desiredConfig: firestoreDesired, lastKnownState: firestoreLast },
+      rdb: { ...rdbState, config: rdbConfig },
+    };
     
   } catch (error: any) {
     handleFirebaseError(error, 'getDeviceConfig');
-  }
-}
-
-/**
- * Get device configuration from RTDB (real-time)
- * @param deviceId - The device ID
- * @returns Promise that resolves with the device configuration from RTDB
- */
-export async function getDeviceConfigFromRTDB(deviceId: string): Promise<Partial<DeviceConfig> | null> {
-  console.log('[DeviceConfig] getDeviceConfigFromRTDB called', { deviceId: deviceId.substring(0, 8) + '...' });
-  
-  try {
-    // Validate authentication
-    await validateAuthentication();
-    
-    // Validate inputs
-    validateDeviceId(deviceId);
-    
-    // Get Firebase instances
-    const rdb = await getRdbInstance();
-    
-    if (!rdb) {
-      throw new DeviceConfigError(
-        'Firebase Realtime Database not initialized',
-        'RTDB_NOT_INITIALIZED',
-        'Error de conexión. Por favor, reinicia la aplicación.',
-        true
-      );
-    }
-    
-    // Get from RTDB with retry logic
-    const config = await retryOperation(async () => {
-      const deviceConfigRef = ref(rdb, `devices/${deviceId}/config`);
-      console.log('[DeviceConfig] Reading from RTDB:', `devices/${deviceId}/config`);
-      const snapshot = await get(deviceConfigRef);
-      
-      if (!snapshot.exists()) {
-        console.log('[DeviceConfig] No configuration found in RTDB');
-        return null;
-      }
-      
-      const data = snapshot.val();
-      console.log('[DeviceConfig] Successfully retrieved configuration from RTDB');
-      
-      return {
-        deviceId,
-        alarmMode: data.alarm_mode,
-        ledIntensity: data.led_intensity,
-        ledColor: data.led_color
-      } as Partial<DeviceConfig>;
-    });
-    
-    return config;
-    
-  } catch (error: any) {
-    handleFirebaseError(error, 'getDeviceConfigFromRTDB');
   }
 }

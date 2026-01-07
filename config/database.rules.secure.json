@@ -1,0 +1,75 @@
+{
+  "rules": {
+    "deviceState": {
+      "$deviceId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "devices": {
+      "$deviceId": {
+        "state": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        },
+        "config": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        },
+        "commands": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          ".validate": "newData.hasChildren(['domingoManana', 'domingoMediodia', 'domingoTarde', 'domingoNoche', 'lunesManana', 'lunesMediodia', 'lunesTarde', 'lunesNoche', 'martesManana', 'martesMediodia', 'martesTarde', 'martesNoche', 'miercolesManana', 'miercolesMediodia', 'miercolesTarde', 'miercolesNoche', 'juevesManana', 'juevesMediodia', 'juevesTarde', 'juevesNoche', 'viernesManana', 'viernesMediodia', 'viernesTarde', 'viernesNoche', 'sabadoManana', 'sabadoMediodia', 'sabadoTarde', 'sabadoNoche']) || !newData.exists()",
+          "domingoManana": { ".validate": "newData.isBoolean()" },
+          "domingoMediodia": { ".validate": "newData.isBoolean()" },
+          "domingoTarde": { ".validate": "newData.isBoolean()" },
+          "domingoNoche": { ".validate": "newData.isBoolean()" },
+          "lunesManana": { ".validate": "newData.isBoolean()" },
+          "lunesMediodia": { ".validate": "newData.isBoolean()" },
+          "lunesTarde": { ".validate": "newData.isBoolean()" },
+          "lunesNoche": { ".validate": "newData.isBoolean()" },
+          "martesManana": { ".validate": "newData.isBoolean()" },
+          "martesMediodia": { ".validate": "newData.isBoolean()" },
+          "martesTarde": { ".validate": "newData.isBoolean()" },
+          "martesNoche": { ".validate": "newData.isBoolean()" },
+          "miercolesManana": { ".validate": "newData.isBoolean()" },
+          "miercolesMediodia": { ".validate": "newData.isBoolean()" },
+          "miercolesTarde": { ".validate": "newData.isBoolean()" },
+          "miercolesNoche": { ".validate": "newData.isBoolean()" },
+          "juevesManana": { ".validate": "newData.isBoolean()" },
+          "juevesMediodia": { ".validate": "newData.isBoolean()" },
+          "juevesTarde": { ".validate": "newData.isBoolean()" },
+          "juevesNoche": { ".validate": "newData.isBoolean()" },
+          "viernesManana": { ".validate": "newData.isBoolean()" },
+          "viernesMediodia": { ".validate": "newData.isBoolean()" },
+          "viernesTarde": { ".validate": "newData.isBoolean()" },
+          "viernesNoche": { ".validate": "newData.isBoolean()" },
+          "sabadoManana": { ".validate": "newData.isBoolean()" },
+          "sabadoMediodia": { ".validate": "newData.isBoolean()" },
+          "sabadoTarde": { ".validate": "newData.isBoolean()" },
+          "sabadoNoche": { ".validate": "newData.isBoolean()" },
+          "topo": { ".validate": "newData.isBoolean()" },
+          "led": { ".validate": "newData.isBoolean()" },
+          "turnotest": { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
+        },
+        "ownerUserId": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      }
+    },
+    "users": {
+      "$userId": {
+        ".read": "auth != null && auth.uid === $userId",
+        ".write": "auth != null && auth.uid === $userId",
+        "devices": {
+          "$deviceId": {
+            ".read": "auth != null && auth.uid === $userId",
+            ".write": "auth != null && auth.uid === $userId"
+          }
+        }
+      }
+    }
+  }
+}

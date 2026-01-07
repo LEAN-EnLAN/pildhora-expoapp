@@ -18,18 +18,23 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Text, View, FlatList, Alert, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../src/store';
 import { useCollectionSWR } from '../../src/hooks/useCollectionSWR';
+import { useScrollViewPadding } from '../../src/hooks/useScrollViewPadding';
 import { getTasksQuery, addTask, updateTask, deleteTask } from '../../src/services/firebase/tasks';
 import { Task } from '../../src/types';
 import { Button, Card, Input, Modal } from '../../src/components/ui';
+import { ScreenWrapper } from '../../src/components/caregiver';
 import { colors, spacing, typography, borderRadius } from '../../src/theme/tokens';
 
 export default function TasksScreen() {
   const { user } = useSelector((state: RootState) => state.auth);
+  
+  // Layout dimensions for proper spacing
+  const { contentPaddingBottom } = useScrollViewPadding();
+  
   const [tasksQuery, setTasksQuery] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [newTaskText, setNewTaskText] = useState('');
@@ -181,7 +186,7 @@ export default function TasksScreen() {
             <Ionicons
               name={item.completed ? 'checkbox' : 'square-outline'}
               size={28}
-              color={item.completed ? colors.success : colors.gray[400]}
+              color={item.completed ? colors.success[500] : colors.gray[400]}
             />
           </View>
           <Text
@@ -248,30 +253,31 @@ export default function TasksScreen() {
   );
 
   return (
-    <SafeAreaView edges={['bottom']} style={styles.container}>
-      {/* Add task button */}
-      <View style={styles.headerContainer}>
-        <Button
-          variant="primary"
-          size="md"
-          onPress={handleOpenModal}
-          fullWidth
-          leftIcon={<Ionicons name="add" size={24} color={colors.surface} />}
-          accessibilityLabel="Add new task"
-          accessibilityHint="Opens dialog to create a new task"
-        >
-          Nueva Tarea
-        </Button>
-      </View>
-
+    <ScreenWrapper>
       {/* Tasks list */}
       <FlatList
         data={tasks}
         keyExtractor={keyExtractor}
         renderItem={renderTaskItem}
+        ListHeaderComponent={
+          <View style={styles.headerContainer}>
+            <Button
+              variant="primary"
+              size="md"
+              onPress={handleOpenModal}
+              fullWidth
+              leftIcon={<Ionicons name="add" size={24} color={colors.surface} />}
+              accessibilityLabel="Add new task"
+              accessibilityHint="Opens dialog to create a new task"
+            >
+              Nueva Tarea
+            </Button>
+          </View>
+        }
         contentContainerStyle={[
           styles.listContent,
           tasks.length === 0 && styles.listContentEmpty,
+          { paddingBottom: contentPaddingBottom },
         ]}
         ListEmptyComponent={renderEmptyState}
         showsVerticalScrollIndicator={false}
@@ -341,7 +347,7 @@ export default function TasksScreen() {
           </View>
         </ScrollView>
       </Modal>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 }
 
@@ -351,14 +357,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   headerContainer: {
-    padding: spacing.lg,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    backgroundColor: colors.background,
   },
   listContent: {
-    padding: spacing.lg,
-    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
   },
   listContentEmpty: {
     flexGrow: 1,
@@ -366,7 +372,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   taskCard: {
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
   taskContent: {
     flexDirection: 'row',

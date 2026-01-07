@@ -1,5 +1,18 @@
 {
   "projects": {
     "default": "pildhora-app2"
-  }
+  },
+  "targets": {
+    "pildhora-app2": {
+      "database": {
+        "devices": [
+          "devices-m1947"
+        ],
+        "default": [
+          "pildhora-app2-default-rtdb"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

@@ -18,34 +18,46 @@ import { EventFilters } from '../components/caregiver/EventFilterControls';
  * 
  * This function constructs a Firestore query with the appropriate constraints
  * based on the provided filters. It handles:
- * - Caregiver filtering (always applied)
- * - Patient filtering (optional)
+ * - Patient filtering (required - either specific patient or all linked patients)
  * - Event type filtering (optional)
  * - Date range filtering (optional)
  * 
  * Note: Firestore requires composite indexes for queries with multiple where clauses
  * and orderBy. The indexes are defined in firestore.indexes.json.
  * 
+ * IMPORTANT: Events are stored with patientId, not caregiverId. Caregivers access
+ * events through their linked patients via deviceLinks.
+ * 
  * @param db - Firestore database instance
- * @param caregiverId - ID of the caregiver (always required)
+ * @param caregiverId - ID of the caregiver (used for logging, not querying)
  * @param filters - Active filters from EventFilterControls
  * @param maxResults - Maximum number of results to return (default: 50)
- * @returns Firestore query with applied constraints
+ * @param linkedPatientIds - Array of patient IDs the caregiver has access to
+ * @returns Firestore query with applied constraints, or null if no patients
  */
 export function buildEventQuery(
   db: Firestore,
   caregiverId: string,
-  filters: EventFilters,
-  maxResults: number = 50
-): Query<DocumentData> {
+  filters: Partial<EventFilters>,
+  maxResults: number = 50,
+  linkedPatientIds?: string[]
+): Query<DocumentData> | null {
   const constraints: QueryConstraint[] = [];
 
-  // Always filter by caregiver - this is the base constraint
-  constraints.push(where('caregiverId', '==', caregiverId));
-
-  // Apply patient filter if specified
+  // Determine which patient(s) to query for
   if (filters.patientId) {
+    // Specific patient selected
     constraints.push(where('patientId', '==', filters.patientId));
+  } else if (linkedPatientIds && linkedPatientIds.length > 0) {
+    // No specific patient - query for first linked patient
+    // Note: Firestore 'in' operator supports up to 10 values
+    // For more patients, we'd need to make multiple queries
+    const patientsToQuery = linkedPatientIds.slice(0, 10);
+    constraints.push(where('patientId', 'in', patientsToQuery));
+  } else {
+    // No patients to query - return null to indicate no query should be made
+    console.log('[buildEventQuery] No linked patients available for caregiver', caregiverId);
+    return null;
   }
 
   // Apply event type filter if specified

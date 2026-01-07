@@ -9,13 +9,12 @@ import { announceForAccessibility } from '../../../../utils/accessibility';
  * WelcomeStep Component
  * 
  * First step of the device provisioning wizard. Provides an overview
- * of the setup process, visual guides for locating the device ID,
- * and troubleshooting tips.
+ * of the setup process.
  * 
- * Requirements: 3.1, 11.1, 11.4
+ * Premium visual overhaul.
  */
 export function WelcomeStep() {
-  const { setCanProceed } = useWizardContext();
+  const { setCanProceed, onSkip } = useWizardContext();
 
   // Welcome step can always proceed
   useEffect(() => {
@@ -24,139 +23,97 @@ export function WelcomeStep() {
   }, [setCanProceed]);
 
   const handleHelpPress = () => {
-    // Open help documentation or support page
     Linking.openURL('https://support.example.com/device-setup');
   };
 
   return (
-    <ScrollView 
+    <ScrollView
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
-      {/* Welcome Header */}
-      <View style={styles.header}>
-        <View style={styles.iconContainer}>
-          <Ionicons name="hardware-chip" size={48} color={colors.primary[500]} />
-        </View>
-        <Text style={styles.title}>¡Bienvenido!</Text>
-        <Text style={styles.subtitle}>
-          Configuremos tu dispositivo dispensador de medicamentos
-        </Text>
-      </View>
-
-      {/* Setup Overview */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>¿Qué haremos?</Text>
-        <Text style={styles.sectionText}>
-          Este asistente te guiará paso a paso para configurar tu dispositivo. El proceso tomará aproximadamente 5 minutos.
-        </Text>
-      </View>
-
-      {/* Steps Preview */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Pasos de configuración</Text>
-        
-        <View style={styles.stepsList}>
-          <StepPreview
-            icon="keypad-outline"
-            title="Ingresar ID del dispositivo"
-            description="Introduce el código único de tu dispositivo"
-          />
-          <StepPreview
-            icon="checkmark-circle-outline"
-            title="Verificar dispositivo"
-            description="Confirmaremos que tu dispositivo está disponible"
-          />
-          <StepPreview
-            icon="wifi-outline"
-            title="Configurar WiFi"
-            description="Conecta tu dispositivo a tu red WiFi"
-          />
-          <StepPreview
-            icon="settings-outline"
-            title="Personalizar preferencias"
-            description="Ajusta alarmas, LED y volumen"
-          />
-        </View>
-      </View>
-
-      {/* Device ID Location Guide */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>¿Dónde encuentro el ID del dispositivo?</Text>
-        <View style={styles.guideCard}>
-          <Ionicons name="information-circle" size={24} color={colors.primary[500]} style={styles.guideIcon} />
-          <View style={styles.guideContent}>
-            <Text style={styles.guideText}>
-              El ID del dispositivo es un código alfanumérico de 5-100 caracteres ubicado en:
-            </Text>
-            <View style={styles.locationList}>
-              <Text style={styles.locationItem}>• Parte inferior del dispositivo</Text>
-              <Text style={styles.locationItem}>• Etiqueta en la caja del producto</Text>
-              <Text style={styles.locationItem}>• Manual de usuario</Text>
-            </View>
+      {/* Hero Section */}
+      <View style={styles.hero}>
+        <View style={styles.heroIconContainer}>
+          <Ionicons name="hardware-chip" size={64} color={colors.primary[500]} />
+          <View style={styles.heroIconBadge}>
+            <Ionicons name="checkmark" size={20} color="white" />
           </View>
         </View>
+        <Text style={styles.title}>¡Bienvenido a Pildhora!</Text>
+        <Text style={styles.subtitle}>
+          Vamos a configurar tu dispensador inteligente para que nunca olvides una toma.
+        </Text>
       </View>
 
-      {/* Troubleshooting Tips */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Consejos útiles</Text>
-        
-        <View style={styles.tipCard}>
-          <Ionicons name="bulb-outline" size={20} color={colors.warning[500]} />
-          <Text style={styles.tipText}>
-            Asegúrate de tener tu dispositivo cerca y encendido
-          </Text>
-        </View>
+      {/* Time Estimate */}
+      <View style={styles.timeEstimateContainer}>
+        <Ionicons name="time-outline" size={20} color={colors.primary[600]} />
+        <Text style={styles.timeEstimateText}>Tiempo estimado: 2 minutos</Text>
+      </View>
 
-        <View style={styles.tipCard}>
-          <Ionicons name="bulb-outline" size={20} color={colors.warning[500]} />
-          <Text style={styles.tipText}>
-            Ten a mano tu contraseña de WiFi
-          </Text>
-        </View>
+      {/* Steps Preview Card */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Lo que haremos:</Text>
 
-        <View style={styles.tipCard}>
-          <Ionicons name="bulb-outline" size={20} color={colors.warning[500]} />
-          <Text style={styles.tipText}>
-            El proceso puede pausarse y reanudarse en cualquier momento
-          </Text>
+        <View style={styles.stepsList}>
+          <StepPreview
+            number="1"
+            title="Vincular"
+            description="Ingresa el ID de tu dispositivo"
+          />
+          <View style={styles.stepConnector} />
+          <StepPreview
+            number="2"
+            title="Conectar"
+            description="Configura la red WiFi"
+          />
+          <View style={styles.stepConnector} />
+          <StepPreview
+            number="3"
+            title="Personalizar"
+            description="Ajusta tus preferencias"
+          />
         </View>
       </View>
 
-      {/* Help Link */}
-      <TouchableOpacity 
-        style={styles.helpButton}
-        onPress={handleHelpPress}
-        accessibilityRole="button"
-        accessibilityLabel="Obtener ayuda adicional"
-        accessibilityHint="Abre la página de soporte en tu navegador"
-      >
-        <Ionicons name="help-circle-outline" size={20} color={colors.primary[500]} />
-        <Text style={styles.helpButtonText}>¿Necesitas ayuda adicional?</Text>
-        <Ionicons name="chevron-forward" size={20} color={colors.primary[500]} />
-      </TouchableOpacity>
+      {/* Checklist Card */}
+      <View style={styles.checklistCard}>
+        <Text style={styles.checklistTitle}>Antes de comenzar, asegúrate de:</Text>
+
+        <ChecklistItem text="Tener tu dispositivo Pildhora encendido" />
+        <ChecklistItem text="Estar cerca del dispositivo" />
+        <ChecklistItem text="Conocer tu contraseña de WiFi" />
+      </View>
+
+      {/* Help & Skip Actions */}
+      <View style={styles.actionsContainer}>
+        <TouchableOpacity
+          style={styles.helpButton}
+          onPress={handleHelpPress}
+          accessibilityRole="button"
+        >
+          <Ionicons name="help-circle-outline" size={20} color={colors.primary[600]} />
+          <Text style={styles.helpButtonText}>¿Necesitas ayuda?</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.skipButton}
+          onPress={onSkip}
+          accessibilityRole="button"
+        >
+          <Text style={styles.skipButtonText}>Configurar más tarde</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 }
 
-/**
- * StepPreview Component
- * 
- * Displays a preview of an upcoming wizard step with icon, title, and description.
- */
-interface StepPreviewProps {
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  description: string;
-}
-
-function StepPreview({ icon, title, description }: StepPreviewProps) {
+function StepPreview({ number, title, description }: { number: string, title: string, description: string }) {
   return (
     <View style={styles.stepPreview}>
-      <View style={styles.stepIconContainer}>
-        <Ionicons name={icon} size={24} color={colors.primary[500]} />
+      <View style={styles.stepNumberContainer}>
+        <Text style={styles.stepNumber}>{number}</Text>
       </View>
       <View style={styles.stepContent}>
         <Text style={styles.stepTitle}>{title}</Text>
@@ -166,27 +123,53 @@ function StepPreview({ icon, title, description }: StepPreviewProps) {
   );
 }
 
+function ChecklistItem({ text }: { text: string }) {
+  return (
+    <View style={styles.checklistItem}>
+      <View style={styles.checkIcon}>
+        <Ionicons name="checkmark-circle-outline" size={20} color={colors.success[500]} />
+      </View>
+      <Text style={styles.checklistText}>{text}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   contentContainer: {
     padding: spacing.lg,
     paddingBottom: spacing.xl * 2,
   },
-  header: {
+  hero: {
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
+    marginTop: spacing.md,
   },
-  iconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: borderRadius.full,
-    backgroundColor: '#EFF6FF', // primary[50]
+  heroIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 40, // Squircle
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.lg,
+    ...shadows.lg,
+  },
+  heroIconBadge: {
+    position: 'absolute',
+    bottom: -8,
+    right: -8,
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.success[500],
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: colors.background,
   },
   title: {
     fontSize: typography.fontSize['3xl'],
@@ -200,40 +183,58 @@ const styles = StyleSheet.create({
     color: colors.gray[600],
     textAlign: 'center',
     paddingHorizontal: spacing.md,
+    lineHeight: 28,
   },
-  section: {
+  timeEstimateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(59, 130, 246, 0.1)', // primary[500] with opacity
+    alignSelf: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
     marginBottom: spacing.xl,
+    gap: spacing.xs,
   },
-  sectionTitle: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.semibold,
+  timeEstimateText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.primary[700],
+    fontWeight: typography.fontWeight.medium,
+  },
+  card: {
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    ...shadows.sm,
+  },
+  cardTitle: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
     color: colors.gray[900],
-    marginBottom: spacing.md,
-  },
-  sectionText: {
-    fontSize: typography.fontSize.base,
-    color: colors.gray[700],
-    lineHeight: typography.fontSize.base * 1.5,
+    marginBottom: spacing.lg,
   },
   stepsList: {
-    gap: spacing.md,
+    gap: 0,
   },
   stepPreview: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    ...shadows.sm,
+    alignItems: 'center',
   },
-  stepIconContainer: {
-    width: 40,
-    height: 40,
+  stepNumberContainer: {
+    width: 32,
+    height: 32,
     borderRadius: borderRadius.full,
-    backgroundColor: '#EFF6FF', // primary[50]
+    backgroundColor: colors.primary[100],
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
+  },
+  stepNumber: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary[700],
   },
   stepContent: {
     flex: 1,
@@ -242,72 +243,65 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.semibold,
     color: colors.gray[900],
-    marginBottom: spacing.xs,
   },
   stepDescription: {
     fontSize: typography.fontSize.sm,
-    color: colors.gray[600],
-    lineHeight: typography.fontSize.sm * 1.4,
+    color: colors.gray[500],
   },
-  guideCard: {
-    flexDirection: 'row',
-    backgroundColor: '#EFF6FF', // primary[50]
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary[500],
+  stepConnector: {
+    width: 2,
+    height: 20,
+    backgroundColor: colors.gray[200],
+    marginLeft: 15, // Center with number container (32/2 - 1)
+    marginVertical: 4,
   },
-  guideIcon: {
-    marginRight: spacing.md,
-    marginTop: spacing.xs,
+  checklistCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.8)',
   },
-  guideContent: {
-    flex: 1,
-  },
-  guideText: {
+  checklistTitle: {
     fontSize: typography.fontSize.base,
-    color: colors.gray[800],
-    marginBottom: spacing.sm,
-    lineHeight: typography.fontSize.base * 1.5,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.gray[900],
+    marginBottom: spacing.md,
   },
-  locationList: {
-    gap: spacing.xs,
-  },
-  locationItem: {
-    fontSize: typography.fontSize.sm,
-    color: colors.gray[700],
-    lineHeight: typography.fontSize.sm * 1.4,
-  },
-  tipCard: {
+  checklistItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFBEB', // warning[50]
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
     marginBottom: spacing.sm,
-    gap: spacing.sm,
   },
-  tipText: {
-    flex: 1,
+  checkIcon: {
+    marginRight: spacing.sm,
+  },
+  checklistText: {
     fontSize: typography.fontSize.sm,
-    color: colors.gray[800],
-    lineHeight: typography.fontSize.sm * 1.4,
+    color: colors.gray[700],
+  },
+  actionsContainer: {
+    alignItems: 'center',
+    gap: spacing.md,
   },
   helpButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.gray[300],
-    gap: spacing.sm,
-    marginTop: spacing.md,
+    gap: spacing.xs,
+    padding: spacing.sm,
   },
   helpButtonText: {
-    fontSize: typography.fontSize.base,
+    fontSize: typography.fontSize.sm,
+    color: colors.primary[600],
     fontWeight: typography.fontWeight.medium,
-    color: colors.primary[500],
+  },
+  skipButton: {
+    padding: spacing.sm,
+  },
+  skipButtonText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.gray[500],
+    textDecorationLine: 'underline',
   },
 });

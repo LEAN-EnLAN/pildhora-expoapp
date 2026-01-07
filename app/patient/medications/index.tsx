@@ -1,174 +1,218 @@
 import React, { useEffect, useCallback, useMemo, useState } from 'react';
-import { View, Text, FlatList, StyleSheet } from 'react-native';
+import { View, Text, FlatList, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { RootState, AppDispatch } from '../../../src/store';
 import { fetchMedications } from '../../../src/store/slices/medicationsSlice';
 import { Medication } from '../../../src/types';
-import { Button, LoadingSpinner, ErrorMessage, AnimatedListItem, ListSkeleton, MedicationCardSkeleton } from '../../../src/components/ui';
+import { AppBar, ErrorMessage, ListSkeleton, MedicationCardSkeleton } from '../../../src/components/ui';
 import { MedicationCard } from '../../../src/components/screens/patient';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius } from '../../../src/theme/tokens';
+import { colors, spacing, typography, borderRadius, shadows } from '../../../src/theme/tokens';
 import { inventoryService } from '../../../src/services/inventoryService';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function MedicationsIndex() {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const { user } = useSelector((state: RootState) => state.auth);
   const { medications, loading, error } = useSelector((state: RootState) => state.medications);
-  const deviceSlice = useSelector((state: RootState) => (state as any).device);
   const patientId = user?.id;
   const [lowInventoryMeds, setLowInventoryMeds] = useState<Set<string>>(new Set());
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (patientId) dispatch(fetchMedications(patientId));
   }, [patientId, dispatch]);
 
-  // Check inventory status for all medications
   useEffect(() => {
     const checkInventoryStatus = async () => {
       const lowMeds = new Set<string>();
-      
       for (const med of medications) {
         if (med.trackInventory && med.id) {
           try {
             const isLow = await inventoryService.checkLowQuantity(med.id);
-            if (isLow) {
-              lowMeds.add(med.id);
-            }
+            if (isLow) lowMeds.add(med.id);
           } catch (error) {
             console.error('[MedicationsIndex] Error checking inventory:', error);
           }
         }
       }
-      
       setLowInventoryMeds(lowMeds);
     };
-
-    if (medications.length > 0) {
-      checkInventoryStatus();
-    }
+    if (medications.length > 0) checkInventoryStatus();
   }, [medications]);
 
-  // Check if device is connected
-  const isDeviceConnected = useMemo(() => {
-    return deviceSlice?.state?.is_online || false;
-  }, [deviceSlice]);
-
-  // Handle retry on error
   const handleRetry = useCallback(() => {
-    if (patientId) {
-      dispatch(fetchMedications(patientId));
-    }
+    if (patientId) dispatch(fetchMedications(patientId));
   }, [patientId, dispatch]);
 
-  // Render medication item with animation
-  const renderMedicationItem = useCallback(({ item, index }: { item: Medication; index: number }) => {
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    if (patientId) await dispatch(fetchMedications(patientId));
+    setRefreshing(false);
+  }, [patientId, dispatch]);
+
+  // Deduplicate medications by ID to prevent duplicate key errors
+  const uniqueMedications = useMemo(() => {
+    const seen = new Set<string>();
+    return medications.filter(med => {
+      if (seen.has(med.id)) {
+        return false;
+      }
+      seen.add(med.id);
+      return true;
+    });
+  }, [medications]);
+
+  const stats = useMemo(() => {
+    const total = uniqueMedications.length;
+    const withAlarms = uniqueMedications.filter(m => m.times && m.times.length > 0).length;
+    const lowStock = lowInventoryMeds.size;
+    return { total, withAlarms, lowStock };
+  }, [uniqueMedications, lowInventoryMeds]);
+
+  const renderMedicationItem = useCallback(({ item }: { item: Medication }) => {
     const showLowBadge = lowInventoryMeds.has(item.id);
-    
     return (
-      <AnimatedListItem index={index} delay={50} style={styles.medicationItem}>
-        <MedicationCard
-          medication={item}
-          onPress={() => router.push(`/patient/medications/${item.id}`)}
-          showLowQuantityBadge={showLowBadge}
-          currentQuantity={item.currentQuantity}
-        />
-      </AnimatedListItem>
+      <MedicationCard
+        medication={item}
+        onPress={() => router.push(`/patient/medications/${item.id}`)}
+        showLowQuantityBadge={showLowBadge}
+        currentQuantity={item.currentQuantity}
+      />
     );
   }, [router, lowInventoryMeds]);
 
-  // Render empty state
+  const renderHeader = useCallback(() => (
+    <View style={styles.headerContainer}>
+      {/* Resumen compacto */}
+      <View style={styles.summaryRow}>
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryValue}>{stats.total}</Text>
+          <Text style={styles.summaryLabel}>total</Text>
+        </View>
+        <View style={styles.summaryDot} />
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryValue}>{stats.withAlarms}</Text>
+          <Text style={styles.summaryLabel}>con alarma</Text>
+        </View>
+        {stats.lowStock > 0 && (
+          <>
+            <View style={styles.summaryDot} />
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryValue, styles.warningText]}>{stats.lowStock}</Text>
+              <Text style={[styles.summaryLabel, styles.warningText]}>stock bajo</Text>
+            </View>
+          </>
+        )}
+      </View>
+    </View>
+  ), [stats]);
+
   const renderEmptyState = useCallback(() => (
     <View style={styles.emptyState}>
-      <View style={styles.emptyIconContainer}>
-        <Ionicons name="calendar-outline" size={64} color={colors.gray[400]} />
+      <View style={styles.emptyIcon}>
+        <Ionicons name="medical-outline" size={48} color={colors.gray[300]} />
       </View>
-      <Text style={styles.emptyTitle}>No hay medicamentos</Text>
+      <Text style={styles.emptyTitle}>Sin medicamentos</Text>
       <Text style={styles.emptyDescription}>
-        Agrega tu primer medicamento para comenzar a gestionar tu tratamiento
+        Agrega tu primer medicamento para comenzar
       </Text>
-      <Button
-        variant="primary"
-        size="lg"
+      <TouchableOpacity
+        style={styles.emptyButton}
         onPress={() => router.push('/patient/medications/add')}
         accessibilityLabel="Agregar primer medicamento"
-        accessibilityHint="Navega a la pantalla para agregar un nuevo medicamento"
+        accessibilityRole="button"
       >
-        Agregar Medicamento
-      </Button>
+        <Ionicons name="add" size={20} color="#FFFFFF" />
+        <Text style={styles.emptyButtonText}>Agregar medicamento</Text>
+      </TouchableOpacity>
     </View>
   ), [router]);
 
-  // Render mode indicator when device is connected
-  const renderModeIndicator = useCallback(() => {
-    if (!isDeviceConnected) return null;
-
+  if (loading && !refreshing) {
     return (
-      <View style={styles.modeIndicator}>
-        <View style={styles.modeIndicatorContent}>
-          <Ionicons name="link" size={20} color={colors.info} />
-          <Text style={styles.modeIndicatorText}>
-            Modo cuidador activo - Los medicamentos son gestionados por tu cuidador
-          </Text>
+      <SafeAreaView edges={['top']} style={styles.container}>
+        <AppBar
+          title="Medicamentos"
+          showBackButton={true}
+          onBackPress={() => router.push('/patient/home')}
+          rightActionIcon={<Ionicons name="add" size={24} color={colors.gray[800]} />}
+          onRightActionPress={() => router.push('/patient/medications/add')}
+        />
+        <View style={styles.loadingHeader}>
+          <View style={styles.skeletonSummary} />
         </View>
-      </View>
-    );
-  }, [isDeviceConnected]);
-
-  // Loading state with skeleton loaders
-  if (loading) {
-    return (
-      <View style={styles.container}>
         <ListSkeleton count={4} ItemSkeleton={MedicationCardSkeleton} />
-      </View>
+      </SafeAreaView>
     );
   }
 
-  // Error state
   if (error) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView edges={['top']} style={styles.container}>
+        <AppBar
+          title="Medicamentos"
+          showBackButton={true}
+          onBackPress={() => router.push('/patient/home')}
+          rightActionIcon={<Ionicons name="add" size={24} color={colors.gray[800]} />}
+          onRightActionPress={() => router.push('/patient/medications/add')}
+        />
         <View style={styles.errorContainer}>
-          <ErrorMessage
-            message={error}
-            onRetry={handleRetry}
-            variant="inline"
-          />
+          <ErrorMessage message={error} onRetry={handleRetry} variant="inline" />
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView edges={['top']} style={styles.container}>
+      <AppBar
+        title="Medicamentos"
+        showBackButton={true}
+        onBackPress={() => router.push('/patient/home')}
+        rightActionIcon={<Ionicons name="add" size={24} color={colors.gray[800]} />}
+        onRightActionPress={() => router.push('/patient/medications/add')}
+      />
       <FlatList
-        data={medications}
+        data={uniqueMedications}
         keyExtractor={(item) => item.id}
         renderItem={renderMedicationItem}
         contentContainerStyle={styles.listContent}
-        ListHeaderComponent={renderModeIndicator}
+        ListHeaderComponent={uniqueMedications.length > 0 ? renderHeader : null}
         ListEmptyComponent={renderEmptyState}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[colors.primary[500]]}
+            tintColor={colors.primary[500]}
+          />
+        }
         removeClippedSubviews={true}
         maxToRenderPerBatch={10}
-        updateCellsBatchingPeriod={50}
         initialNumToRender={10}
-        windowSize={10}
+        showsVerticalScrollIndicator={false}
       />
-    </View>
+    </SafeAreaView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.lg,
+  loadingHeader: {
+    padding: spacing.md,
+  },
+  skeletonSummary: {
+    height: 32,
+    backgroundColor: colors.gray[200],
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.md,
   },
   errorContainer: {
     flex: 1,
@@ -176,58 +220,84 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   listContent: {
-    padding: spacing.lg,
-    paddingBottom: spacing['3xl'],
+    padding: spacing.md,
+    paddingBottom: 100,
   },
-  medicationItem: {
+  headerContainer: {
     marginBottom: spacing.md,
   },
-  modeIndicator: {
-    backgroundColor: colors.info + '15',
-    borderLeftWidth: 4,
-    borderLeftColor: colors.info,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  modeIndicatorContent: {
+  summaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    ...shadows.sm,
   },
-  modeIndicatorText: {
-    flex: 1,
+  summaryItem: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  summaryValue: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.gray[900],
+  },
+  summaryLabel: {
     fontSize: typography.fontSize.sm,
-    color: colors.gray[700],
-    marginLeft: spacing.sm,
-    lineHeight: typography.fontSize.sm * typography.lineHeight.normal,
+    color: colors.gray[500],
+  },
+  summaryDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.gray[300],
+    marginHorizontal: spacing.md,
+  },
+  warningText: {
+    color: colors.warning[600],
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing['3xl'],
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.xl,
   },
-  emptyIconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.gray[50],
+  emptyIcon: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: colors.gray[100],
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.lg,
   },
   emptyTitle: {
     fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.gray[900],
-    marginBottom: spacing.sm,
-    textAlign: 'center',
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.gray[800],
+    marginBottom: spacing.xs,
   },
   emptyDescription: {
     fontSize: typography.fontSize.base,
-    color: colors.gray[600],
+    color: colors.gray[500],
     textAlign: 'center',
     marginBottom: spacing.xl,
-    lineHeight: typography.fontSize.base * typography.lineHeight.normal,
+  },
+  emptyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary[500],
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.lg,
+    gap: spacing.sm,
+  },
+  emptyButtonText: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+    color: '#FFFFFF',
   },
 });

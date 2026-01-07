@@ -1,0 +1,4 @@
+# Sound Assets
+
+Place alarm.mp3 here for the TopoAlarmOverlay component.
+The component will gracefully handle missing sound files.

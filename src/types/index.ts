@@ -42,6 +42,8 @@ export interface User {
   onboardingStep?: 'device_provisioning' | 'device_connection' | 'complete';
   /** Device ID linked to this user (only for patients who have provisioned a device) */
   deviceId?: string;
+  /** Whether the patient is in autonomous mode (data not shared with caregivers) */
+  autonomousMode?: boolean;
 }
 
 // ============================================================================
@@ -385,7 +387,9 @@ export enum IntakeStatus {
   /** Dose has been taken */
   TAKEN = 'taken',
   /** Dose was not taken at the scheduled time */
-  MISSED = 'missed'
+  MISSED = 'missed',
+  /** Dose was intentionally skipped by the patient */
+  SKIPPED = 'skipped'
 }
 
 /**
@@ -421,7 +425,7 @@ export interface IntakeRecord {
   dosage: string;
   /** Scheduled time for this dose. Can be Date object or ISO string after Firestore conversion */
   scheduledTime: Date | string;
-  /** Current status of the dose (pending, taken, or missed) */
+  /** Current status of the dose (pending, taken, missed, or skipped) */
   status: IntakeStatus;
   /** ID of the patient this intake record belongs to */
   patientId: string;
@@ -435,6 +439,20 @@ export interface IntakeRecord {
   deviceSource?: 'manual' | 'pillbox';
   /** ID of the caregiver for scoping (if managed by caregiver) */
   caregiverId?: string;
+  /** Device ID that recorded this intake */
+  deviceId?: string;
+  /** Whether this intake was triggered by a topo alarm */
+  topoTriggered?: boolean;
+  /** Timestamp when topo alarm was triggered. Can be Date object or ISO string */
+  topoTriggeredAt?: Date | string;
+  /** Timestamp when the intake was completed (taken or missed). Can be Date object or ISO string */
+  completedAt?: Date | string;
+  /** How the intake was completed (app button, device button, timeout, etc.) */
+  completedBy?: 'app' | 'device_button' | 'timeout' | 'manual';
+  /** Whether this was recorded in autonomous mode */
+  isAutonomous?: boolean;
+  /** Timestamp when the record was created. Can be Date object or ISO string */
+  createdAt?: Date | string;
 }
 
 // ============================================================================
@@ -1565,3 +1583,158 @@ export interface OfflineMedicationChange {
 
 // External module declarations
 // (No external module declarations needed at this time)
+
+
+// ============================================================================
+// PASTILLERO SCHEDULE TYPES
+// ============================================================================
+
+/**
+ * TurnoType
+ * 
+ * Represents the time slot index for medication dispensing.
+ * Each turno corresponds to a specific time of day.
+ * 
+ * @example
+ * ```typescript
+ * const turno: TurnoType = 0; // Mañana (08:00)
+ * ```
+ */
+export type TurnoType = 0 | 1 | 2 | 3; // 0=mañana, 1=mediodía, 2=tarde, 3=noche
+
+/**
+ * DiaType
+ * 
+ * Represents the day of the week index (0=domingo, 6=sábado).
+ * Follows JavaScript Date.getDay() convention.
+ * 
+ * @example
+ * ```typescript
+ * const dia: DiaType = 1; // Lunes
+ * ```
+ */
+export type DiaType = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+/**
+ * DemoScheduleEntry interface
+ * 
+ * Represents a single schedule entry for the pastillero demo.
+ * Contains both numeric indices and human-readable names for display.
+ * 
+ * @example
+ * ```typescript
+ * const entry: DemoScheduleEntry = {
+ *   dia: 1,
+ *   turno: 0,
+ *   hora: '08:00',
+ *   diaName: 'Lunes',
+ *   turnoName: 'Mañana'
+ * };
+ * ```
+ */
+export interface DemoScheduleEntry {
+  /** Day of the week (0=domingo, 6=sábado) */
+  dia: DiaType;
+  /** Time slot index (0=mañana, 1=mediodía, 2=tarde, 3=noche) */
+  turno: TurnoType;
+  /** Time in HH:mm format */
+  hora: string;
+  /** Day name in Spanish */
+  diaName: string;
+  /** Turno name in Spanish */
+  turnoName: string;
+}
+
+/**
+ * PastilleroStatus interface
+ * 
+ * Represents the real-time status of a pastillero device from RTDB.
+ * 
+ * @example
+ * ```typescript
+ * const status: PastilleroStatus = {
+ *   ultimoDispense: 1701432000000,
+ *   online: true
+ * };
+ * ```
+ */
+export interface PastilleroStatus {
+  /** Unix timestamp of the last dispense event (milliseconds) */
+  ultimoDispense: number | null;
+  /** Whether the device is currently online */
+  online: boolean;
+}
+
+/**
+ * PastilleroCommands interface
+ * 
+ * Represents the RTDB commands structure for the pastillero device.
+ * Each boolean indicates whether an alarm is active for that day+turno combination.
+ * Keys match the existing Firebase RTDB structure (lowercase with ñ).
+ * 
+ * @example
+ * ```typescript
+ * const commands: PastilleroCommands = {
+ *   domingomañana: false,
+ *   lunesmañana: true,  // Alarm active for Monday morning
+ *   // ... other combinations
+ * };
+ * ```
+ */
+export interface PastilleroCommands {
+  'domingomañana': boolean;
+  'domingomediodia': boolean;
+  'domingotarde': boolean;
+  'domingonoche': boolean;
+  'lunesmañana': boolean;
+  'lunesmediodia': boolean;
+  'lunestarde': boolean;
+  'lunesnoche': boolean;
+  'martesmañana': boolean;
+  'martesmediodia': boolean;
+  'martestarde': boolean;
+  'martesnoche': boolean;
+  'miercolesmañana': boolean;
+  'miercolesmediodia': boolean;
+  'miercolestarde': boolean;
+  'miercolesnoche': boolean;
+  'juevesmañana': boolean;
+  'juevesmediodia': boolean;
+  'juevestarde': boolean;
+  'juevesnoche': boolean;
+  'viernesmañana': boolean;
+  'viernesmediodia': boolean;
+  'viernestarde': boolean;
+  'viernesnoche': boolean;
+  'sabadomañana': boolean;
+  'sabadomediodia': boolean;
+  'sabadotarde': boolean;
+  'sabadonoche': boolean;
+  /** Optional topo alarm flag */
+  topo?: boolean;
+  /** Optional LED state flag */
+  led?: boolean;
+}
+
+/**
+ * StatusCardProps interface
+ * 
+ * Props for the StatusCard component that displays pastillero status.
+ * 
+ * @example
+ * ```typescript
+ * <StatusCard
+ *   online={true}
+ *   ultimoDispense={1701432000000}
+ *   horarios={DEMO_PASTILLERO_SCHEDULE}
+ * />
+ * ```
+ */
+export interface StatusCardProps {
+  /** Whether the device is online */
+  online: boolean;
+  /** Unix timestamp of last dispense (milliseconds) */
+  ultimoDispense: number | null;
+  /** Array of scheduled entries for calculating next dose */
+  horarios: DemoScheduleEntry[];
+}

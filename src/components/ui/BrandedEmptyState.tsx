@@ -13,10 +13,11 @@
  * />
  */
 
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../theme/tokens';
+import { motion } from '../../theme/motion';
 import AppIcon from './AppIcon';
 import { Button } from './Button';
 
@@ -46,9 +47,35 @@ export default function BrandedEmptyState({
   showAppIcon = false,
   iconColor = colors.gray[400],
 }: BrandedEmptyStateProps) {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: motion.duration.medium,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        ...motion.spring.gentle,
+      }),
+    ]).start();
+  }, []);
+
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
+      <Animated.View 
+        style={[
+          styles.content,
+          {
+            opacity: fadeAnim,
+            transform: [{ scale: scaleAnim }]
+          }
+        ]}
+      >
         {showAppIcon ? (
           <View style={styles.appIconContainer}>
             <AppIcon size="lg" showShadow={false} rounded={true} />
@@ -75,7 +102,7 @@ export default function BrandedEmptyState({
             </Button>
           </View>
         )}
-      </View>
+      </Animated.View>
     </View>
   );
 }

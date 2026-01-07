@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useSelector } from 'react-redux';
@@ -8,7 +8,7 @@ import { DeviceProvisioningWizard } from '../../src/components/patient/provision
 import { ContinueSetupPrompt } from '../../src/components/patient/provisioning/ContinueSetupPrompt';
 import { wizardPersistenceService } from '../../src/services/wizardPersistence';
 import { RootState } from '../../src/store';
-import { colors, spacing, typography, borderRadius, shadows } from '../../src/theme/tokens';
+import { colors, spacing, typography } from '../../src/theme/tokens';
 
 /**
  * Device Provisioning Screen
@@ -118,14 +118,6 @@ export default function DeviceProvisioningScreen() {
   if (isCheckingProgress) {
     return (
       <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="hardware-chip-outline" size={24} color={colors.primary[500]} />
-            </View>
-            <Text style={styles.headerTitle}>Configurar Dispositivo</Text>
-          </View>
-        </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary[500]} />
         </View>
@@ -135,16 +127,6 @@ export default function DeviceProvisioningScreen() {
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="hardware-chip-outline" size={24} color={colors.primary[500]} />
-          </View>
-          <Text style={styles.headerTitle}>Configurar Dispositivo</Text>
-        </View>
-      </View>
-
       {/* Continue Setup Prompt */}
       {showPrompt && savedProgress && (
         <ContinueSetupPrompt
@@ -173,34 +155,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    ...shadows.sm,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: borderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary[50],
-    marginRight: spacing.md,
-  },
-  headerTitle: {
-    fontSize: typography.fontSize['2xl'],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.gray[900],
   },
   loadingContainer: {
     flex: 1,

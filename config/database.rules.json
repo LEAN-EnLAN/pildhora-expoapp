@@ -1,0 +1,79 @@
+{
+  "rules": {
+    "deviceState": {
+      "$deviceId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "devices": {
+      "$deviceId": {
+        "state": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        },
+        "config": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        },
+        "commands": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          "domingomañana": { ".validate": "newData.isBoolean()" },
+          "domingomediodia": { ".validate": "newData.isBoolean()" },
+          "domingotarde": { ".validate": "newData.isBoolean()" },
+          "domingonoche": { ".validate": "newData.isBoolean()" },
+          "lunesmañana": { ".validate": "newData.isBoolean()" },
+          "lunesmediodia": { ".validate": "newData.isBoolean()" },
+          "lunestarde": { ".validate": "newData.isBoolean()" },
+          "lunesnoche": { ".validate": "newData.isBoolean()" },
+          "martesmañana": { ".validate": "newData.isBoolean()" },
+          "martesmediodia": { ".validate": "newData.isBoolean()" },
+          "martestarde": { ".validate": "newData.isBoolean()" },
+          "martesnoche": { ".validate": "newData.isBoolean()" },
+          "miercolesmañana": { ".validate": "newData.isBoolean()" },
+          "miercolesmediodia": { ".validate": "newData.isBoolean()" },
+          "miercolestarde": { ".validate": "newData.isBoolean()" },
+          "miercolesnoche": { ".validate": "newData.isBoolean()" },
+          "juevesmañana": { ".validate": "newData.isBoolean()" },
+          "juevesmediodia": { ".validate": "newData.isBoolean()" },
+          "juevestarde": { ".validate": "newData.isBoolean()" },
+          "juevesnoche": { ".validate": "newData.isBoolean()" },
+          "viernesmañana": { ".validate": "newData.isBoolean()" },
+          "viernesmediodia": { ".validate": "newData.isBoolean()" },
+          "viernestarde": { ".validate": "newData.isBoolean()" },
+          "viernesnoche": { ".validate": "newData.isBoolean()" },
+          "sabadomañana": { ".validate": "newData.isBoolean()" },
+          "sabadomediodia": { ".validate": "newData.isBoolean()" },
+          "sabadotarde": { ".validate": "newData.isBoolean()" },
+          "sabadonoche": { ".validate": "newData.isBoolean()" },
+          "topo": { ".validate": "newData.isBoolean()" },
+          "led": { ".validate": "newData.isBoolean()" },
+          "buzzer": { ".validate": "newData.isBoolean()" },
+          "reboot": { ".validate": "newData.isBoolean()" },
+          "fortu": { ".validate": "newData.isBoolean()" },
+          "testbool": { ".validate": "newData.isBoolean()" },
+          "turnotest": { ".validate": "newData.isNumber() || newData.isString()" },
+          "ledColor": { ".validate": "newData.isString()" },
+          "$other": { ".validate": "newData.isBoolean() || newData.isString() || newData.isNumber()" }
+        },
+        "ownerUserId": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      }
+    },
+    "users": {
+      "$userId": {
+        ".read": "auth != null && auth.uid === $userId",
+        ".write": "auth != null && auth.uid === $userId",
+        "devices": {
+          "$deviceId": {
+            ".read": "auth != null && auth.uid === $userId",
+            ".write": "auth != null && auth.uid === $userId"
+          }
+        }
+      }
+    }
+  }
+}

@@ -86,9 +86,9 @@ export const Toast: React.FC<ToastProps> = ({
       case 'success':
         return {
           icon: 'checkmark-circle' as const,
-          backgroundColor: colors.success + '15',
-          borderColor: colors.success,
-          iconColor: colors.success,
+          backgroundColor: colors.success[50],
+          borderColor: colors.success[500],
+          iconColor: colors.success[500],
         };
       case 'error':
         return {
@@ -135,9 +135,9 @@ export const Toast: React.FC<ToastProps> = ({
       accessibilityLiveRegion="polite"
     >
       <View style={styles.content}>
-        <Ionicons 
-          name={config.icon} 
-          size={24} 
+        <Ionicons
+          name={config.icon}
+          size={24}
           color={config.iconColor}
           accessible={false}
         />

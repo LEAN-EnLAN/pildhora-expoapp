@@ -11,6 +11,9 @@ import {
   ErrorCategory,
   ErrorSeverity,
 } from '../utils/errorHandling';
+import { getAuthInstance, getDbInstance } from './firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { triggerTopo } from './deviceCommands';
 
 /**
  * AlarmService - Abstraction layer for platform-specific alarm APIs
@@ -99,6 +102,14 @@ class AlarmService {
         // Check if this is a medication alarm
         const isMedicationAlarm = notification.request.content.data?.type === 'medication_alarm';
         
+        // If this is a medication alarm, also trigger topo command on device
+        if (isMedicationAlarm) {
+          this.handleMedicationAlarm(notification).catch(error => {
+            console.error('[AlarmService] Error handling medication alarm topo command:', error);
+            // Don't let topo command errors affect notification display
+          });
+        }
+        
         return {
           shouldShowAlert: true,
           shouldPlaySound: true,
@@ -110,6 +121,71 @@ class AlarmService {
         };
       },
     });
+  }
+
+  /**
+   * Handle medication alarm - trigger topo command on device
+   * @param notification - The notification that triggered the alarm
+   */
+  private async handleMedicationAlarm(notification: Notifications.Notification): Promise<void> {
+    try {
+      console.log('[AlarmService] Handling medication alarm topo command');
+      
+      // Get current user's deviceId
+      const deviceId = await this.getCurrentUserDeviceId();
+      
+      if (!deviceId) {
+        console.log('[AlarmService] No device found for current user, skipping topo command');
+        return;
+      }
+      
+      // Trigger topo command on the device
+      await triggerTopo(deviceId);
+      console.log('[AlarmService] Successfully triggered topo command for device:', deviceId);
+      
+    } catch (error) {
+      console.error('[AlarmService] Error triggering topo command:', error);
+      // Don't throw - we don't want to break the notification display
+    }
+  }
+
+  /**
+   * Get the current user's deviceId from their Firestore document
+   * @returns deviceId or null if not found
+   */
+  private async getCurrentUserDeviceId(): Promise<string | null> {
+    try {
+      const auth = await getAuthInstance();
+      if (!auth?.currentUser) {
+        console.log('[AlarmService] No authenticated user found');
+        return null;
+      }
+      
+      const db = await getDbInstance();
+      if (!db) {
+        console.log('[AlarmService] Firestore not available');
+        return null;
+      }
+      
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      if (!userDoc.exists()) {
+        console.log('[AlarmService] User document not found');
+        return null;
+      }
+      
+      const userData = userDoc.data();
+      const deviceId = userData?.deviceId;
+      
+      if (!deviceId) {
+        console.log('[AlarmService] No deviceId found in user document');
+        return null;
+      }
+      
+      return deviceId;
+    } catch (error) {
+      console.error('[AlarmService] Error getting current user deviceId:', error);
+      return null;
+    }
   }
 
   /**

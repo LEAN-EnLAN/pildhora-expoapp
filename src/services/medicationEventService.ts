@@ -16,6 +16,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
 } from '../utils/errorHandling';
+import { isAutonomousModeEnabled } from './autonomousMode';
 
 const EVENT_QUEUE_KEY = '@medication_event_queue';
 const LAST_SYNC_KEY = '@medication_event_last_sync';
@@ -179,6 +180,17 @@ export class MedicationEventService {
 
       for (const event of pendingEvents) {
         try {
+          // Check if patient is in autonomous mode
+          const isAutonomous = await isAutonomousModeEnabled(event.patientId);
+          
+          if (isAutonomous) {
+            console.log('[MedicationEventService] Patient in autonomous mode, skipping event sync:', event.id);
+            // Mark as delivered but don't sync to Firestore
+            // This prevents the event from being visible to caregivers
+            event.syncStatus = 'delivered';
+            continue;
+          }
+
           // Convert timestamp to Firestore Timestamp
           const eventData = {
             ...event,
@@ -447,6 +459,28 @@ export const medicationEventQueue = new MedicationEventQueue(medicationEventServ
  */
 
 /**
+ * Helper function to remove undefined values from an object
+ * Firestore doesn't allow undefined values
+ * Also recursively handles nested objects
+ */
+function removeUndefinedFields<T extends Record<string, any>>(obj: T): Partial<T> {
+  const result: any = {};
+  for (const key in obj) {
+    const value = obj[key];
+    if (value !== undefined) {
+      // Recursively handle nested plain objects (but not Dates, Timestamps, or Arrays)
+      if (value !== null && typeof value === 'object' && !Array.isArray(value) && 
+          value.constructor === Object) {
+        result[key] = removeUndefinedFields(value);
+      } else {
+        result[key] = value;
+      }
+    }
+  }
+  return result;
+}
+
+/**
  * Generate a medication created event
  * @param medication - The newly created medication
  * @param patientName - The name of the patient
@@ -460,7 +494,7 @@ export function generateMedicationCreatedEvent(
     eventType: 'created',
     medicationId: medication.id,
     medicationName: medication.name,
-    medicationData: { ...medication },
+    medicationData: removeUndefinedFields({ ...medication }),
     patientId: medication.patientId,
     patientName,
     caregiverId: medication.caregiverId,
@@ -523,7 +557,7 @@ export function generateMedicationUpdatedEvent(
     eventType: 'updated',
     medicationId: newMedication.id,
     medicationName: newMedication.name,
-    medicationData: { ...newMedication },
+    medicationData: removeUndefinedFields({ ...newMedication }),
     patientId: newMedication.patientId,
     patientName,
     caregiverId: newMedication.caregiverId,
@@ -546,7 +580,7 @@ export function generateMedicationDeletedEvent(
     eventType: 'deleted',
     medicationId: medication.id,
     medicationName: medication.name,
-    medicationData: { ...medication },
+    medicationData: removeUndefinedFields({ ...medication }),
     patientId: medication.patientId,
     patientName,
     caregiverId: medication.caregiverId,
@@ -567,9 +601,19 @@ export async function createAndEnqueueEvent(
   eventType: MedicationEventType,
   newMedication?: Medication
 ): Promise<void> {
-  // Only create events if caregiver is assigned
+  // Validate required fields
+  if (!medication.id) {
+    console.warn('[MedicationEventService] Medication ID is missing, skipping event creation');
+    return;
+  }
+
   if (!medication.caregiverId) {
     console.log('[MedicationEventService] No caregiver assigned, skipping event creation');
+    return;
+  }
+
+  if (!medication.patientId) {
+    console.warn('[MedicationEventService] Patient ID is missing, skipping event creation');
     return;
   }
 

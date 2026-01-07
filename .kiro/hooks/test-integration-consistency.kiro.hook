@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Integration & Consistency Tester",
+  "description": "Monitors changes to caregiver, patient, device, and permission-related files to trigger comprehensive integration tests that verify data transfers, permission consistency, and backend synchronization across the entire codebase. Ensures caregiver components work seamlessly with patient systems and future device integrations, with special focus on the complex permissions system to prevent production errors.",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Files related to caregiver, patient, device integration, or permissions have been modified. Run comprehensive integration tests to verify:\n\n1. **Data Transfer Consistency**: Ensure data flows correctly between caregiver and patient systems, including medications, events, device states, and inventory tracking\n2. **Permission System Validation**: Thoroughly test the complex permissions system to ensure caregivers have appropriate access to patient data, autonomous mode restrictions work correctly, and no permission errors occur in production scenarios\n3. **Backend Synchronization**: Verify Firestore and RTDB consistency, check that device linking/unlinking updates all necessary collections, and validate event generation across all workflows\n4. **Caregiver-Patient Integration**: Test that all caregiver operations (medication CRUD, event monitoring, task management) properly interact with patient data and device states\n5. **Device Integration Readiness**: Ensure device provisioning, linking, and state synchronization work seamlessly with both patient and caregiver roles\n6. **Security Rules Compliance**: Validate that Firestore and RTDB security rules properly enforce permissions and prevent unauthorized access\n\nGenerate a detailed test report documenting any inconsistencies, permission errors, or integration issues that could cause production failures. Include specific recommendations for fixes."
+  }
+}

@@ -13,7 +13,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification-icon.png",
+          "icon": "./assets/icon.png",
           "color": "#4F46E5",
           "sounds": ["./assets/sounds/alarm.wav"],
           "mode": "production"
@@ -21,7 +21,7 @@
       ]
     ],
     "notification": {
-      "icon": "./assets/notification-icon.png",
+      "icon": "./assets/icon.png",
       "color": "#4F46E5",
       "androidMode": "default",
       "androidCollapsedTitle": "Recordatorios de Medicamentos"
@@ -48,7 +48,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "googleServicesFile": "./google-services.json",
+      "googleServicesFile": "./config/google-services.json",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [

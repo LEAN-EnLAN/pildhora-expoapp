@@ -12,26 +12,26 @@ import Slider from '@react-native-community/slider';
  * PreferencesStep Component
  * 
  * Fifth step of the device provisioning wizard. Allows user to configure
- * device preferences including alarm mode, LED settings, and volume.
+ * device preferences.
  * 
- * Requirements: 3.6, 10.1, 10.2
+ * Premium visual overhaul.
  */
 export function PreferencesStep() {
   const { formData, updateFormData, setCanProceed } = useWizardContext();
-  
-  // Alarm mode state - map to user-friendly options
+
+  // Alarm mode state
   const [alarmMode, setAlarmMode] = useState<'sound' | 'vibrate' | 'both' | 'silent'>(
     formData.alarmMode || 'both'
   );
-  
+
   // LED settings state
   const [ledIntensity, setLedIntensity] = useState(formData.ledIntensity ?? 50);
   const [ledColor, setLedColor] = useState(formData.ledColor || '#3B82F6');
   const [showColorPicker, setShowColorPicker] = useState(false);
-  
+
   // Volume state
   const [volume, setVolume] = useState(formData.volume ?? 75);
-  
+
   // Save and test states
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
@@ -42,7 +42,7 @@ export function PreferencesStep() {
     announceForAccessibility('Paso 5: Configura las preferencias de tu dispositivo');
   }, []);
 
-  // Always allow proceeding to next step (preferences are optional but should be saved)
+  // Always allow proceeding
   useEffect(() => {
     setCanProceed(true);
   }, [setCanProceed]);
@@ -55,39 +55,32 @@ export function PreferencesStep() {
       ledColor,
       volume,
     });
-    // Mark as not saved when preferences change
     if (preferencesSaved) {
       setPreferencesSaved(false);
     }
   }, [alarmMode, ledIntensity, ledColor, volume, updateFormData]);
 
   /**
-   * Save preferences using deviceConfig service
-   * Requirements: 3.6, 10.1, 10.2
+   * Save preferences
    */
   const handleSavePreferences = async () => {
     setIsSaving(true);
     setSaveError(null);
 
     try {
-      // Convert hex color to RGB for device config
       const rgbColor = hexToRgb(ledColor);
 
-      // Map alarm mode to device config format
       let deviceAlarmMode: 'off' | 'sound' | 'led' | 'both';
       if (alarmMode === 'silent') {
         deviceAlarmMode = 'off';
       } else if (alarmMode === 'vibrate') {
-        // Map vibrate to LED since device doesn't have vibration motor
         deviceAlarmMode = 'led';
       } else {
         deviceAlarmMode = alarmMode as 'sound' | 'both';
       }
 
-      // Convert LED intensity from 0-100 to 0-1023 for device
       const deviceLedIntensity = Math.round((ledIntensity / 100) * 1023);
 
-      // Save to device config
       await saveDeviceConfig(formData.deviceId, {
         alarmMode: deviceAlarmMode,
         ledIntensity: deviceLedIntensity,
@@ -97,70 +90,44 @@ export function PreferencesStep() {
       setPreferencesSaved(true);
       await triggerHapticFeedback(HapticFeedbackType.SUCCESS);
       announceForAccessibility('Preferencias guardadas exitosamente');
-      
+
     } catch (error: any) {
       console.error('[PreferencesStep] Error saving preferences:', error);
-      
+
       let userMessage = 'Error al guardar las preferencias';
-      
-      if (error.code === 'PERMISSION_DENIED' || error.code === 'permission-denied') {
-        userMessage = 'No tienes permiso para configurar este dispositivo';
-      } else if (error.code === 'unavailable') {
-        userMessage = 'Servicio no disponible. Verifica tu conexión a internet';
-      } else if (error.userMessage) {
-        userMessage = error.userMessage;
-      }
+      if (error.code === 'PERMISSION_DENIED') userMessage = 'No tienes permiso para configurar este dispositivo';
 
       setSaveError(userMessage);
       setPreferencesSaved(false);
       await triggerHapticFeedback(HapticFeedbackType.ERROR);
-      announceForAccessibility(`Error: ${userMessage}`);
     } finally {
       setIsSaving(false);
     }
   };
 
-  /**
-   * Test alarm with current settings
-   * Requirements: 3.6
-   */
   const handleTestAlarm = async () => {
     setIsTesting(true);
-    
     try {
-      // Provide haptic feedback to simulate alarm test
       await triggerHapticFeedback(HapticFeedbackType.SUCCESS);
-      announceForAccessibility('Alarma de prueba activada');
-      
-      // In a real implementation, this would trigger a test alarm on the device
-      // For now, we simulate the test duration
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
-    } catch (error: any) {
+    } catch (error) {
       console.error('[PreferencesStep] Error testing alarm:', error);
-      await triggerHapticFeedback(HapticFeedbackType.ERROR);
     } finally {
       setIsTesting(false);
     }
   };
 
-  /**
-   * Convert hex color to RGB object
-   */
-  const hexToRgb = (hex: string): { r: number; g: number; b: number } => {
+  const hexToRgb = (hex: string) => {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     return result
       ? {
-          r: parseInt(result[1], 16),
-          g: parseInt(result[2], 16),
-          b: parseInt(result[3], 16),
-        }
-      : { r: 59, g: 130, b: 246 }; // Default blue
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16),
+      }
+      : { r: 59, g: 130, b: 246 };
   };
 
-  /**
-   * Handle color picker change
-   */
   const handleColorChange = (color: { hex: string; rgb: [number, number, number] }) => {
     setLedColor(color.hex);
   };
@@ -169,11 +136,11 @@ export function PreferencesStep() {
     { id: 'sound' as const, label: 'Sonido', icon: 'volume-high' as const },
     { id: 'vibrate' as const, label: 'Vibración', icon: 'phone-portrait' as const },
     { id: 'both' as const, label: 'Ambos', icon: 'notifications' as const },
-    { id: 'silent' as const, label: 'Silencioso', icon: 'volume-mute' as const },
+    { id: 'silent' as const, label: 'Silencio', icon: 'volume-mute' as const },
   ];
 
   return (
-    <ScrollView 
+    <ScrollView
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
@@ -181,15 +148,15 @@ export function PreferencesStep() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.iconContainer}>
-          <Ionicons name="settings" size={32} color={colors.primary[500]} />
+          <Ionicons name="options" size={40} color={colors.primary[500]} />
         </View>
-        <Text style={styles.title}>Preferencias del Dispositivo</Text>
+        <Text style={styles.title}>Preferencias</Text>
         <Text style={styles.subtitle}>
-          Personaliza cómo tu dispositivo te notificará sobre tus medicamentos
+          Personaliza cómo te avisa tu dispositivo.
         </Text>
       </View>
 
-      {/* Alarm Mode Selection */}
+      {/* Alarm Mode Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Modo de Alarma</Text>
         <View style={styles.alarmModesGrid}>
@@ -201,15 +168,17 @@ export function PreferencesStep() {
                 alarmMode === mode.id && styles.alarmModeCardSelected,
               ]}
               onPress={() => setAlarmMode(mode.id)}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: alarmMode === mode.id }}
-              accessibilityLabel={mode.label}
             >
-              <Ionicons
-                name={mode.icon}
-                size={28}
-                color={alarmMode === mode.id ? colors.primary[500] : colors.gray[600]}
-              />
+              <View style={[
+                styles.alarmIconContainer,
+                alarmMode === mode.id && styles.alarmIconContainerSelected
+              ]}>
+                <Ionicons
+                  name={mode.icon}
+                  size={24}
+                  color={alarmMode === mode.id ? colors.primary[500] : colors.gray[500]}
+                />
+              </View>
               <Text
                 style={[
                   styles.alarmModeLabel,
@@ -223,109 +192,64 @@ export function PreferencesStep() {
         </View>
       </View>
 
-      {/* LED Intensity */}
-      <View style={styles.section}>
-        <View style={styles.sliderHeader}>
-          <Text style={styles.sectionTitle}>Intensidad del LED</Text>
-          <Text style={styles.sliderValue}>{ledIntensity}%</Text>
-        </View>
-        <Slider
-          style={styles.slider}
-          minimumValue={0}
-          maximumValue={100}
-          step={5}
-          value={ledIntensity}
-          onValueChange={setLedIntensity}
-          minimumTrackTintColor={colors.primary[500]}
-          maximumTrackTintColor={colors.gray[300]}
-          thumbTintColor={colors.primary[500]}
-          accessibilityLabel="Control deslizante de intensidad del LED"
-          accessibilityValue={{ min: 0, max: 100, now: ledIntensity }}
-        />
-      </View>
+      {/* LED Settings Card */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Iluminación LED</Text>
 
-      {/* LED Color Picker */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Color del LED</Text>
-        <Text style={styles.sectionDescription}>
-          Selecciona el color del indicador LED
-        </Text>
-        
+        {/* Color Picker */}
         <TouchableOpacity
           style={styles.colorPickerButton}
           onPress={() => setShowColorPicker(true)}
-          accessibilityLabel="Abrir selector de color"
-          accessibilityHint="Abre un selector para elegir el color del LED"
-          accessibilityRole="button"
         >
           <View style={[styles.colorPreview, { backgroundColor: ledColor }]} />
-          <Text style={styles.colorPickerButtonText}>
-            {ledColor.toUpperCase()}
-          </Text>
+          <Text style={styles.colorPickerText}>Color del indicador</Text>
           <Ionicons name="chevron-forward" size={20} color={colors.gray[400]} />
         </TouchableOpacity>
 
-        {/* LED Preview */}
-        <View style={styles.ledPreview}>
-          <View 
-            style={[
-              styles.ledIndicator,
-              { 
-                backgroundColor: ledColor,
-                opacity: ledIntensity / 100,
-              }
-            ]}
-          />
-          <Text style={styles.ledPreviewText}>Vista previa del LED</Text>
-        </View>
-      </View>
-
-      {/* Volume */}
-      {(alarmMode === 'sound' || alarmMode === 'both') && (
-        <View style={styles.section}>
+        {/* Intensity Slider */}
+        <View style={styles.sliderContainer}>
           <View style={styles.sliderHeader}>
-            <Text style={styles.sectionTitle}>Volumen</Text>
-            <Text style={styles.sliderValue}>{volume}%</Text>
+            <Text style={styles.sliderLabel}>Intensidad</Text>
+            <Text style={styles.sliderValue}>{ledIntensity}%</Text>
           </View>
           <Slider
             style={styles.slider}
             minimumValue={0}
             maximumValue={100}
             step={5}
-            value={volume}
-            onValueChange={setVolume}
+            value={ledIntensity}
+            onValueChange={setLedIntensity}
             minimumTrackTintColor={colors.primary[500]}
-            maximumTrackTintColor={colors.gray[300]}
+            maximumTrackTintColor={colors.gray[200]}
             thumbTintColor={colors.primary[500]}
-            accessibilityLabel="Control deslizante de volumen"
-            accessibilityValue={{ min: 0, max: 100, now: volume }}
           />
         </View>
-      )}
-
-      {/* Error Display */}
-      {saveError && (
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={20} color={colors.error[500]} />
-          <Text style={styles.errorText}>{saveError}</Text>
-        </View>
-      )}
-
-      {/* Success Display */}
-      {preferencesSaved && (
-        <View style={styles.successContainer}>
-          <Ionicons name="checkmark-circle" size={20} color={colors.success[500]} />
-          <Text style={styles.successText}>Preferencias guardadas exitosamente</Text>
-        </View>
-      )}
-
-      {/* Info Card */}
-      <View style={styles.infoCard}>
-        <Ionicons name="information-circle-outline" size={20} color={colors.primary[500]} />
-        <Text style={styles.infoText}>
-          Puedes probar la alarma antes de guardar para asegurarte de que las configuraciones sean de tu agrado
-        </Text>
       </View>
+
+      {/* Volume Card */}
+      {(alarmMode === 'sound' || alarmMode === 'both') && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Volumen</Text>
+          <View style={styles.sliderContainer}>
+            <View style={styles.sliderHeader}>
+              <Ionicons name="volume-low" size={20} color={colors.gray[500]} />
+              <Text style={styles.sliderValue}>{volume}%</Text>
+              <Ionicons name="volume-high" size={20} color={colors.gray[500]} />
+            </View>
+            <Slider
+              style={styles.slider}
+              minimumValue={0}
+              maximumValue={100}
+              step={5}
+              value={volume}
+              onValueChange={setVolume}
+              minimumTrackTintColor={colors.primary[500]}
+              maximumTrackTintColor={colors.gray[200]}
+              thumbTintColor={colors.primary[500]}
+            />
+          </View>
+        </View>
+      )}
 
       {/* Action Buttons */}
       <View style={styles.buttonContainer}>
@@ -335,22 +259,20 @@ export function PreferencesStep() {
           size="lg"
           disabled={isTesting}
           loading={isTesting}
-          accessibilityLabel="Probar alarma"
-          accessibilityHint="Activa una alarma de prueba con la configuración actual"
+          style={styles.actionButton}
         >
           {isTesting ? 'Probando...' : 'Probar Alarma'}
         </Button>
-        
+
         <Button
           onPress={handleSavePreferences}
           variant="primary"
           size="lg"
           disabled={isSaving || preferencesSaved}
           loading={isSaving}
-          accessibilityLabel="Guardar preferencias"
-          accessibilityHint="Guarda la configuración de preferencias en el dispositivo"
+          style={styles.actionButton}
         >
-          {isSaving ? 'Guardando...' : preferencesSaved ? 'Preferencias Guardadas' : 'Guardar Preferencias'}
+          {isSaving ? 'Guardando...' : preferencesSaved ? '¡Guardado!' : 'Guardar Cambios'}
         </Button>
       </View>
 
@@ -370,7 +292,7 @@ export function PreferencesStep() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   contentContainer: {
     padding: spacing.lg,
@@ -381,13 +303,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   iconContainer: {
-    width: 72,
-    height: 72,
+    width: 80,
+    height: 80,
     borderRadius: borderRadius.full,
-    backgroundColor: '#EFF6FF', // primary[50]
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
+    ...shadows.md,
   },
   title: {
     fontSize: typography.fontSize['2xl'],
@@ -407,14 +330,10 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.bold,
     color: colors.gray[900],
-    marginBottom: spacing.xs,
-  },
-  sectionDescription: {
-    fontSize: typography.fontSize.sm,
-    color: colors.gray[600],
     marginBottom: spacing.md,
+    marginLeft: spacing.xs,
   },
   alarmModesGrid: {
     flexDirection: 'row',
@@ -422,11 +341,10 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   alarmModeCard: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: colors.surface,
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
+    width: '47%', // 2 columns with gap
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    padding: spacing.md,
+    borderRadius: borderRadius.xl,
     alignItems: 'center',
     borderWidth: 2,
     borderColor: 'transparent',
@@ -434,17 +352,69 @@ const styles = StyleSheet.create({
   },
   alarmModeCardSelected: {
     borderColor: colors.primary[500],
-    backgroundColor: '#EFF6FF', // primary[50]
+    backgroundColor: '#FFFFFF',
+    ...shadows.md,
+  },
+  alarmIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.gray[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  alarmIconContainerSelected: {
+    backgroundColor: '#EFF6FF',
   },
   alarmModeLabel: {
     fontSize: typography.fontSize.sm,
-    color: colors.gray[700],
-    marginTop: spacing.sm,
-    textAlign: 'center',
+    color: colors.gray[600],
+    fontWeight: typography.fontWeight.medium,
   },
   alarmModeLabelSelected: {
-    color: colors.primary[500],
-    fontWeight: typography.fontWeight.semibold,
+    color: colors.primary[700],
+    fontWeight: typography.fontWeight.bold,
+  },
+  card: {
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    ...shadows.sm,
+  },
+  cardTitle: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.gray[900],
+    marginBottom: spacing.lg,
+  },
+  colorPickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+  },
+  colorPreview: {
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.full,
+    borderWidth: 2,
+    borderColor: colors.gray[100],
+    marginRight: spacing.md,
+  },
+  colorPickerText: {
+    flex: 1,
+    fontSize: typography.fontSize.base,
+    color: colors.gray[900],
+    fontWeight: typography.fontWeight.medium,
+  },
+  sliderContainer: {
+    marginTop: spacing.xs,
   },
   sliderHeader: {
     flexDirection: 'row',
@@ -452,102 +422,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
+  sliderLabel: {
+    fontSize: typography.fontSize.sm,
+    color: colors.gray[600],
+  },
   sliderValue: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.primary[500],
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary[600],
   },
   slider: {
     width: '100%',
     height: 40,
   },
-  colorPickerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-    gap: spacing.md,
-    marginBottom: spacing.md,
-  },
-  colorPreview: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.md,
-    borderWidth: 2,
-    borderColor: colors.gray[300],
-  },
-  colorPickerButtonText: {
-    flex: 1,
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.medium,
-    color: colors.gray[900],
-  },
-  ledPreview: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.gray[900],
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    gap: spacing.md,
-  },
-  ledIndicator: {
-    width: 32,
-    height: 32,
-    borderRadius: borderRadius.full,
-    ...shadows.md,
-  },
-  ledPreviewText: {
-    fontSize: typography.fontSize.sm,
-    color: colors.surface,
-    fontWeight: typography.fontWeight.medium,
-  },
-  errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.sm,
-    backgroundColor: '#FEF2F2', // error[50]
-    borderRadius: borderRadius.md,
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  errorText: {
-    flex: 1,
-    fontSize: typography.fontSize.sm,
-    color: colors.error[500],
-  },
-  successContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.sm,
-    backgroundColor: '#F0FDF4', // success[50]
-    borderRadius: borderRadius.md,
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  successText: {
-    flex: 1,
-    fontSize: typography.fontSize.sm,
-    color: colors.success[700],
-  },
   buttonContainer: {
     gap: spacing.md,
-    marginBottom: spacing.lg,
+    marginTop: spacing.md,
   },
-  infoCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#EFF6FF', // primary[50]
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    gap: spacing.sm,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: typography.fontSize.sm,
-    color: colors.gray[700],
-    lineHeight: typography.fontSize.sm * 1.4,
+  actionButton: {
+    borderRadius: borderRadius.full,
   },
 });

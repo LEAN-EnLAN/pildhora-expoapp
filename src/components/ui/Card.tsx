@@ -1,10 +1,10 @@
 import React, { useRef } from 'react';
-import { View, StyleSheet, ViewStyle, TouchableOpacity, Animated } from 'react-native';
+import { View, StyleSheet, ViewStyle, TouchableOpacity, Animated, StyleProp } from 'react-native';
 import { colors, spacing, borderRadius, shadows } from '../../theme/tokens';
 
 interface CardProps {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   variant?: 'default' | 'elevated' | 'outlined';
   padding?: 'none' | 'sm' | 'md' | 'lg';
   onPress?: () => void;
@@ -124,6 +124,9 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.gray[200],
   },
   default: {
     ...shadows.sm,

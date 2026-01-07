@@ -1,7 +1,10 @@
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, Link } from 'expo-router';
 import { useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../src/store';
+import { View, StyleSheet, Pressable } from 'react-native';
+import { colors } from '../../src/theme/tokens';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function PatientLayout() {
   const router = useRouter();
@@ -21,14 +24,59 @@ export default function PatientLayout() {
   }, [isAuthenticated, user?.role]);
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="home" />
-      <Stack.Screen name="medications" />
-      <Stack.Screen name="history" />
-      <Stack.Screen name="settings" />
-      <Stack.Screen name="device-settings" />
-      <Stack.Screen name="device-provisioning" />
-      <Stack.Screen name="edit-profile" />
-    </Stack>
+    <View style={styles.layoutContainer}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="home" />
+        <Stack.Screen name="medications" />
+        <Stack.Screen name="history" />
+        <Stack.Screen name="settings" />
+        <Stack.Screen
+          name="device-settings"
+          options={{
+            headerShown: true,
+            title: 'Ajustes del dispositivo',
+            headerRight: () => (
+              <Link href="/patient/device-provisioning" asChild>
+                <Pressable
+                  accessibilityLabel="Ir a aprovisionamiento"
+                  accessibilityRole="button"
+                  accessibilityHint="Abre el asistente de aprovisionamiento del dispositivo"
+                  hitSlop={10}
+                >
+                  <Ionicons name="construct-outline" size={24} color={colors.primary[600]} />
+                </Pressable>
+              </Link>
+            ),
+          }}
+        />
+        <Stack.Screen
+          name="device-provisioning"
+          options={{
+            headerShown: true,
+            title: 'Aprovisionamiento',
+            headerRight: () => (
+              <Link href="/patient/device-settings" asChild>
+                <Pressable
+                  accessibilityLabel="Ir a ajustes"
+                  accessibilityRole="button"
+                  accessibilityHint="Abre los ajustes del dispositivo"
+                  hitSlop={10}
+                >
+                  <Ionicons name="settings-outline" size={24} color={colors.primary[600]} />
+                </Pressable>
+              </Link>
+            ),
+          }}
+        />
+        <Stack.Screen name="edit-profile" />
+      </Stack>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  layoutContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+});

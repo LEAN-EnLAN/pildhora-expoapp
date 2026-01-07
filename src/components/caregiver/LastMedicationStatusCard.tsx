@@ -1,138 +1,139 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import React, { useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
-import { SkeletonLoader } from '../ui/SkeletonLoader';
 import { EventTypeBadge } from './EventTypeBadge';
-import { colors, spacing, typography, borderRadius } from '../../theme/tokens';
+import { AutonomousModeBanner } from './AutonomousModeBanner';
+import { colors, spacing, typography } from '../../theme/tokens';
 import { MedicationEvent, LastMedicationStatusCardProps } from '../../types';
 import { getRelativeTimeString } from '../../utils/dateUtils';
+import { useCollectionSWR } from '../../hooks/useCollectionSWR';
+import { usePatientAutonomousMode } from '../../hooks/usePatientAutonomousMode';
 import { getDbInstance } from '../../services/firebase';
-import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 
 /**
  * LastMedicationStatusCard Component
  * 
- * Displays the most recent medication event for a patient.
- * Shows event type badge, medication name, timestamp, and "View All Events" button.
- * Includes loading skeleton for initial data fetch.
+ * Displays the most recent medication event for a patient using the same
+ * SWR pattern as the events tab for consistency and reliability.
+ * 
+ * Features:
+ * - Uses useCollectionSWR for data fetching (same as events tab)
+ * - Queries by patientId (primary field in medicationEvents)
+ * - Matches dashboard card styling (elevated card with header)
+ * - Skeleton loading state
+ * - Empty state with helpful message
+ * - Error handling with retry
  * 
  * @param {LastMedicationStatusCardProps} props - Component props
  * @returns {JSX.Element} Rendered card component
- * 
- * @example
- * <LastMedicationStatusCard
- *   patientId="patient123"
- *   caregiverId="caregiver456"
- *   onViewAll={() => router.push('/caregiver/events')}
- * />
  */
 export const LastMedicationStatusCard: React.FC<LastMedicationStatusCardProps> = ({
   patientId,
   caregiverId,
   onViewAll,
 }) => {
-  const [event, setEvent] = useState<MedicationEvent | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
   
-  // Fade-in animation for content
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    // Clear previous event when patient changes
-    setEvent(null);
-    setError(null);
-
-    fetchLastEvent();
-  }, [patientId, caregiverId]);
+  // Check if patient is in autonomous mode
+  const { isAutonomous } = usePatientAutonomousMode(patientId);
 
   /**
-   * Fetch the most recent medication event from Firestore
+   * Build Firestore query for latest event
+   * Uses same pattern as events tab
    */
-  const fetchLastEvent = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  const [eventsQuery, setEventsQuery] = React.useState<any>(null);
 
+  React.useEffect(() => {
+    if (!patientId) {
+      setEventsQuery(null);
+      return;
+    }
+
+    const buildQuery = async () => {
       const db = await getDbInstance();
       if (!db) {
-        throw new Error('Firestore no disponible');
-      }
-
-      // Build query based on available filters
-      const constraints = [];
-      
-      if (caregiverId) {
-        constraints.push(where('caregiverId', '==', caregiverId));
-      }
-      
-      if (patientId) {
-        constraints.push(where('patientId', '==', patientId));
-      }
-
-      // If no filters provided, we can't query
-      if (constraints.length === 0) {
-        setEvent(null);
-        setLoading(false);
+        setEventsQuery(null);
         return;
       }
 
-      constraints.push(orderBy('timestamp', 'desc'));
-      constraints.push(limit(1));
-
-      const eventsQuery = query(
+      const q = query(
         collection(db, 'medicationEvents'),
-        ...constraints
+        where('patientId', '==', patientId),
+        orderBy('timestamp', 'desc'),
+        limit(1)
       );
 
-      const snapshot = await getDocs(eventsQuery);
+      setEventsQuery(q);
+    };
 
-      if (!snapshot.empty) {
-        const doc = snapshot.docs[0];
-        const data = doc.data();
-        
-        const eventData = {
-          id: doc.id,
-          ...data,
-          timestamp: data.timestamp?.toDate?.() || data.timestamp,
-        } as MedicationEvent;
-        
-        setEvent(eventData);
-        
-        // Fade in content when data loads
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }).start();
-      } else {
-        setEvent(null);
-      }
-    } catch (err: any) {
-      console.error('[LastMedicationStatusCard] Error fetching event:', err);
-      setError(err.message || 'Error al cargar el evento');
-    } finally {
-      setLoading(false);
+    buildQuery();
+  }, [patientId]);
+
+  /**
+   * Fetch latest event using SWR pattern
+   * Same hook used by events tab for consistency
+   */
+  const {
+    data: events,
+    isLoading: loading,
+    error,
+    mutate: refetch,
+  } = useCollectionSWR<MedicationEvent>({
+    cacheKey: patientId ? `last_event:${patientId}` : null,
+    query: eventsQuery,
+    initialData: [],
+    realtime: false,
+    cacheTTL: 2 * 60 * 1000, // 2 minutes cache
+  });
+
+  // Get the first (and only) event
+  const event = events && events.length > 0 ? events[0] : null;
+
+  /**
+   * Handle view all events navigation
+   */
+  const handleViewAll = useCallback(() => {
+    if (onViewAll) {
+      onViewAll();
+    } else {
+      router.push('/caregiver/events');
     }
-  };
+  }, [onViewAll, router]);
+
+  /**
+   * Handle retry on error
+   */
+  const handleRetry = useCallback(() => {
+    refetch();
+  }, [refetch]);
 
   /**
    * Render loading skeleton
    */
   if (loading) {
     return (
-      <Card variant="outlined" padding="md">
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <SkeletonLoader width={120} height={24} style={{ marginBottom: spacing.sm }} />
+      <Card variant="elevated" padding="none">
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <View style={styles.headerLeft}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="time-outline" size={24} color={colors.primary[600]} />
+              </View>
+              <View>
+                <Text style={styles.title}>Último Evento</Text>
+                <Text style={styles.subtitle}>Actividad reciente</Text>
+              </View>
+            </View>
           </View>
-          <View style={styles.content}>
-            <SkeletonLoader width="60%" height={32} borderRadius={borderRadius.full} style={{ marginBottom: spacing.md }} />
-            <SkeletonLoader width="80%" height={20} style={{ marginBottom: spacing.xs }} />
-            <SkeletonLoader width="50%" height={16} />
-          </View>
+        </View>
+        <View style={styles.content}>
+          <View style={styles.skeletonBadge} />
+          <View style={styles.skeletonText} />
+          <View style={[styles.skeletonText, { width: '60%' }]} />
         </View>
       </Card>
     );
@@ -143,19 +144,30 @@ export const LastMedicationStatusCard: React.FC<LastMedicationStatusCardProps> =
    */
   if (error) {
     return (
-      <Card variant="outlined" padding="md">
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <Ionicons name="alert-circle" size={20} color={colors.error[500]} />
-            <Text style={styles.title}>Último Evento</Text>
+      <Card variant="elevated" padding="none">
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <View style={styles.headerLeft}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="alert-circle" size={24} color={colors.error[600]} />
+              </View>
+              <View>
+                <Text style={styles.title}>Último Evento</Text>
+                <Text style={styles.subtitle}>Error al cargar</Text>
+              </View>
+            </View>
           </View>
+        </View>
+        <View style={styles.content}>
           <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
+            <Text style={styles.errorText}>
+              No se pudo cargar el último evento
+            </Text>
             <Button
               variant="outline"
               size="sm"
-              onPress={fetchLastEvent}
-              style={{ marginTop: spacing.md }}
+              onPress={handleRetry}
+              style={styles.retryButton}
             >
               Reintentar
             </Button>
@@ -170,19 +182,35 @@ export const LastMedicationStatusCard: React.FC<LastMedicationStatusCardProps> =
    */
   if (!event) {
     return (
-      <Card variant="outlined" padding="md">
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <Ionicons name="time-outline" size={20} color={colors.gray[500]} />
-            <Text style={styles.title}>Último Evento</Text>
+      <Card variant="elevated" padding="none">
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <View style={styles.headerLeft}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="time-outline" size={24} color={colors.gray[400]} />
+              </View>
+              <View>
+                <Text style={styles.title}>Último Evento</Text>
+                <Text style={styles.subtitle}>Sin actividad</Text>
+              </View>
+            </View>
           </View>
-          <View style={styles.emptyContainer}>
-            <Ionicons name="document-text-outline" size={48} color={colors.gray[300]} />
-            <Text style={styles.emptyText}>No hay eventos recientes</Text>
-            <Text style={styles.emptySubtext}>
-              Los eventos de medicamentos aparecerán aquí
-            </Text>
-          </View>
+        </View>
+        <View style={styles.content}>
+          {isAutonomous ? (
+            <AutonomousModeBanner 
+              message="Modo autónomo activado - No hay datos recientes disponibles"
+              size="md"
+            />
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="document-text-outline" size={48} color={colors.gray[300]} />
+              <Text style={styles.emptyText}>No hay eventos recientes</Text>
+              <Text style={styles.emptySubtext}>
+                Los eventos de medicamentos aparecerán aquí
+              </Text>
+            </View>
+          )}
         </View>
       </Card>
     );
@@ -194,112 +222,137 @@ export const LastMedicationStatusCard: React.FC<LastMedicationStatusCardProps> =
   const relativeTime = getRelativeTimeString(event.timestamp);
 
   return (
-    <Card variant="outlined" padding="md">
-      <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Ionicons name="time-outline" size={20} color={colors.primary[500]} />
-          <Text style={styles.title}>Último Evento</Text>
+    <Card variant="elevated" padding="none">
+      {/* Header with gradient background */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <View style={styles.headerLeft}>
+            <View style={styles.iconContainer}>
+              <Ionicons name="time-outline" size={24} color={colors.primary[600]} />
+            </View>
+            <View>
+              <Text style={styles.title}>Último Evento</Text>
+              <Text style={styles.subtitle}>Actividad reciente</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Event content */}
+      <View style={styles.content}>
+        {/* Event type badge */}
+        <EventTypeBadge eventType={event.eventType} size="md" />
+
+        {/* Medication name */}
+        <View style={styles.medicationRow}>
+          <Ionicons name="medical" size={18} color={colors.gray[600]} />
+          <Text style={styles.medicationName} numberOfLines={2}>
+            {event.medicationName}
+          </Text>
         </View>
 
-        {/* Event content */}
-        <View style={styles.content}>
-          {/* Event type badge */}
-          <EventTypeBadge eventType={event.eventType} size="md" />
-
-          {/* Medication name */}
-          <View style={styles.medicationRow}>
-            <Ionicons name="medical" size={18} color={colors.gray[600]} />
-            <Text style={styles.medicationName} numberOfLines={2}>
-              {event.medicationName}
+        {/* Patient name (if available and different from selected patient) */}
+        {event.patientName && (
+          <View style={styles.infoRow}>
+            <Ionicons name="person" size={16} color={colors.gray[500]} />
+            <Text style={styles.infoText} numberOfLines={1}>
+              {event.patientName}
             </Text>
           </View>
+        )}
 
-          {/* Patient name (if available) */}
-          {event.patientName && (
-            <View style={styles.patientRow}>
-              <Ionicons name="person" size={16} color={colors.gray[500]} />
-              <Text style={styles.patientName} numberOfLines={1}>
-                {event.patientName}
-              </Text>
-            </View>
-          )}
-
-          {/* Timestamp */}
-          <View style={styles.timestampRow}>
-            <Ionicons name="time" size={16} color={colors.gray[500]} />
-            <Text style={styles.timestamp}>{relativeTime}</Text>
-          </View>
+        {/* Timestamp */}
+        <View style={styles.infoRow}>
+          <Ionicons name="time" size={16} color={colors.gray[500]} />
+          <Text style={styles.infoText}>{relativeTime}</Text>
         </View>
 
         {/* View All button */}
-        {onViewAll && (
-          <View style={styles.footer}>
-            <Button
-              variant="ghost"
-              size="sm"
-              onPress={onViewAll}
-              rightIcon={<Ionicons name="arrow-forward" size={16} color={colors.primary[500]} />}
-              accessibilityLabel="Ver todos los eventos"
-              accessibilityHint="Navega a la pantalla de registro de eventos"
-            >
-              Ver Todos los Eventos
-            </Button>
-          </View>
-        )}
-      </Animated.View>
+        <View style={styles.buttonContainer}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onPress={handleViewAll}
+            rightIcon={<Ionicons name="arrow-forward" size={16} color={colors.primary[500]} />}
+            accessibilityLabel="Ver todos los eventos"
+            accessibilityHint="Navega a la pantalla de registro de eventos"
+          >
+            Ver Todos los Eventos
+          </Button>
+        </View>
+      </View>
     </Card>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    gap: spacing.md,
-  },
   header: {
+    backgroundColor: colors.gray[50],
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
+  },
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: colors.primary[50],
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
     color: colors.gray[900],
   },
+  subtitle: {
+    fontSize: typography.fontSize.xs,
+    color: colors.gray[500],
+    marginTop: 1,
+  },
   content: {
+    padding: spacing.lg,
     gap: spacing.md,
   },
   medicationRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    backgroundColor: colors.gray[50],
+    padding: spacing.md,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary[500],
   },
   medicationName: {
     flex: 1,
     fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.medium,
-    color: colors.gray[800],
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.gray[900],
   },
-  patientRow: {
+  infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
   },
-  patientName: {
+  infoText: {
     flex: 1,
-    fontSize: typography.fontSize.base,
+    fontSize: typography.fontSize.sm,
     color: colors.gray[600],
   },
-  timestampRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  timestamp: {
-    fontSize: typography.fontSize.sm,
-    color: colors.gray[500],
-  },
-  footer: {
+  buttonContainer: {
     marginTop: spacing.sm,
   },
   emptyContainer: {
@@ -322,10 +375,27 @@ const styles = StyleSheet.create({
   errorContainer: {
     alignItems: 'center',
     paddingVertical: spacing.lg,
+    gap: spacing.md,
   },
   errorText: {
     fontSize: typography.fontSize.base,
     color: colors.error[500],
     textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: spacing.sm,
+  },
+  // Skeleton styles
+  skeletonBadge: {
+    width: 120,
+    height: 32,
+    backgroundColor: colors.gray[200],
+    borderRadius: 16,
+  },
+  skeletonText: {
+    width: '80%',
+    height: 20,
+    backgroundColor: colors.gray[200],
+    borderRadius: 4,
   },
 });

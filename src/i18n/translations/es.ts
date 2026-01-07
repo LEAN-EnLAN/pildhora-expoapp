@@ -37,7 +37,7 @@ export const es = {
     
     // Step labels
     steps: {
-      welcome: 'Bienvenida',
+      welcome: 'Bienvenido',
       deviceId: 'ID del Dispositivo',
       verification: 'Verificación',
       wifi: 'WiFi',
@@ -88,7 +88,7 @@ export const es = {
     steps: {
       deviceId: {
         title: 'Ingresar ID del dispositivo',
-        description: 'Introduce el código único de tu dispositivo',
+        description: 'Ingresa el código único de tu dispositivo',
       },
       verification: {
         title: 'Verificar dispositivo',
@@ -154,7 +154,7 @@ export const es = {
 
     formatInfo: 'El ID debe tener entre 5 y 100 caracteres alfanuméricos',
 
-    troubleshooting: '¿Problemas?',
+    troubleshooting: '¿Tienes algún problema?',
     tips: {
       checkSpelling: 'Verifica que el ID esté escrito correctamente, sin espacios',
       alreadyClaimed: 'Si el dispositivo ya está registrado, contacta al soporte',
@@ -580,7 +580,7 @@ export const es = {
     buttons: {
       continue: 'Continuar',
       validating: 'Validando...',
-      back: '← Volver',
+      back: '← Atrás',
     },
 
     help: {

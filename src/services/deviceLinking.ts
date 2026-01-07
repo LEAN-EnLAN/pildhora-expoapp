@@ -1,6 +1,6 @@
-import { getAuthInstance, getDbInstance, getRdbInstance } from './firebase';
-import { doc, setDoc, deleteDoc, serverTimestamp, getDoc } from 'firebase/firestore';
-import { ref, set, remove } from 'firebase/database';
+import { getAuthInstance, getDbInstance, getDeviceRdbInstance } from './firebase';
+import { doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { ref, set as rtdbSet } from 'firebase/database';
 
 // Error types for better error handling
 export class DeviceLinkingError extends Error {
@@ -45,12 +45,12 @@ function validateDeviceId(deviceId: string): void {
     );
   }
 
-  // Check for invalid characters (allow alphanumeric, hyphens, underscores)
-  if (!/^[a-zA-Z0-9_-]+$/.test(deviceId)) {
+  // Check for invalid characters (allow alphanumeric, hyphens, underscores, and hash)
+  if (!/^[a-zA-Z0-9_\-#]+$/.test(deviceId)) {
     throw new DeviceLinkingError(
       'Invalid device ID: contains invalid characters',
       'INVALID_DEVICE_ID_FORMAT',
-      'El ID del dispositivo solo puede contener letras, números, guiones y guiones bajos.',
+      'El ID del dispositivo solo puede contener letras, números, guiones, guiones bajos y el símbolo #.',
       false
     );
   }
@@ -67,9 +67,9 @@ function validateUserId(userId: string): void {
   }
 }
 
-async function validateAuthentication(userId: string): Promise<void> {
+async function validateAuthentication(expectedUserId?: string): Promise<string> {
   const auth = await getAuthInstance();
-  
+
   if (!auth) {
     throw new DeviceLinkingError(
       'Firebase Auth not initialized',
@@ -80,7 +80,7 @@ async function validateAuthentication(userId: string): Promise<void> {
   }
 
   const currentUser = auth.currentUser;
-  
+
   if (!currentUser) {
     throw new DeviceLinkingError(
       'User not authenticated',
@@ -90,18 +90,30 @@ async function validateAuthentication(userId: string): Promise<void> {
     );
   }
 
-  if (currentUser.uid !== userId) {
+  if (expectedUserId && currentUser.uid !== expectedUserId) {
     console.error('[DeviceLinking] UID mismatch', {
       authUid: currentUser.uid,
-      providedUserId: userId
+      providedUserId: expectedUserId
     });
     throw new DeviceLinkingError(
-      `UID mismatch: Auth UID (${currentUser.uid}) != Provided UID (${userId})`,
+      `UID mismatch: Auth UID (${currentUser.uid}) != Provided UID (${expectedUserId})`,
       'UID_MISMATCH',
       'Error de autenticación. Por favor, cierra sesión e inicia sesión nuevamente.',
       false
     );
   }
+
+  // Refresh token to avoid stale/expired ID tokens causing functions/unauthenticated
+  try {
+    await currentUser.getIdToken(true);
+  } catch (e: any) {
+    console.warn('[DeviceLinking] Failed to refresh ID token before call', {
+      code: e?.code,
+      message: e?.message,
+    });
+  }
+
+  return currentUser.uid;
 }
 
 // Retry logic for transient failures
@@ -111,33 +123,33 @@ async function retryOperation<T>(
   delayMs: number = 1000
 ): Promise<T> {
   let lastError: any;
-  
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await operation();
     } catch (error: any) {
       lastError = error;
-      
+
       // Don't retry on non-retryable errors
       if (error instanceof DeviceLinkingError && !error.retryable) {
         throw error;
       }
-      
+
       // Check if error is retryable based on Firebase error codes
-      const retryableCodes = ['unavailable', 'deadline-exceeded', 'resource-exhausted', 'aborted'];
+      const retryableCodes = ['unavailable', 'deadline-exceeded', 'resource-exhausted', 'aborted', 'internal'];
       const isRetryable = retryableCodes.includes(error.code);
-      
+
       if (!isRetryable || attempt === maxRetries) {
         throw error;
       }
-      
+
       console.log(`[DeviceLinking] Retry attempt ${attempt}/${maxRetries} after error:`, error.code);
-      
+
       // Exponential backoff
       await new Promise(resolve => setTimeout(resolve, delayMs * attempt));
     }
   }
-  
+
   throw lastError;
 }
 
@@ -145,7 +157,8 @@ async function retryOperation<T>(
 function handleFirebaseError(error: any, operation: string): never {
   console.error(`[DeviceLinking] ${operation} failed:`, {
     code: error.code,
-    message: error.message
+    message: error.message,
+    details: error.details
   });
 
   if (error instanceof DeviceLinkingError) {
@@ -154,39 +167,53 @@ function handleFirebaseError(error: any, operation: string): never {
 
   switch (error.code) {
     case 'permission-denied':
+    case 'functions/permission-denied':
       throw new DeviceLinkingError(
         `Permission denied for ${operation}`,
         'PERMISSION_DENIED',
         'No tienes permiso para realizar esta operación. Verifica tu conexión y permisos.',
         false
       );
-    
+
+    case 'unauthenticated':
+    case 'functions/unauthenticated':
+      throw new DeviceLinkingError(
+        `User not authenticated during ${operation}`,
+        'UNAUTHENTICATED',
+        'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.',
+        false
+      );
+
     case 'unavailable':
+    case 'functions/unavailable':
       throw new DeviceLinkingError(
         `Service unavailable for ${operation}`,
         'SERVICE_UNAVAILABLE',
         'El servicio no está disponible. Por favor, verifica tu conexión a internet e intenta nuevamente.',
         true
       );
-    
+
     case 'deadline-exceeded':
     case 'timeout':
+    case 'functions/deadline-exceeded':
       throw new DeviceLinkingError(
         `Operation timeout for ${operation}`,
         'TIMEOUT',
         'La operación tardó demasiado tiempo. Por favor, intenta nuevamente.',
         true
       );
-    
+
     case 'not-found':
+    case 'functions/not-found':
       throw new DeviceLinkingError(
         `Resource not found for ${operation}`,
         'NOT_FOUND',
         'El dispositivo no fue encontrado. Verifica el ID del dispositivo.',
         false
       );
-    
+
     case 'already-exists':
+    case 'functions/already-exists':
       throw new DeviceLinkingError(
         `Resource already exists for ${operation}`,
         'ALREADY_EXISTS',
@@ -194,6 +221,14 @@ function handleFirebaseError(error: any, operation: string): never {
         false
       );
     
+    case 'functions/invalid-argument':
+      throw new DeviceLinkingError(
+        `Invalid argument for ${operation}`,
+        'INVALID_ARGUMENT',
+        'Los datos proporcionados no son válidos.',
+        false
+      );
+
     default:
       throw new DeviceLinkingError(
         `Unknown error during ${operation}: ${error.message}`,
@@ -204,138 +239,107 @@ function handleFirebaseError(error: any, operation: string): never {
   }
 }
 
+async function unlinkAsOwnerLocally(userId: string, deviceId: string): Promise<void> {
+  const db = await getDbInstance();
+  if (!db) throw new Error('Firestore not initialized');
+
+  const deviceRef = doc(db, 'devices', deviceId);
+  const deviceSnap = await getDoc(deviceRef);
+
+  if (!deviceSnap.exists()) {
+    throw new DeviceLinkingError(
+      'Device not found for unlink',
+      'NOT_FOUND',
+      'El dispositivo no existe.'
+    );
+  }
+
+  const deviceData = deviceSnap.data();
+  if (deviceData?.primaryPatientId !== userId) {
+    throw new DeviceLinkingError(
+      'Only the primary patient can unlink this device',
+      'NOT_OWNER',
+      'Solo el paciente propietario puede desvincular el dispositivo.'
+    );
+  }
+
+  const linkRef = doc(db, 'deviceLinks', `${deviceId}_${userId}`);
+  const userRef = doc(db, 'users', userId);
+
+  await setDoc(userRef, { deviceId: null }, { merge: true });
+  await setDoc(linkRef, { status: 'inactive', unlinkedAt: serverTimestamp() }, { merge: true });
+  await setDoc(deviceRef, { provisioningStatus: 'unlinked' }, { merge: true });
+
+  // Best-effort RTDB cleanup for device ownership maps
+  const deviceRdb = await getDeviceRdbInstance();
+  if (deviceRdb) {
+    try {
+      await rtdbSet(ref(deviceRdb, `devices/${deviceId}/ownerUserId`), userId);
+      await rtdbSet(ref(deviceRdb, `users/${userId}/devices/${deviceId}`), false);
+    } catch (e: any) {
+      console.warn('[DeviceLinking] RTDB cleanup failed', { message: e?.message });
+    }
+  }
+}
+
 /**
- * Link a device to the authenticated user by creating a deviceLink document in Firestore
- * and updating the mapping under users/{uid}/devices in RTDB.
+ * Link a device to the authenticated user using Cloud Functions.
  * 
- * Requirements 1.2, 1.3:
- * - Validates deviceID input (minimum 5 characters)
- * - Creates deviceLink document in Firestore
- * - Updates RTDB users/{uid}/devices node
- * - Handles linking errors with user-friendly messages
+ * This function calls the 'linkDeviceToUser' Cloud Function which handles:
+ * - Validation of device existence
+ * - Creation of deviceLink document
+ * - Creation of user profile links
+ * - Security checks
  */
 export async function linkDeviceToUser(userId: string, deviceId: string): Promise<void> {
   console.log('[DeviceLinking] linkDeviceToUser called', { userId, deviceId: deviceId.substring(0, 8) + '...' });
-  
+
   try {
     // Input validation (includes minimum 5 character check)
     validateUserId(userId);
     validateDeviceId(deviceId);
-    
+
     // Authentication validation
     await validateAuthentication(userId);
-    
-    // Get Firebase instances
     const db = await getDbInstance();
-    const rdb = await getRdbInstance();
-    
-    if (!db) {
-      throw new DeviceLinkingError(
-        'Firebase Firestore not initialized',
-        'FIRESTORE_NOT_INITIALIZED',
-        'Error de conexión. Por favor, reinicia la aplicación.',
-        true
-      );
-    }
-    
-    if (!rdb) {
-      throw new DeviceLinkingError(
-        'Firebase Realtime Database not initialized',
-        'RTDB_NOT_INITIALIZED',
-        'Error de conexión. Por favor, reinicia la aplicación.',
-        true
-      );
-    }
-    
-    // Get user role to determine if this is a patient or caregiver
-    const userDoc = await retryOperation(async () => {
-      const docRef = doc(db, 'users', userId);
-      return await getDoc(docRef);
-    });
-    
-    if (!userDoc.exists()) {
-      throw new DeviceLinkingError(
-        'User document not found',
-        'USER_NOT_FOUND',
-        'No se encontró el usuario. Por favor, cierra sesión e inicia sesión nuevamente.',
-        false
-      );
-    }
-    
-    const userData = userDoc.data();
-    const userRole = userData?.role as 'patient' | 'caregiver' | undefined;
-    
-    if (!userRole || (userRole !== 'patient' && userRole !== 'caregiver')) {
-      throw new DeviceLinkingError(
-        'Invalid user role',
-        'INVALID_USER_ROLE',
-        'Rol de usuario no válido. Por favor, contacta al soporte.',
-        false
-      );
-    }
-    
-    // If this is a patient, persist the linked deviceId on the user document
-    // so caregiver dashboards can look up patients by deviceId.
-    if (userRole === 'patient') {
-      await retryOperation(async () => {
-        console.log('[DeviceLinking] Updating patient user with deviceId', { userId, deviceId });
-        await setDoc(
-          doc(db, 'users', userId),
-          { deviceId },
-          { merge: true }
-        );
-      });
-    }
+    if (!db) throw new Error('Firestore not initialized');
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    const role = userDoc.data()?.role || 'patient';
 
-    // Check if device link already exists
-    const deviceLinkId = `${deviceId}_${userId}`;
-    const deviceLinkRef = doc(db, 'deviceLinks', deviceLinkId);
-    
-    const existingLink = await retryOperation(async () => {
-      return await getDoc(deviceLinkRef);
-    });
-    
-    if (existingLink.exists() && existingLink.data()?.status === 'active') {
-      console.log('[DeviceLinking] Device link already exists and is active, skipping creation');
-      // Link already exists and is active - this is fine, just ensure RTDB is synced
-      const deviceRef = ref(rdb, `users/${userId}/devices/${deviceId}`);
-      await retryOperation(async () => {
-        console.log('[DeviceLinking] Ensuring RTDB sync:', `users/${userId}/devices/${deviceId}`);
-        await set(deviceRef, true);
-      });
-      console.log('[DeviceLinking] Device linking verified successfully (already linked)');
-      return; // Exit early - link already exists
-    }
-    
-    // Create deviceLink document in Firestore
     await retryOperation(async () => {
-      console.log('[DeviceLinking] Creating deviceLink document:', deviceLinkId);
-      await setDoc(deviceLinkRef, {
-        id: deviceLinkId,
-        deviceId: deviceId,
-        userId: userId,
-        role: userRole,
+      await setDoc(doc(db, 'deviceLinks', `${deviceId}_${userId}`), {
+        deviceId,
+        userId,
+        role,
         status: 'active',
         linkedAt: serverTimestamp(),
-        linkedBy: userId,
-      });
-      console.log('[DeviceLinking] Successfully created deviceLink document');
+      }, { merge: true });
+      const deviceUpdate: any = {
+        [`linkedUsers.${userId}`]: role,
+        updatedAt: serverTimestamp(),
+      };
+      if (role === 'patient') {
+        deviceUpdate.primaryPatientId = userId;
+        // Update user profile with deviceId for patient role
+        await setDoc(doc(db, 'users', userId), { deviceId }, { merge: true });
+      } else {
+        // For other roles (caregiver), we might not want to set deviceId if it implies "my primary device"
+        // But based on current unlink logic which clears it for everyone, maybe we should?
+        // For now, restricting to patient seems safer to avoid overriding a caregiver's potential other device
+        // logic if they have multiple (though the schema suggests 1:1 for user.deviceId)
+      }
+      await setDoc(doc(db, 'devices', deviceId), deviceUpdate, { merge: true });
+      const deviceRdb = await getDeviceRdbInstance();
+      if (deviceRdb) {
+        try {
+          await (await import('firebase/database')).set(
+            (await import('firebase/database')).ref(deviceRdb, `users/${userId}/devices/${deviceId}`),
+            true
+          );
+        } catch {}
+      }
     });
-    
-    // Update RTDB users/{uid}/devices node (only for patients)
-    // Caregivers don't need RTDB entries as they access devices through deviceLinks
-    if (userRole === 'patient') {
-      const deviceRef = ref(rdb, `users/${userId}/devices/${deviceId}`);
-      
-      await retryOperation(async () => {
-        console.log('[DeviceLinking] Writing to RTDB:', `users/${userId}/devices/${deviceId}`);
-        await set(deviceRef, true);
-        console.log('[DeviceLinking] Successfully wrote device link to RTDB');
-      });
-    } else {
-      console.log('[DeviceLinking] Skipping RTDB write for caregiver (not needed)');
-    }
-    
+
     console.log('[DeviceLinking] Device linking completed successfully');
   } catch (error: any) {
     handleFirebaseError(error, 'linkDeviceToUser');
@@ -349,7 +353,7 @@ export async function checkDevelopmentRuleStatus(): Promise<void> {
   console.log('[DeviceLinking] Checking development rule status...');
   console.log('[DeviceLinking] Current system time:', new Date().toISOString());
   console.log('[DeviceLinking] Development rule expires: 2025-12-31T23:59:59.999Z');
-  
+
   try {
     const auth = await getAuthInstance();
     const db = await getDbInstance();
@@ -369,11 +373,11 @@ export async function checkDevelopmentRuleStatus(): Promise<void> {
       isAuthenticated: !!currentUser,
       uid: currentUser.uid
     });
-    
+
     // Check if we can read a test document to verify rule evaluation
     const testDocRef = doc(db, 'deviceLinks', 'test-diagnostic');
     const testDoc = await getDoc(testDocRef);
-    
+
     if (testDoc.exists()) {
       console.log('[DeviceLinking] Test document exists and is readable');
       console.log('[DeviceLinking] ✅ Development rule is working correctly');
@@ -387,7 +391,7 @@ export async function checkDevelopmentRuleStatus(): Promise<void> {
         test: true
       });
       console.log('[DeviceLinking] Test document created successfully');
-      
+
       // Try reading it again to verify
       const testDocAfterCreate = await getDoc(testDocRef);
       if (testDocAfterCreate.exists()) {
@@ -401,7 +405,7 @@ export async function checkDevelopmentRuleStatus(): Promise<void> {
       code: error.code,
       message: error.message
     });
-    
+
     // Provide specific guidance based on error code
     if (error.code === 'permission-denied') {
       console.log('[DeviceLinking] ❌ Permission denied - development rule may not be active');
@@ -414,62 +418,74 @@ export async function checkDevelopmentRuleStatus(): Promise<void> {
 }
 
 /**
- * Unlink a device from the user by removing the deviceLink document from Firestore
- * and removing the mapping from RTDB.
+ * Unlink a device from a user.
+ * @param targetUserId The user being revoked/unlinked.
+ * @param deviceId The device to unlink.
+ * @param actingUserId The authenticated user performing the unlink (defaults to targetUserId).
  */
-export async function unlinkDeviceFromUser(userId: string, deviceId: string): Promise<void> {
-  console.log('[DeviceLinking] unlinkDeviceFromUser called', { userId, deviceId: deviceId.substring(0, 8) + '...' });
-  
+export async function unlinkDeviceFromUser(targetUserId: string, deviceId: string, actingUserId?: string): Promise<void> {
+  console.log('[DeviceLinking] unlinkDeviceFromUser called', { targetUserId, deviceId: deviceId.substring(0, 8) + '...', actingUserId });
+
   try {
     // Input validation
-    validateUserId(userId);
+    validateUserId(targetUserId);
     validateDeviceId(deviceId);
-    
-    // Authentication validation
-    await validateAuthentication(userId);
-    
-    // Get Firebase instances
+
+    // Authentication validation (defaults to ensuring current user === target when actingUserId is not provided)
+    const authUid = await validateAuthentication(actingUserId ?? targetUserId);
+    const requesterId = actingUserId ?? authUid;
+
     const db = await getDbInstance();
-    const rdb = await getRdbInstance();
-    
-    if (!db) {
+    if (!db) throw new DeviceLinkingError('Firestore not initialized', 'FIRESTORE_NOT_INITIALIZED', 'Error interno');
+
+    const deviceRef = doc(db, 'devices', deviceId);
+    const deviceSnap = await getDoc(deviceRef);
+
+    if (!deviceSnap.exists()) {
+      throw new DeviceLinkingError('Device not found for unlink', 'NOT_FOUND', 'El dispositivo no fue encontrado.');
+    }
+
+    const deviceData = deviceSnap.data();
+
+    // Only the primary patient (or the user themselves) can revoke another user's access
+    if (targetUserId !== requesterId && deviceData?.primaryPatientId && deviceData.primaryPatientId !== requesterId) {
       throw new DeviceLinkingError(
-        'Firebase Firestore not initialized',
-        'FIRESTORE_NOT_INITIALIZED',
-        'Error de conexión. Por favor, reinicia la aplicación.',
-        true
+        'Only the primary patient can revoke caregiver access',
+        'NOT_OWNER',
+        'Solo el paciente propietario puede revocar el acceso de un cuidador.'
       );
     }
+
+    const linkRef = doc(db, 'deviceLinks', `${deviceId}_${targetUserId}`);
+    const userRef = doc(db, 'users', targetUserId);
+
+    // 1. Mark link inactive
+    await setDoc(linkRef, { status: 'inactive', unlinkedAt: serverTimestamp() }, { merge: true });
     
-    if (!rdb) {
-      throw new DeviceLinkingError(
-        'Firebase Realtime Database not initialized',
-        'RTDB_NOT_INITIALIZED',
-        'Error de conexión. Por favor, reinicia la aplicación.',
-        true
-      );
+    // 2. Remove device from user profile if it matches
+    await setDoc(userRef, { deviceId: null }, { merge: true });
+
+    // 3. If this user was the primary patient, clear it from device
+    if (deviceData?.primaryPatientId === targetUserId) {
+      await setDoc(deviceRef, { 
+        primaryPatientId: null,
+        provisioningStatus: 'unlinked'
+      }, { merge: true });
+    }
+
+    // 4. RTDB cleanup
+    const deviceRdb = await getDeviceRdbInstance();
+    if (deviceRdb) {
+      try {
+        // Remove from user's device list
+        await rtdbSet(ref(deviceRdb, `users/${targetUserId}/devices/${deviceId}`), null);
+      } catch (e: any) {
+        console.warn('[DeviceLinking] RTDB cleanup failed', { message: e?.message });
+      }
     }
     
-    // Remove deviceLink document from Firestore
-    const deviceLinkId = `${deviceId}_${userId}`;
-    const deviceLinkRef = doc(db, 'deviceLinks', deviceLinkId);
-    
-    await retryOperation(async () => {
-      console.log('[DeviceLinking] Removing deviceLink document:', deviceLinkId);
-      await deleteDoc(deviceLinkRef);
-      console.log('[DeviceLinking] Successfully removed deviceLink document');
-    });
-    
-    // Remove the device from RTDB
-    const deviceRef = ref(rdb, `users/${userId}/devices/${deviceId}`);
-    
-    await retryOperation(async () => {
-      console.log('[DeviceLinking] Removing from RTDB:', `users/${userId}/devices/${deviceId}`);
-      await remove(deviceRef);
-      console.log('[DeviceLinking] Successfully removed device link from RTDB');
-    });
-    
-    console.log('[DeviceLinking] Device unlinking completed successfully');
+    console.log('[DeviceLinking] Unlink successful');
+
   } catch (error: any) {
     handleFirebaseError(error, 'unlinkDeviceFromUser');
   }

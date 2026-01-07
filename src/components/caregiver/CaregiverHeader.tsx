@@ -58,6 +58,8 @@ export interface CaregiverHeaderProps {
   showBackButton?: boolean;
   /** Callback when back button is pressed */
   onBackPress?: () => void;
+  /** Custom content to render in the header */
+  children?: React.ReactNode;
 }
 
 export default function CaregiverHeader({
@@ -69,6 +71,7 @@ export default function CaregiverHeader({
   onAccountMenu,
   showBackButton = false,
   onBackPress,
+  children,
 }: CaregiverHeaderProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -277,6 +280,7 @@ export default function CaregiverHeader({
               )}
             </>
           )}
+          {children}
         </View>
 
         {/* Right section: Action buttons */}
@@ -317,7 +321,7 @@ export default function CaregiverHeader({
               accessibilityRole="button"
               accessible={true}
             >
-              <Ionicons name="person" size={22} color={colors.surface} />
+              <Ionicons name="person" size={20} color={colors.gray[600]} />
             </TouchableOpacity>
           </Animated.View>
         </View>
@@ -441,12 +445,11 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 0,
-    ...shadows.md,
   },
   leftSection: {
     flex: 1,
@@ -457,27 +460,27 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   logo: {
-    fontSize: typography.fontSize['2xl'],
+    fontSize: typography.fontSize.xl,
     fontWeight: typography.fontWeight.extrabold,
     color: colors.primary[600],
     letterSpacing: -0.5,
   },
   caregiverName: {
-    fontSize: typography.fontSize.sm,
+    fontSize: typography.fontSize.xs,
     fontWeight: typography.fontWeight.medium,
-    color: colors.gray[600],
+    color: colors.gray[500],
     marginTop: spacing.xs,
   },
   screenTitle: {
-    fontSize: typography.fontSize.lg,
+    fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.semibold,
-    color: colors.primary[500],
+    color: colors.gray[700],
     marginTop: spacing.xs,
   },
   actionsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   actionButton: {
     width: 48,
@@ -485,13 +488,12 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
-    ...shadows.md,
   },
   emergencyButton: {
-    backgroundColor: colors.error[600],
+    backgroundColor: colors.error[500],
   },
   accountButton: {
-    backgroundColor: colors.primary[500],
+    backgroundColor: colors.gray[100],
   },
   backButton: {
     flexDirection: 'row',
@@ -504,10 +506,10 @@ const styles = StyleSheet.create({
   backButtonText: {
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.medium,
-    color: colors.gray[900],
+    color: colors.gray[800],
   },
   pageTitle: {
-    fontSize: typography.fontSize.xl,
+    fontSize: typography.fontSize.lg,
     fontWeight: typography.fontWeight.bold,
     color: colors.gray[900],
     marginTop: spacing.xs,
@@ -517,10 +519,10 @@ const styles = StyleSheet.create({
   },
   modalDescription: {
     fontSize: typography.fontSize.base,
-    color: colors.gray[700],
+    color: colors.gray[600],
     textAlign: 'center',
     marginBottom: spacing.md,
-    lineHeight: typography.fontSize.base * typography.lineHeight.normal,
+    lineHeight: typography.fontSize.base * typography.lineHeight.relaxed,
   },
   modalButton: {
     marginBottom: spacing.xs,

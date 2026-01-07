@@ -16,7 +16,7 @@ export const PatientSelectorSkeleton: React.FC = () => {
       <SkeletonLoader 
         width={80} 
         height={14} 
-        style={{ marginBottom: spacing.sm, marginLeft: spacing.lg }} 
+        style={{ marginBottom: spacing.xs, marginLeft: spacing.md }} 
       />
       
       {/* Patient chips */}
@@ -52,14 +52,16 @@ export const PatientSelectorSkeleton: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: spacing.md,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray[200],
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
   },
   scrollContent: {
     flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
+    paddingLeft: spacing.md,
+    paddingRight: spacing.md,
     gap: spacing.md,
   },
   chip: {

@@ -8,6 +8,7 @@ import { MedicationWizard, MedicationFormData } from '../../../src/components/pa
 import { addMedication } from '../../../src/store/slices/medicationsSlice';
 import { AppDispatch, RootState } from '../../../src/store';
 import { Medication } from '../../../src/types';
+import { AppBar } from '../../../src/components/ui';
 import { colors, spacing, typography, borderRadius, shadows } from '../../../src/theme/tokens';
 
 export default function AddMedicationScreen() {
@@ -93,21 +94,11 @@ export default function AddMedicationScreen() {
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
-      {/* Modern Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleBack}
-            accessibilityLabel="Volver"
-            accessibilityHint="Regresa a la pantalla anterior"
-            accessibilityRole="button"
-          >
-            <Ionicons name="chevron-back" size={24} color={colors.gray[900]} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Agregar Medicamento</Text>
-        </View>
-      </View>
+      <AppBar
+        title="Agregar Medicamento"
+        showBackButton={true}
+        onBackPress={handleBack}
+      />
 
       {/* Medication Wizard */}
       <MedicationWizard

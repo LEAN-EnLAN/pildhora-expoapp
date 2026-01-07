@@ -62,7 +62,7 @@ export const Input: React.FC<InputProps> = ({
 
   const borderColor = borderColorAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [error ? colors.error : colors.gray[300], colors.primary[500]],
+    outputRange: [error ? colors.error[500] : colors.gray[300], colors.primary[500]],
   });
 
   const inputContainerStyle = [
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     color: colors.gray[700],
   },
   required: {
-    color: colors.error,
+    color: colors.error[500],
   },
   inputContainer: {
     flexDirection: 'row',
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     // Focus styles handled by animation
   },
   inputContainerError: {
-    borderColor: colors.error,
+    borderColor: colors.error[500],
   },
   input: {
     flex: 1,
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: typography.fontSize.xs,
-    color: colors.error,
+    color: colors.error[500],
   },
   helperText: {
     fontSize: typography.fontSize.xs,

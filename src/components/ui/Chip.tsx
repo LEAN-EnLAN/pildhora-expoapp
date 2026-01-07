@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Animated,
   ViewStyle,
+  TextStyle,
 } from 'react-native';
 import { colors, spacing, typography, borderRadius } from '../../theme/tokens';
 
@@ -20,6 +21,7 @@ interface ChipProps {
   leftIcon?: React.ReactNode;
   disabled?: boolean;
   style?: ViewStyle;
+  textStyle?: TextStyle;
   accessibilityLabel?: string;
   accessibilityHint?: string;
 }
@@ -35,6 +37,7 @@ export const Chip: React.FC<ChipProps> = ({
   leftIcon,
   disabled = false,
   style,
+  textStyle: customTextStyle,
   accessibilityLabel,
   accessibilityHint,
 }) => {
@@ -71,17 +74,17 @@ export const Chip: React.FC<ChipProps> = ({
         textInverse: '#FFFFFF',
       },
       success: {
-        bg: typeof colors.success === 'string' ? colors.success : colors.success,
-        bgLight: '#E6F7EC',
-        border: typeof colors.success === 'string' ? colors.success : colors.success,
-        text: typeof colors.success === 'string' ? colors.success : colors.success,
+        bg: colors.success[500],
+        bgLight: colors.success[50],
+        border: colors.success[500],
+        text: colors.success[500],
         textInverse: '#FFFFFF',
       },
       error: {
-        bg: typeof colors.error === 'object' ? colors.error[500] : colors.error,
-        bgLight: '#FFE6E6',
-        border: typeof colors.error === 'object' ? colors.error[500] : colors.error,
-        text: typeof colors.error === 'object' ? colors.error[500] : colors.error,
+        bg: colors.error[500],
+        bgLight: colors.error[50],
+        border: colors.error[500],
+        text: colors.error[500],
         textInverse: '#FFFFFF',
       },
     };
@@ -127,6 +130,7 @@ export const Chip: React.FC<ChipProps> = ({
     {
       color: getTextColor(),
     },
+    customTextStyle,
   ];
 
   const content = (
@@ -173,7 +177,7 @@ export const Chip: React.FC<ChipProps> = ({
   }
 
   return (
-    <View 
+    <View
       style={chipStyle}
       accessible={true}
       accessibilityLabel={accessibilityLabel || label}

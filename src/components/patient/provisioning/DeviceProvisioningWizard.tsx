@@ -1,21 +1,23 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { View, StyleSheet, Alert, BackHandler, ActivityIndicator, Platform, Keyboard } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../ui';
 import { WizardProgressIndicator } from './WizardProgressIndicator';
 import { ExitConfirmationDialog } from './ExitConfirmationDialog';
 import { WizardProvider } from './WizardContext';
-import { 
-  WelcomeStep, 
-  DeviceIdStep, 
-  VerificationStep, 
-  WiFiConfigStep, 
-  PreferencesStep, 
-  CompletionStep 
+import {
+  WelcomeStep,
+  DeviceIdStep,
+  VerificationStep,
+  WiFiConfigStep,
+  PreferencesStep,
+  CompletionStep
 } from './steps';
-import { colors, spacing } from '../../../theme/tokens';
-import { 
-  triggerHapticFeedback, 
-  HapticFeedbackType, 
+import { colors, spacing, shadows, borderRadius } from '../../../theme/tokens';
+import {
+  triggerHapticFeedback,
+  HapticFeedbackType,
   announceForAccessibility,
   isScreenReaderEnabled,
   isReduceMotionEnabled,
@@ -31,11 +33,11 @@ import { wizardPersistenceService } from '../../../services/wizardPersistence';
 export interface DeviceProvisioningFormData {
   // Step 2: Device ID Entry
   deviceId: string;
-  
+
   // Step 4: WiFi Configuration
   wifiSSID?: string;
   wifiPassword?: string;
-  
+
   // Step 5: Device Preferences
   alarmMode: 'sound' | 'vibrate' | 'both' | 'silent';  // User-friendly options
   ledIntensity: number;  // 0-100
@@ -77,7 +79,7 @@ const INITIAL_FORM_DATA: DeviceProvisioningFormData = {
 
 const STEP_LABELS = [
   'Bienvenida',
-  'ID del Dispositivo',
+  'ID Dispositivo',
   'Verificación',
   'WiFi',
   'Preferencias',
@@ -88,20 +90,11 @@ const STEP_LABELS = [
  * DeviceProvisioningWizard Component
  * 
  * Multi-step wizard for guiding patients through device setup.
- * 
- * Steps:
- * 1. Welcome & Instructions
- * 2. Device ID Entry
- * 3. Device Verification
- * 4. WiFi Configuration
- * 5. Device Preferences
- * 6. Completion
- * 
- * Requirements: 3.1, 3.2, 11.1, 11.2
+ * Premium visual overhaul.
  */
-export function DeviceProvisioningWizard({ 
-  userId, 
-  onComplete, 
+export function DeviceProvisioningWizard({
+  userId,
+  onComplete,
   onCancel,
   resumeFromSaved = true,
 }: DeviceProvisioningWizardProps) {
@@ -117,7 +110,8 @@ export function DeviceProvisioningWizard({
   const [isLoadingProgress, setIsLoadingProgress] = useState(resumeFromSaved);
   const hasUnsavedChanges = useRef(false);
   const lastSavedStep = useRef<number>(0);
-  
+  const insets = useSafeAreaInsets();
+
   // Accessibility state
   const [isScreenReaderActive, setIsScreenReaderActive] = useState(false);
   const [isReduceMotionActive, setIsReduceMotionActive] = useState(false);
@@ -128,15 +122,15 @@ export function DeviceProvisioningWizard({
     const checkAccessibilitySettings = async () => {
       const screenReaderEnabled = await isScreenReaderEnabled();
       const reduceMotionEnabled = await isReduceMotionEnabled();
-      
+
       setIsScreenReaderActive(screenReaderEnabled);
       setIsReduceMotionActive(reduceMotionEnabled);
-      
+
       if (screenReaderEnabled) {
         console.log('[DeviceProvisioningWizard] Screen reader detected - enhanced accessibility mode enabled');
       }
     };
-    
+
     checkAccessibilitySettings();
   }, []);
 
@@ -150,7 +144,7 @@ export function DeviceProvisioningWizard({
     const restoreProgress = async () => {
       try {
         const savedProgress = await wizardPersistenceService.restoreProgress(userId);
-        
+
         if (savedProgress && savedProgress.currentStep > 0) {
           // Don't restore if already on completion step
           if (savedProgress.currentStep < 5) {
@@ -160,10 +154,10 @@ export function DeviceProvisioningWizard({
               formData: savedProgress.formData,
               canProceed: true, // Restored steps are already validated
             }));
-            
+
             lastSavedStep.current = savedProgress.currentStep;
             hasUnsavedChanges.current = true;
-            
+
             announceForAccessibility(
               `Progreso restaurado. Continuando desde el paso ${savedProgress.currentStep + 1}`
             );
@@ -203,7 +197,7 @@ export function DeviceProvisioningWizard({
 
     if (wizardState.currentStep < wizardState.totalSteps - 1) {
       await triggerHapticFeedback(HapticFeedbackType.SELECTION);
-      
+
       setWizardState(prev => ({
         ...prev,
         currentStep: prev.currentStep + 1,
@@ -215,7 +209,7 @@ export function DeviceProvisioningWizard({
   const handleBack = useCallback(async () => {
     if (wizardState.currentStep > 0) {
       await triggerHapticFeedback(HapticFeedbackType.SELECTION);
-      
+
       setWizardState(prev => ({
         ...prev,
         currentStep: prev.currentStep - 1,
@@ -235,14 +229,14 @@ export function DeviceProvisioningWizard({
 
   const handleExitConfirm = useCallback(async () => {
     setShowExitDialog(false);
-    
+
     // Clear saved progress when user explicitly cancels
     try {
       await wizardPersistenceService.clearProgress();
     } catch (error) {
       console.error('[DeviceProvisioningWizard] Error clearing progress on cancel:', error);
     }
-    
+
     hasUnsavedChanges.current = false;
     onCancel();
   }, [onCancel]);
@@ -254,16 +248,16 @@ export function DeviceProvisioningWizard({
   // Completion handler
   const handleComplete = useCallback(async () => {
     setWizardState(prev => ({ ...prev, isSubmitting: true }));
-    
+
     try {
       await triggerHapticFeedback(HapticFeedbackType.SUCCESS);
-      
+
       // Clear saved progress on successful completion
       await wizardPersistenceService.clearProgress();
-      
+
       hasUnsavedChanges.current = false;
       onComplete();
-      
+
       announceForAccessibility('Dispositivo configurado exitosamente');
     } catch (error) {
       console.error('[DeviceProvisioningWizard] Error in completion handler:', error);
@@ -272,6 +266,32 @@ export function DeviceProvisioningWizard({
       setWizardState(prev => ({ ...prev, isSubmitting: false }));
     }
   }, [onComplete]);
+
+  // Skip handler (Autonomous Mode)
+  const handleSkip = useCallback(async () => {
+    setWizardState(prev => ({ ...prev, isSubmitting: true }));
+
+    try {
+      await triggerHapticFeedback(HapticFeedbackType.SELECTION);
+
+      // Clear saved progress
+      await wizardPersistenceService.clearProgress();
+
+      // Mark as skipped in backend
+      const { skipOnboarding } = require('../../../services/onboarding');
+      await skipOnboarding(userId);
+
+      hasUnsavedChanges.current = false;
+      onComplete(); // Navigate to home
+
+      announceForAccessibility('Configuración omitida. Modo autónomo activado.');
+    } catch (error) {
+      console.error('[DeviceProvisioningWizard] Error in skip handler:', error);
+      await triggerHapticFeedback(HapticFeedbackType.ERROR);
+      Alert.alert('Error', 'No se pudo omitir la configuración. Por favor intenta nuevamente.');
+      setWizardState(prev => ({ ...prev, isSubmitting: false }));
+    }
+  }, [userId, onComplete]);
 
   // Handle Android back button
   useEffect(() => {
@@ -287,18 +307,18 @@ export function DeviceProvisioningWizard({
 
     return () => backHandler.remove();
   }, [wizardState.currentStep, handleBack, handleExit]);
-  
+
   // Keyboard navigation support for web/desktop
   useEffect(() => {
     if (Platform.OS !== 'web') return;
-    
+
     const handleKeyDown = (event: KeyboardEvent) => {
       // Don't intercept if user is typing in an input
       const target = event.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
         return;
       }
-      
+
       switch (event.key) {
         case 'ArrowRight':
         case 'PageDown':
@@ -327,7 +347,7 @@ export function DeviceProvisioningWizard({
           break;
       }
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [wizardState, handleNext, handleBack, handleExit, handleComplete]);
@@ -338,13 +358,13 @@ export function DeviceProvisioningWizard({
     const announcement = isScreenReaderActive
       ? `Navegando al paso ${wizardState.currentStep + 1} de ${wizardState.totalSteps}: ${currentStepLabel}. ${getStepInstructions(wizardState.currentStep)}`
       : `Paso ${wizardState.currentStep + 1} de ${wizardState.totalSteps}: ${currentStepLabel}`;
-    
+
     // Delay announcement slightly to ensure screen reader picks it up after navigation
     setTimeout(() => {
       announceForAccessibility(announcement);
     }, 300);
   }, [wizardState.currentStep, wizardState.totalSteps, isScreenReaderActive]);
-  
+
   // Helper function to provide step-specific instructions for screen readers
   const getStepInstructions = (step: number): string => {
     const instructions = [
@@ -383,7 +403,7 @@ export function DeviceProvisioningWizard({
           userId,
           timestamp: Date.now(),
         });
-        
+
         lastSavedStep.current = wizardState.currentStep;
       } catch (error) {
         console.error('[DeviceProvisioningWizard] Error saving progress:', error);
@@ -401,7 +421,7 @@ export function DeviceProvisioningWizard({
 
     // Render the appropriate step component
     let stepContent: React.ReactNode;
-    
+
     switch (wizardState.currentStep) {
       case 0:
         stepContent = <WelcomeStep />;
@@ -437,34 +457,35 @@ export function DeviceProvisioningWizard({
         </View>
 
         {/* Navigation Controls */}
-        <View 
-          style={styles.navigationContainer}
+        <View
+          style={[
+            styles.navigationContainer,
+            { paddingBottom: spacing.lg + insets.bottom }
+          ]}
           accessibilityLabel="Controles de navegación del asistente"
         >
           <View style={styles.navigationButtons}>
-            {!isFirstStep && (
-              <Button
-                onPress={handleBack}
-                variant="secondary"
-                size="lg"
-                style={[styles.navButton, styles.accessibleButton]}
-                accessibilityLabel={`Paso anterior: ${STEP_LABELS[wizardState.currentStep - 1]}`}
-                accessibilityHint="Regresa al paso anterior del formulario. También puedes usar la tecla de flecha izquierda"
-              >
-                Atrás
-              </Button>
-            )}
-            
-            {isFirstStep && (
+            {isFirstStep ? (
               <Button
                 onPress={handleExit}
-                variant="secondary"
-                size="lg"
-                style={[styles.navButton, styles.accessibleButton]}
+                variant="ghost"
+                size="md"
+                style={[styles.linkButton, styles.accessibleButton]}
                 accessibilityLabel="Cancelar configuración"
                 accessibilityHint="Cancela y sale del formulario de configuración. También puedes usar la tecla Escape"
               >
                 Cancelar
+              </Button>
+            ) : (
+              <Button
+                onPress={handleBack}
+                variant="ghost"
+                size="md"
+                style={[styles.linkButton, styles.accessibleButton]}
+                accessibilityLabel={`Paso anterior: ${STEP_LABELS[wizardState.currentStep - 1]}`}
+                accessibilityHint="Regresa al paso anterior del formulario. También puedes usar la tecla de flecha izquierda"
+              >
+                Atrás
               </Button>
             )}
 
@@ -473,11 +494,12 @@ export function DeviceProvisioningWizard({
                 onPress={handleNext}
                 variant="primary"
                 size="lg"
+                fullWidth
                 disabled={!wizardState.canProceed}
-                style={[styles.navButton, styles.accessibleButton]}
+                style={[styles.primaryButton, styles.accessibleButton]}
                 accessibilityLabel={`Siguiente paso: ${STEP_LABELS[wizardState.currentStep + 1]}`}
                 accessibilityHint={
-                  wizardState.canProceed 
+                  wizardState.canProceed
                     ? "Continúa al siguiente paso del formulario. También puedes usar la tecla de flecha derecha"
                     : "Completa los campos requeridos antes de continuar"
                 }
@@ -491,9 +513,10 @@ export function DeviceProvisioningWizard({
                 onPress={handleComplete}
                 variant="primary"
                 size="lg"
+                fullWidth
                 disabled={!wizardState.canProceed}
                 loading={wizardState.isSubmitting}
-                style={[styles.navButton, styles.accessibleButton]}
+                style={[styles.primaryButton, styles.accessibleButton]}
                 accessibilityLabel="Completar configuración del dispositivo"
                 accessibilityHint="Finaliza la configuración y guarda todos los ajustes. También puedes usar la tecla Enter"
               >
@@ -501,10 +524,10 @@ export function DeviceProvisioningWizard({
               </Button>
             )}
           </View>
-          
+
           {/* Keyboard shortcuts hint for screen readers */}
           {Platform.OS === 'web' && (
-            <View 
+            <View
               style={styles.keyboardHints}
               accessibilityElementsHidden={!isScreenReaderActive}
             >
@@ -532,38 +555,47 @@ export function DeviceProvisioningWizard({
         updateFormData,
         setCanProceed,
         userId,
-        isScreenReaderActive,
         isReduceMotionActive,
+        onSkip: handleSkip,
       }}
     >
-      <View 
+      <LinearGradient
+        colors={['#F0F9FF', '#E0F2FE', '#BAE6FD']} // Light blue gradient
         style={styles.container}
-        accessible={false}
-        accessibilityLabel="Asistente de configuración del dispositivo"
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
       >
-        {/* Progress Indicator */}
-        <WizardProgressIndicator
-          currentStep={wizardState.currentStep}
-          totalSteps={wizardState.totalSteps}
-          stepLabels={STEP_LABELS}
-        />
-
-        {/* Current Step Content */}
-        <View 
-          ref={stepContainerRef}
-          style={styles.content}
+        <View
+          style={styles.safeArea}
           accessible={false}
+          accessibilityLabel="Asistente de configuración del dispositivo"
         >
-          {renderStep()}
-        </View>
+          {/* Progress Indicator */}
+          <View style={styles.progressWrapper}>
+            <WizardProgressIndicator
+              currentStep={wizardState.currentStep}
+              totalSteps={wizardState.totalSteps}
+              stepLabels={STEP_LABELS}
+            />
+          </View>
 
-        {/* Exit Confirmation Dialog */}
-        <ExitConfirmationDialog
-          visible={showExitDialog}
-          onConfirm={handleExitConfirm}
-          onCancel={handleExitCancel}
-        />
-      </View>
+          {/* Current Step Content */}
+          <View
+            ref={stepContainerRef}
+            style={styles.content}
+            accessible={false}
+          >
+            {renderStep()}
+          </View>
+
+          {/* Exit Confirmation Dialog */}
+          <ExitConfirmationDialog
+            visible={showExitDialog}
+            onConfirm={handleExitConfirm}
+            onCancel={handleExitCancel}
+          />
+        </View>
+      </LinearGradient>
     </WizardProvider>
   );
 }
@@ -571,10 +603,20 @@ export function DeviceProvisioningWizard({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+  },
+  safeArea: {
+    flex: 1,
+    maxWidth: 800, // Limit width on large screens
+    width: '100%',
+    alignSelf: 'center',
   },
   content: {
     flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)', // Glassmorphism effect
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
+    overflow: 'hidden',
+    ...shadows.lg,
   },
   loadingContainer: {
     flex: 1,
@@ -588,24 +630,37 @@ const styles = StyleSheet.create({
   },
   stepContent: {
     flex: 1,
+    paddingTop: spacing.md,
   },
   stepPlaceholder: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  progressWrapper: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+    backgroundColor: 'transparent',
+  },
   navigationContainer: {
-    padding: spacing.lg,
-    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderTopWidth: 1,
-    borderTopColor: colors.gray[200],
+    borderTopColor: 'rgba(0,0,0,0.05)',
   },
   navigationButtons: {
-    flexDirection: 'row',
+    width: '100%',
+    flexDirection: 'column',
     gap: spacing.md,
   },
-  navButton: {
-    flex: 1,
+  linkButton: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.sm,
+  },
+  primaryButton: {
+    borderRadius: borderRadius.full, // Pill shaped buttons
   },
   // Ensure buttons meet minimum touch target size (44x44)
   accessibleButton: {

@@ -1,4 +1,4 @@
-import { getDbInstance, getRdbInstance } from './firebase';
+import { getDbInstance, getRdbInstance, getDeviceRdbInstance } from './firebase';
 import { ref, onValue, set, get, off } from 'firebase/database';
 import { collection, query, where, onSnapshot, Timestamp, Unsubscribe } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -372,7 +372,7 @@ export class DataSyncService {
    * Sync medication changes to device via RTDB
    */
   private async syncMedicationToDevice(op: MedicationSyncOperation): Promise<void> {
-    const rdb = await getRdbInstance();
+    const rdb = await getDeviceRdbInstance();
     if (!rdb) {
       throw new Error('RTDB not initialized');
     }
@@ -508,7 +508,7 @@ export class DataSyncService {
     this.stopDeviceEventSync(deviceId);
 
     try {
-      const rdb = await getRdbInstance();
+      const rdb = await getDeviceRdbInstance();
       if (!rdb) {
         throw new Error('RTDB not initialized');
       }

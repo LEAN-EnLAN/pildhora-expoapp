@@ -55,9 +55,13 @@ export const Collapsible: React.FC<CollapsibleProps> = ({
 
   const handleLayout = (event: LayoutChangeEvent) => {
     const { height } = event.nativeEvent.layout;
-    if (height > 0 && !isMeasured) {
+    if (height <= 0) return;
+
+    // Allow height to update if children change size
+    if (!isMeasured || height !== contentHeight) {
       setContentHeight(height);
       setIsMeasured(true);
+
       // Set initial state based on collapsed prop
       if (collapsed) {
         animatedHeight.setValue(0);
@@ -82,11 +86,13 @@ export const Collapsible: React.FC<CollapsibleProps> = ({
     >
       <View 
         onLayout={handleLayout}
-        style={!isMeasured ? { position: 'absolute', opacity: 0 } : undefined}
+        // Keep measurement view out of flow to avoid doubling content height
+        pointerEvents="none"
+        style={{ position: 'absolute', opacity: 0, width: '100%' }}
       >
         {children}
       </View>
-      {isMeasured && <View>{children}</View>}
+      <View>{children}</View>
     </Animated.View>
   );
 };

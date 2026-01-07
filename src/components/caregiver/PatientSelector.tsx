@@ -22,7 +22,7 @@
  * />
  */
 
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -36,6 +36,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme/tokens';
 import { PatientWithDevice } from '../../types';
+import { useDeviceState } from '../../hooks/useDeviceState';
 
 // AsyncStorage key for persisting selected patient
 const SELECTED_PATIENT_KEY = '@caregiver_selected_patient_id';
@@ -87,11 +88,11 @@ export default function PatientSelector({
   const loadLastSelectedPatient = async () => {
     try {
       const savedPatientId = await AsyncStorage.getItem(SELECTED_PATIENT_KEY);
-      
+
       if (savedPatientId && patients.length > 0) {
         // Check if the saved patient ID exists in current patients list
         const patientExists = patients.some(p => p.id === savedPatientId);
-        
+
         if (patientExists && savedPatientId !== selectedPatientId) {
           onSelectPatient(savedPatientId);
         } else if (!patientExists && patients.length > 0 && !selectedPatientId) {
@@ -129,44 +130,16 @@ export default function PatientSelector({
     if (patientId === selectedPatientId) {
       return; // Already selected
     }
-    
-    // Save to AsyncStorage
+
+    // Save to AsyncStorage (non-blocking)
     saveSelectedPatient(patientId);
-    
-    // Update selection
+
+    // Update selection immediately for smooth transition
     onSelectPatient(patientId);
-    
-    // Trigger data refresh if callback provided
-    if (onRefresh) {
-      onRefresh();
-    }
-  }, [selectedPatientId, onSelectPatient, onRefresh]);
 
-  /**
-   * Get device status indicator color
-   */
-  const getDeviceStatusColor = (patient: PatientWithDevice): string => {
-    if (!patient.deviceId || !patient.deviceState) {
-      return colors.gray[400]; // No device
-    }
-    
-    return patient.deviceState.is_online ? colors.success : colors.gray[400];
-  };
-
-  /**
-   * Get device status text
-   */
-  const getDeviceStatusText = (patient: PatientWithDevice): string => {
-    if (!patient.deviceId) {
-      return 'Sin dispositivo';
-    }
-    
-    if (!patient.deviceState) {
-      return 'Estado desconocido';
-    }
-    
-    return patient.deviceState.is_online ? 'En línea' : 'Desconectado';
-  };
+    // Note: We don't trigger onRefresh here to prevent reloading
+    // The dashboard will handle data fetching based on selectedPatientId change
+  }, [selectedPatientId, onSelectPatient]);
 
   /**
    * Render empty state
@@ -195,13 +168,6 @@ export default function PatientSelector({
     );
   }
 
-  /**
-   * Don't render if only one patient (no need for selector)
-   */
-  if (patients.length === 1) {
-    return null;
-  }
-
   return (
     <Animated.View
       style={[
@@ -212,7 +178,7 @@ export default function PatientSelector({
       ]}
     >
       <Text style={styles.label}>Pacientes</Text>
-      
+
       <ScrollView
         ref={scrollViewRef}
         horizontal
@@ -225,16 +191,12 @@ export default function PatientSelector({
       >
         {patients.map((patient, index) => {
           const isSelected = patient.id === selectedPatientId;
-          const statusColor = getDeviceStatusColor(patient);
-          const statusText = getDeviceStatusText(patient);
 
           return (
             <PatientChip
               key={patient.id}
               patient={patient}
               isSelected={isSelected}
-              statusColor={statusColor}
-              statusText={statusText}
               onPress={() => handlePatientPress(patient.id)}
               isFirst={index === 0}
               isLast={index === patients.length - 1}
@@ -253,8 +215,6 @@ export default function PatientSelector({
 interface PatientChipProps {
   patient: PatientWithDevice;
   isSelected: boolean;
-  statusColor: string;
-  statusText: string;
   onPress: () => void;
   isFirst: boolean;
   isLast: boolean;
@@ -263,13 +223,51 @@ interface PatientChipProps {
 function PatientChip({
   patient,
   isSelected,
-  statusColor,
-  statusText,
   onPress,
   isFirst,
   isLast,
 }: PatientChipProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  // Fetch real-time device state
+  const { deviceState } = useDeviceState({
+    deviceId: patient.deviceId,
+    enabled: !!patient.deviceId
+  });
+
+  // Determine status color based on real-time state or fallback to patient data
+  const statusColor = useMemo(() => {
+    if (!patient.deviceId) return colors.gray[400];
+
+    // Use real-time state if available
+    if (deviceState) {
+      return deviceState.is_online ? colors.success[500] : colors.gray[400];
+    }
+
+    // Fallback to passed patient data
+    if (patient.deviceState) {
+      return patient.deviceState.is_online ? colors.success[500] : colors.gray[400];
+    }
+
+    return colors.gray[400];
+  }, [patient.deviceId, patient.deviceState, deviceState]);
+
+  // Determine status text
+  const statusText = useMemo(() => {
+    if (!patient.deviceId) return 'Sin dispositivo';
+
+    // Use real-time state if available
+    if (deviceState) {
+      return deviceState.is_online ? 'En línea' : 'Desconectado';
+    }
+
+    // Fallback to passed patient data
+    if (patient.deviceState) {
+      return patient.deviceState.is_online ? 'En línea' : 'Desconectado';
+    }
+
+    return 'Estado desconocido';
+  }, [patient.deviceId, patient.deviceState, deviceState]);
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
@@ -326,7 +324,7 @@ function PatientChip({
             >
               {patient.name}
             </Text>
-            
+
             {/* Device status indicator */}
             <View
               style={[
@@ -337,7 +335,7 @@ function PatientChip({
               accessibilityLabel={`Device status: ${statusText}`}
             />
           </View>
-          
+
           {/* Device status text */}
           <Text
             style={[
@@ -363,41 +361,43 @@ function PatientChip({
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: spacing.md,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    backgroundColor: 'transparent',
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
   },
   label: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.gray[700],
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.gray[500],
     marginBottom: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingLeft: spacing.lg,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   scrollView: {
     flexGrow: 0,
   },
   scrollContent: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
+    paddingLeft: spacing.lg,
+    paddingRight: spacing.lg,
+    gap: spacing.sm,
   },
   chip: {
-    backgroundColor: colors.gray[50],
-    borderRadius: borderRadius.lg,
-    borderWidth: 2,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1.5,
     borderColor: colors.gray[200],
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginRight: spacing.md,
-    minWidth: 160,
-    maxWidth: 200,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    marginRight: spacing.sm,
+    minWidth: 150,
+    maxWidth: 180,
     ...shadows.sm,
   },
   chipSelected: {
-    backgroundColor: colors.primary[50],
+    backgroundColor: colors.primary[500],
     borderColor: colors.primary[500],
-    ...shadows.md,
+    ...shadows.colored.primary,
   },
   chipContent: {
     gap: spacing.xs,
@@ -406,24 +406,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   chipName: {
-    fontSize: typography.fontSize.base,
+    fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
-    color: colors.gray[900],
+    color: colors.gray[800],
     flex: 1,
   },
   chipNameSelected: {
-    color: colors.primary[700],
+    color: colors.surface,
   },
   chipStatus: {
     fontSize: typography.fontSize.xs,
     fontWeight: typography.fontWeight.medium,
-    color: colors.gray[600],
+    color: colors.gray[500],
   },
   chipStatusSelected: {
-    color: colors.primary[600],
+    color: colors.primary[100],
   },
   statusDot: {
     width: 8,
@@ -432,17 +432,18 @@ const styles = StyleSheet.create({
   },
   selectedIndicator: {
     position: 'absolute',
-    top: spacing.xs,
-    right: spacing.xs,
+    top: -4,
+    right: -4,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.full,
+    padding: 2,
   },
   emptyContainer: {
-    paddingVertical: spacing['3xl'],
+    paddingVertical: spacing['2xl'],
     paddingHorizontal: spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    backgroundColor: 'transparent',
   },
   emptyTitle: {
     fontSize: typography.fontSize.lg,
@@ -453,24 +454,22 @@ const styles = StyleSheet.create({
   },
   emptyDescription: {
     fontSize: typography.fontSize.sm,
-    color: colors.gray[600],
+    color: colors.gray[500],
     marginTop: spacing.xs,
     textAlign: 'center',
-    lineHeight: typography.fontSize.sm * typography.lineHeight.normal,
+    lineHeight: typography.fontSize.sm * typography.lineHeight.relaxed,
   },
   loadingContainer: {
-    paddingVertical: spacing.xl,
+    paddingVertical: spacing.lg,
     paddingHorizontal: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.md,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    backgroundColor: 'transparent',
   },
   loadingText: {
     fontSize: typography.fontSize.sm,
-    color: colors.gray[600],
+    color: colors.gray[500],
   },
 });

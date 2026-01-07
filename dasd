@@ -1,0 +1,125 @@
+[1mdiff --git a/config/firestore.rules b/config/firestore.rules[m
+[1mindex 9895a88..aa54fec 100644[m
+[1m--- a/config/firestore.rules[m
+[1m+++ b/config/firestore.rules[m
+[36m@@ -107,6 +107,11 @@[m [mservice cloud.firestore {[m
+       function isLinkedToDevice(deviceId, userId) {[m
+         return exists(/databases/$(database)/documents/deviceLinks/$(deviceId + '_' + userId));[m
+       }[m
+[32m+[m[41m      [m
+[32m+[m[32m      // Helper function to check if user has this device in their user document[m
+[32m+[m[32m      function userHasDevice(userId, deviceId) {[m
+[32m+[m[32m        return get(/databases/$(database)/documents/users/$(userId)).data.deviceId == deviceId;[m
+[32m+[m[32m      }[m
+ [m
+       // Helper function to validate device creation[m
+       function isValidDeviceCreation() {[m
+[36m@@ -120,6 +125,7 @@[m [mservice cloud.firestore {[m
+         ([m
+           resource.data.primaryPatientId == request.auth.uid ||[m
+           isLinkedToDevice(deviceId, request.auth.uid) ||[m
+[32m+[m[32m          userHasDevice(request.auth.uid, deviceId) ||[m
+           isCaregiver()[m
+         );[m
+ [m
+[36m@@ -128,6 +134,7 @@[m [mservice cloud.firestore {[m
+       allow update: if isSignedIn() &&[m
+         ([m
+           resource.data.primaryPatientId == request.auth.uid ||[m
+[32m+[m[32m          userHasDevice(request.auth.uid, deviceId) ||[m
+           (isCaregiver() && isLinkedToDevice(deviceId, request.auth.uid))[m
+         );[m
+         [m
+[36m@@ -139,5 +146,92 @@[m [mservice cloud.firestore {[m
+       allow read: if isSignedIn();[m
+       allow write: if isSignedIn(); [m
+     }[m
+[32m+[m
+[32m+[m[32m    // medicationEvents collection - medication lifecycle events for caregiver notifications[m
+[32m+[m[32m    match /medicationEvents/{eventId} {[m
+[32m+[m[32m      // Read: Patient can read their own events, caregivers can read events for their patients[m
+[32m+[m[32m      allow read: if isSignedIn() &&[m
+[32m+[m[32m        ([m
+[32m+[m[32m          resource.data.patientId == request.auth.uid ||[m
+[32m+[m[32m          isCaregiver()[m
+[32m+[m[32m        );[m
+[32m+[m
+[32m+[m[32m      // Create: Patient can create events for their own medications, caregivers can create[m
+[32m+[m[32m      allow create: if isSignedIn() &&[m
+[32m+[m[32m        ([m
+[32m+[m[32m          request.resource.data.patientId == request.auth.uid ||[m
+[32m+[m[32m          isCaregiver()[m
+[32m+[m[32m        );[m
+[32m+[m[41m      [m
+[32m+[m[32m      // Update: Patient can update their own events, caregivers can update[m
+[32m+[m[32m      allow update: if isSignedIn() &&[m
+[32m+[m[32m        ([m
+[32m+[m[32m          resource.data.patientId == request.auth.uid ||[m
+[32m+[m[32m          isCaregiver()[m
+[32m+[m[32m        );[m
+[32m+[m[41m      [m
+[32m+[m[32m      // Delete: Patient can delete their own events, caregivers can delete[m
+[32m+[m[32m      allow delete: if isSignedIn() &&[m
+[32m+[m[32m        ([m
+[32m+[m[32m          resource.data.patientId == request.auth.uid ||[m
+[32m+[m[32m          isCaregiver()[m
+[32m+[m[32m        );[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    // connectionCodes collection - temporary codes for device linking[m
+[32m+[m[32m    match /connectionCodes/{codeId} {[m
+[32m+[m[32m      // Read: Anyone signed in can read (needed to validate codes)[m
+[32m+[m[32m      allow read: if isSignedIn();[m
+[32m+[m[41m      [m
+[32m+[m[32m      // Create: Only patients can create connection codes[m
+[32m+[m[32m      allow create: if isSignedIn() && request.resource.data.patientId == request.auth.uid;[m
+[32m+[m[41m      [m
+[32m+[m[32m      // Update: Patient who created it or caregiver using it[m
+[32m+[m[32m      allow update: if isSignedIn() &&[m
+[32m+[m[32m        ([m
+[32m+[m[32m          resource.data.patientId == request.auth.uid ||[m
+[32m+[m[32m          isCaregiver()[m
+[32m+[m[32m        );[m
+[32m+[m[41m      [m
+[32m+[m[32m      // Delete: Only the patient who created it[m
+[32m+[m[32m      allow delete: if isSignedIn() && resource.data.patientId == request.auth.uid;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    // criticalEvents collection - critical notifications for caregivers[m
+[32m+[m[32m    match /criticalEvents/{eventId} {[m
+[32m+[m[32m      allow read: if isSignedIn() &&[m
+[32m+[m[32m        ([m
+[32m+[m[32m          resource.data.patientId == request.auth.uid ||[m
+[32m+[m[32m          resource.data.caregiverId == request.auth.uid ||[m
+[32m+[m[32m          isCaregiver()[m
+[32m+[m[32m        );[m
+[32m+[m[41m      [m
+[32m+[m[32m      allow create: if isSignedIn();[m
+[32m+[m[41m      [m
+[32m+[m[32m      allow update, delete: if isSignedIn() &&[m
+[32m+[m[32m        ([m
+[32m+[m[32m          resource.data.caregiverId == request.auth.uid ||[m
+[32m+[m[32m          isCaregiver()[m
+[32m+[m[32m        );[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    // notifications collection - user notifications (caregiver connections, etc.)[m
+[32m+[m[32m    match /notifications/{notificationId} {[m
+[32m+[m[32m      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;[m
+[32m+[m[32m      allow create: if isSignedIn();[m
+[32m+[m[32m      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;[m
+[32m+[m[32m      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    // commandAuditLogs collection - audit trail for device commands[m
+[32m+[m[32m    match /commandAuditLogs/{logId} {[m
+[32m+[m[32m      allow read: if isSignedIn() &&[m
+[32m+[m[32m        ([m
+[32m+[m[32m          resource.data.patientId == request.auth.uid ||[m
+[32m+[m[32m          isCaregiver()[m
+[32m+[m[32m        );[m
+[32m+[m[32m      allow create: if isSignedIn();[m
+[32m+[m[32m      allow update, delete: if false; // Audit logs are immutable[m
+[32m+[m[32m    }[m
+   }[m
+ }[m

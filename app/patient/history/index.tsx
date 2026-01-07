@@ -9,7 +9,7 @@ import { fetchMedications } from "../../../src/store/slices/medicationsSlice";
 import { startIntakesSubscription, stopIntakesSubscription, deleteAllIntakes, updateIntakeStatus } from "../../../src/store/slices/intakesSlice";
 import { IntakeRecord, IntakeStatus } from "../../../src/types";
 import { waitForFirebaseInitialization } from "../../../src/services/firebase";
-import { LoadingSpinner, ErrorMessage, Modal, Button } from "../../../src/components/ui";
+import { LoadingSpinner, ErrorMessage, Modal, Button, BrandedEmptyState, AppBar } from "../../../src/components/ui";
 import { HistoryFilterBar, HistoryRecordCard } from "../../../src/components/screens/patient";
 import { colors, spacing, typography, borderRadius, shadows } from "../../../src/theme/tokens";
 
@@ -126,85 +126,63 @@ export default function HistoryScreen() {
 
   const formatDate = (date: Date | string) => new Date(date).toLocaleDateString("default", { weekday: "long", month: "long", day: "numeric" });
 
-  // Render empty state based on filter
   const renderEmptyState = () => {
-    let icon: keyof typeof Ionicons.glyphMap = "time-outline";
-    let title = "No hay registros en el historial";
-    let description = "Los registros de medicamentos aparecerán aquí";
-
-    if (selectedFilter === "taken") {
-      icon = "checkmark-circle-outline";
-      title = "No hay medicamentos tomados";
-      description = "Los medicamentos que tomes aparecerán aquí";
-    } else if (selectedFilter === "missed") {
-      icon = "close-circle-outline";
-      title = "No hay medicamentos olvidados";
-      description = "Los medicamentos olvidados aparecerán aquí";
+    const props = {
+      icon: 'time-outline' as keyof typeof Ionicons.glyphMap,
+      title: 'No hay registros en el historial',
+      message: 'Los registros de medicamentos aparecerán aquí',
+    };
+    if (selectedFilter === 'taken') {
+      Object.assign(props, {
+        icon: 'checkmark-circle-outline' as keyof typeof Ionicons.glyphMap,
+        title: 'No hay medicamentos tomados',
+        message: 'Los medicamentos que tomes aparecerán aquí',
+      });
+    } else if (selectedFilter === 'missed') {
+      Object.assign(props, {
+        icon: 'close-circle-outline' as keyof typeof Ionicons.glyphMap,
+        title: 'No hay medicamentos olvidados',
+        message: 'Los medicamentos olvidados aparecerán aquí',
+      });
     }
-
     return (
-      <View style={styles.emptyState}>
-        <Ionicons name={icon} size={64} color={colors.gray[400]} />
-        <Text style={styles.emptyTitle}>{title}</Text>
-        <Text style={styles.emptyDescription}>{description}</Text>
-      </View>
+      <BrandedEmptyState icon={props.icon} title={props.title} message={props.message} />
     );
   };
 
   if (loading || !isInitialized) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.loadingContainer}>
           <LoadingSpinner 
             size="large" 
             message={!isInitialized ? "Inicializando aplicación..." : "Cargando historial..."} 
           />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.errorContainer}>
           <ErrorMessage 
             message={error}
             onRetry={handleRetry}
           />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity 
-            onPress={() => router.back()} 
-            style={styles.backButton}
-            accessibilityLabel="Volver"
-            accessibilityHint="Regresa a la pantalla anterior"
-            accessibilityRole="button"
-          >
-            <Ionicons name="chevron-back" size={24} color={colors.gray[700]} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Historial</Text>
-        </View>
-        {intakes.length > 0 && (
-          <TouchableOpacity 
-            onPress={() => setShowClearAllModal(true)} 
-            style={styles.clearAllHeaderButton}
-            accessibilityLabel="Limpiar historial"
-            accessibilityHint="Elimina todos los registros del historial"
-            accessibilityRole="button"
-          >
-            <Ionicons name="trash-outline" size={24} color={colors.error[500]} />
-          </TouchableOpacity>
-        )}
-      </View>
+    <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={styles.container}>
+      <AppBar 
+        title="Historial" 
+        showBackButton={true} 
+        onBackPress={() => router.back()} 
+      />
 
       {/* Filter Bar */}
       <HistoryFilterBar
@@ -301,47 +279,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.lg,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    ...shadows.sm,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: borderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.gray[50],
-    marginRight: spacing.md,
-  },
-  headerTitle: {
-    fontSize: typography.fontSize['2xl'],
-    fontWeight: typography.fontWeight.extrabold,
-    color: colors.gray[900],
-  },
-  clearAllHeaderButton: {
-    width: 44,
-    height: 44,
-    borderRadius: borderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.gray[50],
-  },
   historyList: {
     flex: 1,
   },
   historyListContent: {
-    padding: spacing.lg,
+    padding: spacing.md,
     paddingBottom: spacing['3xl'],
   },
   dateGroup: {
@@ -350,32 +292,16 @@ const styles = StyleSheet.create({
   dateHeader: {
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
-    color: colors.gray[600],
-    marginBottom: spacing.md,
-    textTransform: 'capitalize',
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing['3xl'],
-    paddingHorizontal: spacing.lg,
-  },
-  emptyTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.gray[900],
-    marginTop: spacing.lg,
-    textAlign: 'center',
-  },
-  emptyDescription: {
-    fontSize: typography.fontSize.base,
-    color: colors.gray[600],
-    marginTop: spacing.sm,
-    textAlign: 'center',
+    color: colors.gray[500],
+    marginBottom: spacing.sm,
+    marginLeft: spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   clearAllSection: {
-    paddingTop: spacing['2xl'],
-    paddingBottom: spacing.lg,
+    padding: spacing.lg,
+    paddingTop: spacing.xs,
+    alignItems: 'center',
   },
   modalContent: {
     gap: spacing.lg,
@@ -383,14 +309,17 @@ const styles = StyleSheet.create({
   modalText: {
     fontSize: typography.fontSize.base,
     color: colors.gray[700],
+    textAlign: 'center',
     lineHeight: typography.fontSize.base * typography.lineHeight.normal,
   },
   modalActions: {
     flexDirection: 'row',
     gap: spacing.md,
     marginTop: spacing.md,
+    justifyContent: 'center',
   },
   modalButton: {
     flex: 1,
+    maxWidth: 150,
   },
 });

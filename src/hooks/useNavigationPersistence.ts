@@ -102,8 +102,8 @@ export function useNavigationPersistence(
       return;
     }
 
-    const unsubscribe = subscribeToDeepLinks((url) => {
-      handleDeepLink(url, (route, params) => {
+    const unsubscribe = subscribeToDeepLinks(async (url) => {
+      await handleDeepLink(url, (route, params) => {
         router.push({ pathname: `/${route}`, params } as any);
       });
     });

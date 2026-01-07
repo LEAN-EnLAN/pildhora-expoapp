@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { ref, onValue } from 'firebase/database';
-import { getRdbInstance } from '../services/firebase';
+import { getDeviceRdbInstance } from '../services/firebase';
 import { DeviceState } from '../types';
 
 interface UseDeviceStateOptions {
@@ -58,7 +58,7 @@ export function useDeviceState({
         setIsLoading(true);
         setError(null);
 
-        const rtdb = await getRdbInstance();
+        const rtdb = await getDeviceRdbInstance();
         if (!rtdb) {
           throw new Error('Firebase Realtime Database not initialized');
         }

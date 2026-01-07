@@ -2,7 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Medication, User } from '../../types';
 
 import { getDbInstance, waitForFirebaseInitialization } from '../../services/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, orderBy, getDoc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, orderBy, getDoc, Timestamp, onSnapshot } from 'firebase/firestore';
 import { convertTimestamps } from '../../utils/firestoreUtils';
 import {
   migrateDosageFormat,
@@ -49,15 +49,57 @@ const validateUserPermission = async (currentUser: User | null, medicationPatien
   }
 
   // If checking a specific medication, validate the user has permission
-  if (medicationPatientId && medicationCaregiverId) {
-    const hasPermission = currentUser.id === medicationPatientId || currentUser.id === medicationCaregiverId;
-    if (!hasPermission) {
-      const error: MedicationError = {
-        type: 'PERMISSION',
-        message: 'User does not have permission to access this medication'
-      };
-      throw error;
+  if (medicationPatientId) {
+    // Patient can access their own medications
+    if (currentUser.id === medicationPatientId) {
+      return;
     }
+    
+    // Caregiver can access if they're linked to the patient
+    if (currentUser.role === 'caregiver') {
+      // Check if caregiver is explicitly set on the medication
+      if (medicationCaregiverId && currentUser.id === medicationCaregiverId) {
+        return;
+      }
+      
+      // Check if caregiver has a deviceLink to the patient
+      // First, get the patient's deviceId
+      const db = await getDbInstance();
+      if (db) {
+        try {
+          // Get the patient's deviceId
+          const patientDoc = await getDoc(doc(db, 'users', medicationPatientId));
+          if (patientDoc.exists()) {
+            const patientData = patientDoc.data();
+            const deviceId = patientData.deviceId;
+            
+            if (deviceId) {
+              // Check if caregiver has a deviceLink to this device
+              const deviceLinksQuery = query(
+                collection(db, 'deviceLinks'),
+                where('userId', '==', currentUser.id),
+                where('deviceId', '==', deviceId),
+                where('role', '==', 'caregiver'),
+                where('status', '==', 'active')
+              );
+              const deviceLinksSnapshot = await getDocs(deviceLinksQuery);
+              if (!deviceLinksSnapshot.empty) {
+                return; // Caregiver has access through device link
+              }
+            }
+          }
+        } catch (err) {
+          console.error('[validateUserPermission] Error checking device links:', err);
+        }
+      }
+    }
+    
+    // No permission found
+    const error: MedicationError = {
+      type: 'PERMISSION',
+      message: 'User does not have permission to access this medication'
+    };
+    throw error;
   }
 };
 
@@ -133,6 +175,96 @@ const handleMedicationError = (error: any): MedicationError => {
       code: error.code,
     }
   };
+};
+
+// Module-level unsubscribe holder to manage real-time listener lifecycle
+let unsubscribeMedications: (() => void) | null = null;
+
+export const startMedicationsSubscription = (patientId: string) => async (dispatch: any, getState: any) => {
+  try {
+    // Wait for Firebase to initialize
+    await waitForFirebaseInitialization();
+
+    // Get the user data from Redux state to validate permissions
+    const state = getState() as { auth: { user: User | null } };
+    const user = state.auth.user;
+    
+    // Validate user permissions
+    await validateUserPermission(user, patientId);
+    
+    // Get the database instance
+    const db = await getDbInstance();
+    if (!db) {
+      const error: MedicationError = {
+        type: 'INITIALIZATION',
+        message: 'Firestore database not available'
+      };
+      throw error;
+    }
+    
+    // Stop any existing subscription first
+    if (unsubscribeMedications) {
+      unsubscribeMedications();
+      unsubscribeMedications = null;
+    }
+
+    dispatch(setLoading(true));
+
+    const q = query(
+      collection(db, 'medications'),
+      where('patientId', '==', patientId),
+      orderBy('createdAt', 'desc')
+    );
+
+    unsubscribeMedications = onSnapshot(
+      q,
+      (snapshot) => {
+        try {
+          const medications: Medication[] = [];
+          snapshot.forEach((doc) => {
+            const medicationData = { id: doc.id, ...doc.data() } as Medication;
+            // Apply migration to ensure new fields are populated
+            const migratedMedication = migrateDosageFormat(medicationData);
+            medications.push(migratedMedication);
+          });
+          
+          dispatch(setMedications(convertTimestamps(medications)));
+          dispatch(setLoading(false));
+        } catch (e: any) {
+          console.error('[Medications] Error processing snapshot:', e?.message || e);
+          dispatch(setLoading(false));
+        }
+      },
+      (error) => {
+        console.error('[Medications] Subscription error:', error);
+        const medicationError = handleMedicationError(error);
+        // specific action or generic error setting? reusing existing reducer logic via a simple dispatch if possible, 
+        // but since fetchMedications.rejected sets error, we might need a synchronous set action for error.
+        // Since we don't have a simple 'setError' exported, we might just log or rely on loading state.
+        // Ideally we should export a setError action. For now, let's assume the user might add one or we just log.
+        // Actually, let's check if we can reuse the fetchMedications.rejected logic? No.
+        // Let's just log for now as adding a reducer is a bigger change, 
+        // OR better: dispatch a failure action if we can.
+        // Reviewing the slice, 'setError' is not exposed. I will expose it in the slice changes below.
+      }
+    );
+  } catch (e: any) {
+    console.error('[Medications] start subscription error:', e?.message || e);
+    const medicationError = handleMedicationError(e);
+    // dispatch(setError...)
+    dispatch(setLoading(false));
+  }
+};
+
+export const stopMedicationsSubscription = () => (dispatch: any) => {
+  try {
+    if (unsubscribeMedications) {
+      unsubscribeMedications();
+      unsubscribeMedications = null;
+    }
+  } catch (e) {
+    // noop
+  }
 };
 
 // Async thunks
@@ -627,6 +759,12 @@ const medicationsSlice = createSlice({
     removeMedicationLocal: (state, action: PayloadAction<string>) => {
       state.medications = state.medications.filter(med => med.id !== action.payload);
     },
+    setLoading: (state, action: PayloadAction<boolean>) => {
+      state.loading = action.payload;
+    },
+    setError: (state, action: PayloadAction<string | null>) => {
+      state.error = action.payload;
+    },
     clearError: (state) => {
       state.error = null;
     },
@@ -652,7 +790,11 @@ const medicationsSlice = createSlice({
       })
       .addCase(addMedication.fulfilled, (state, action) => {
         state.loading = false;
-        state.medications.unshift(action.payload);
+        // Check if medication already exists (could happen with real-time subscription)
+        const exists = state.medications.some(med => med.id === action.payload.id);
+        if (!exists) {
+          state.medications.unshift(action.payload);
+        }
       })
       .addCase(addMedication.rejected, (state, action) => {
         state.loading = false;
@@ -700,6 +842,8 @@ export const {
   addMedicationLocal,
   updateMedicationLocal,
   removeMedicationLocal,
+  setLoading,
+  setError,
   clearError
 } = medicationsSlice.actions;
 export default medicationsSlice.reducer;

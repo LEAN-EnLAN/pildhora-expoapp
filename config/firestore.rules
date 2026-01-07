@@ -1,0 +1,265 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    // Check if user is authenticated
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Check if user is the owner of the document
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    // Get user document
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+    
+    // Check if user has a specific role
+    function hasRole(role) {
+      return isSignedIn() && getUserData(request.auth.uid).role == role;
+    }
+    
+    // Check if caregiver is linked to a device
+    function isLinkedToDevice(deviceId, userId) {
+      let linkId = deviceId + '_' + userId;
+      return exists(/databases/$(database)/documents/deviceLinks/$(linkId)) &&
+             get(/databases/$(database)/documents/deviceLinks/$(linkId)).data.status == 'active';
+    }
+    
+    // Check if caregiver is linked to a patient (through their device)
+    function isLinkedToPatient(patientId, caregiverId) {
+      let patientData = getUserData(patientId);
+      return patientData.deviceId != null && 
+             isLinkedToDevice(patientData.deviceId, caregiverId);
+    }
+    
+    // Check if patient is in autonomous mode
+    function isPatientAutonomous(patientId) {
+      return getUserData(patientId).autonomousMode == true;
+    }
+    
+    // Check if user is the owner of a device
+    function isDeviceOwner(deviceId) {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/devices/$(deviceId)) &&
+        get(/databases/$(database)/documents/devices/$(deviceId)).data.primaryPatientId == request.auth.uid;
+    }
+
+    // ============================================
+    // USERS COLLECTION
+    // ============================================
+    match /users/{userId} {
+      // Any authenticated user can read user profiles
+      allow read: if isSignedIn();
+      
+      // Users can only write their own profile
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
+    }
+    
+    // ============================================
+    // DEVICES COLLECTION
+    // ============================================
+    match /devices/{deviceId} {
+      // Authenticated users can read devices they own or are linked to
+      allow read: if isSignedIn() && (
+        resource.data.primaryPatientId == request.auth.uid ||
+        isLinkedToDevice(deviceId, request.auth.uid)
+      );
+      
+      // Only the primary patient can create/update/delete their device
+      allow create: if isSignedIn() && 
+        request.resource.data.primaryPatientId == request.auth.uid;
+      
+      allow update: if isSignedIn() && 
+        resource.data.primaryPatientId == request.auth.uid;
+      
+      allow delete: if isSignedIn() && 
+        resource.data.primaryPatientId == request.auth.uid;
+    }
+    
+    // ============================================
+    // DEVICE LINKS COLLECTION
+    // ============================================
+    match /deviceLinks/{linkId} {
+      // Users can read their own device links
+      // Device owners (patients) can read all links for their device to see caregivers
+      allow read: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isDeviceOwner(resource.data.deviceId)
+      );
+      
+      // Users can create device links for themselves
+      allow create: if isSignedIn() && 
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.deviceId is string &&
+        request.resource.data.role in ['patient', 'caregiver'] &&
+        request.resource.data.status in ['active', 'inactive'];
+      
+      // Users can update/delete their own device links
+      // Device owners can also delete caregiver links (revoke access)
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isDeviceOwner(resource.data.deviceId)
+      );
+    }
+    
+    // ============================================
+    // DEVICE CONFIGS COLLECTION
+    // ============================================
+    match /deviceConfigs/{deviceId} {
+      // Users can read configs for devices they own or are linked to
+      allow read: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isLinkedToDevice(deviceId, request.auth.uid)
+      );
+      
+      // Only device owner can write configs
+      allow write: if isSignedIn() && (
+        request.resource.data.userId == request.auth.uid ||
+        resource.data.userId == request.auth.uid
+      );
+    }
+    
+    // ============================================
+    // CONNECTION CODES COLLECTION
+    // ============================================
+    match /connectionCodes/{codeId} {
+      // Authenticated users can read connection codes
+      allow read: if isSignedIn();
+      
+      // Only patients can create connection codes for their devices
+      allow create: if isSignedIn() && 
+        request.resource.data.patientId == request.auth.uid;
+      
+      // Codes can be updated (marked as used) by authenticated users
+      allow update: if isSignedIn();
+      
+      // Only the patient who created the code can delete it
+      allow delete: if isSignedIn() && 
+        resource.data.patientId == request.auth.uid;
+    }
+
+    // ============================================
+    // MEDICATIONS COLLECTION
+    // ============================================
+    match /medications/{medicationId} {
+      // Patients can read their own medications
+      // Caregivers can read medications for linked patients.
+      // NOTE: previously caregiver access was blocked when the patient
+      // was in autonomous mode; allow linked caregivers to read so UI
+      // features (like sync) can operate. This change intentionally
+      // relaxes that restriction for read-only access.
+      allow read: if isSignedIn() && (
+        resource.data.patientId == request.auth.uid ||
+        resource.data.caregiverId == request.auth.uid ||
+        isLinkedToPatient(resource.data.patientId, request.auth.uid)
+      );
+      
+      // Patients can create medications for themselves
+      // Caregivers can create medications for linked patients
+      allow create: if isSignedIn() && (
+        request.resource.data.patientId == request.auth.uid ||
+        (request.resource.data.caregiverId == request.auth.uid &&
+         isLinkedToPatient(request.resource.data.patientId, request.auth.uid))
+      );
+      
+      // Patients can update/delete their own medications
+      // Caregivers can update/delete medications they created
+      allow update, delete: if isSignedIn() && (
+        resource.data.patientId == request.auth.uid ||
+        resource.data.caregiverId == request.auth.uid
+      );
+    }
+    
+    // ============================================
+    // MEDICATION EVENTS COLLECTION
+    // ============================================
+    match /medicationEvents/{eventId} {
+      // Patients can read their own events
+      // Caregivers can read events for linked patients (unless autonomous)
+      allow read: if isSignedIn() && (
+        resource.data.patientId == request.auth.uid ||
+        resource.data.caregiverId == request.auth.uid ||
+        (isLinkedToPatient(resource.data.patientId, request.auth.uid) &&
+         !isPatientAutonomous(resource.data.patientId))
+      );
+      
+      // Authenticated users can create events
+      allow create: if isSignedIn() && (
+        request.resource.data.patientId == request.auth.uid ||
+        request.resource.data.caregiverId == request.auth.uid
+      );
+      
+      // Event creators can update/delete
+      allow update, delete: if isSignedIn() && (
+        resource.data.patientId == request.auth.uid ||
+        resource.data.caregiverId == request.auth.uid
+      );
+    }
+    
+    // ============================================
+    // INTAKE RECORDS COLLECTION
+    // ============================================
+    match /intakeRecords/{recordId} {
+      allow read: if isSignedIn() && (
+        resource.data.patientId == request.auth.uid ||
+        isLinkedToPatient(resource.data.patientId, request.auth.uid)
+      );
+      
+      allow create: if isSignedIn() && 
+        request.resource.data.patientId == request.auth.uid;
+      
+      allow update, delete: if isSignedIn() && 
+        resource.data.patientId == request.auth.uid;
+    }
+    
+    // ============================================
+    // TASKS COLLECTION (Caregiver-specific)
+    // ============================================
+    match /tasks/{taskId} {
+      // Caregivers can only access their own tasks
+      allow read: if isSignedIn() && 
+        resource.data.caregiverId == request.auth.uid;
+      
+      allow create: if isSignedIn() && 
+        request.resource.data.caregiverId == request.auth.uid;
+      
+      allow update, delete: if isSignedIn() && 
+        resource.data.caregiverId == request.auth.uid;
+    }
+    
+    // ============================================
+    // CRITICAL EVENTS COLLECTION
+    // ============================================
+    match /criticalEvents/{eventId} {
+      allow read: if isSignedIn() && (
+        resource.data.patientId == request.auth.uid ||
+        resource.data.caregiverId == request.auth.uid
+      );
+      
+      allow create: if isSignedIn();
+      
+      allow update, delete: if isSignedIn() && (
+        resource.data.patientId == request.auth.uid ||
+        resource.data.caregiverId == request.auth.uid
+      );
+    }
+    
+    // ============================================
+    // NOTIFICATION PREFERENCES COLLECTION
+    // ============================================
+    match /notificationPreferences/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+  }
+}

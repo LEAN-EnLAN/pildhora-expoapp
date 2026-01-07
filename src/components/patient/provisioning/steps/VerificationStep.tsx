@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius } from '../../../../theme/tokens';
+import { colors, spacing, typography, borderRadius, shadows } from '../../../../theme/tokens';
 import { useWizardContext } from '../WizardContext';
 import { announceForAccessibility, triggerHapticFeedback, HapticFeedbackType } from '../../../../utils/accessibility';
-import { getDbInstance, getRdbInstance } from '../../../../services/firebase';
-import { doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
-import { ref, set } from 'firebase/database';
-import { linkDeviceToUser } from '../../../../services/deviceLinking';
-import { 
-  DeviceProvisioningErrorCode, 
+import { provisionDevice, checkDeviceExists } from '../../../../services/deviceProvisioning';
+import {
+  DeviceProvisioningErrorCode,
   parseDeviceProvisioningError,
-  handleDeviceProvisioningError 
+  handleDeviceProvisioningError
 } from '../../../../utils/deviceProvisioningErrors';
 import { DeviceProvisioningErrorDisplay } from '../DeviceProvisioningErrorDisplay';
 
@@ -21,7 +18,7 @@ import { DeviceProvisioningErrorDisplay } from '../DeviceProvisioningErrorDispla
  * Third step of the device provisioning wizard. Verifies the device exists,
  * is unclaimed, and creates the necessary device documents and links.
  * 
- * Requirements: 3.4, 4.1, 4.2, 4.4, 4.5
+ * Premium visual overhaul.
  */
 export function VerificationStep() {
   const { formData, setCanProceed, userId } = useWizardContext();
@@ -36,7 +33,6 @@ export function VerificationStep() {
 
   /**
    * Perform device verification and provisioning
-   * Requirements: 3.4, 4.1, 4.2, 4.4, 4.5
    */
   const performVerification = async () => {
     try {
@@ -46,92 +42,34 @@ export function VerificationStep() {
         throw new Error('No se proporcionó un ID de dispositivo');
       }
 
-      const db = await getDbInstance();
-      if (!db) {
-        throw new Error('Error de conexión a la base de datos');
+      // Step 1: Check if device already exists
+      setCurrentStep('Verificando disponibilidad...');
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      const deviceExists = await checkDeviceExists(deviceId);
+
+      if (deviceExists) {
+        setCurrentStep('Verificando vínculos...');
+        await new Promise(resolve => setTimeout(resolve, 600));
       }
 
-      // Step 1: Verify device exists and is unclaimed (Requirement 3.4, 4.1, 4.2)
-      setCurrentStep('Verificando disponibilidad del dispositivo...');
-      await new Promise(resolve => setTimeout(resolve, 800)); // UX delay
-
-      // Check if device document already exists
-      const deviceRef = doc(db, 'devices', deviceId);
-      const deviceDoc = await getDoc(deviceRef);
-
-      if (deviceDoc.exists()) {
-        const deviceData = deviceDoc.data();
-        
-        // Check if device is already claimed by another patient
-        if (deviceData.primaryPatientId && deviceData.primaryPatientId !== userId) {
-          throw new Error('Este dispositivo ya está registrado a otro paciente. Por favor, verifica el ID del dispositivo.');
-        }
-        
-        // Check if device is already claimed by this patient
-        if (deviceData.primaryPatientId === userId && deviceData.provisioningStatus === 'active') {
-          console.log('[VerificationStep] Device already provisioned to this user, proceeding with link verification');
-          // Device is already provisioned to this user, just ensure links are in place
-          setCurrentStep('Verificando vínculos existentes...');
-          await new Promise(resolve => setTimeout(resolve, 600));
-          
-          // Ensure deviceLink exists
-          await linkDeviceToUser(userId, deviceId);
-          
-          // Ensure RTDB mapping exists
-          const rdb = await getRdbInstance();
-          if (rdb) {
-            const deviceRtdbRef = ref(rdb, `users/${userId}/devices/${deviceId}`);
-            await set(deviceRtdbRef, true);
-          }
-          
-          setCurrentStep('¡Dispositivo verificado exitosamente!');
-          setVerificationState('success');
-          setCanProceed(true);
-          await triggerHapticFeedback(HapticFeedbackType.SUCCESS);
-          announceForAccessibility('Dispositivo verificado y vinculado exitosamente');
-          return;
-        }
-      }
-
-      // Step 2: Create device document in Firestore (Requirement 4.1, 4.4)
+      // Step 2: Provision device
       setCurrentStep('Registrando dispositivo...');
       await new Promise(resolve => setTimeout(resolve, 600));
 
-      // Create new device document with patient as owner
-      await setDoc(deviceRef, {
-        primaryPatientId: userId,
-        provisioningStatus: 'active',
-        provisionedAt: serverTimestamp(),
-        provisionedBy: userId,
-        wifiConfigured: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        desiredConfig: {
-          alarmMode: formData.alarmMode || 'both',
-          ledIntensity: formData.ledIntensity || 75,
-          ledColor: formData.ledColor || '#3B82F6',
-          volume: formData.volume || 75,
-        },
+      await provisionDevice({
+        deviceId,
+        userId,
+        wifiSSID: formData.wifiSSID,
+        wifiPassword: formData.wifiPassword,
+        alarmMode: formData.alarmMode || 'both',
+        ledIntensity: formData.ledIntensity || 75,
+        ledColor: formData.ledColor || '#3B82F6',
+        volume: formData.volume || 75,
       });
 
-      // Step 3: Create deviceLink document (Requirement 4.4)
-      setCurrentStep('Vinculando dispositivo a tu cuenta...');
-      await new Promise(resolve => setTimeout(resolve, 600));
-
-      await linkDeviceToUser(userId, deviceId);
-
-      // Step 4: Update RTDB users/{userId}/devices mapping (Requirement 4.5)
-      setCurrentStep('Sincronizando con el servidor...');
-      await new Promise(resolve => setTimeout(resolve, 600));
-
-      const rdb = await getRdbInstance();
-      if (rdb) {
-        const deviceRtdbRef = ref(rdb, `users/${userId}/devices/${deviceId}`);
-        await set(deviceRtdbRef, true);
-      }
-
-      // Success!
-      setCurrentStep('¡Dispositivo verificado exitosamente!');
+      // Step 3: Complete
+      setCurrentStep('¡Dispositivo verificado!');
       setVerificationState('success');
       setCanProceed(true);
       await triggerHapticFeedback(HapticFeedbackType.SUCCESS);
@@ -139,18 +77,19 @@ export function VerificationStep() {
 
     } catch (error: any) {
       console.error('[VerificationStep] Verification failed:', error);
-      
-      // Parse error to appropriate error code using centralized handler
+
       let parsedErrorCode: DeviceProvisioningErrorCode;
-      
-      if (error.message && error.message.includes('ya está registrado')) {
+
+      if (error.code === 'DEVICE_ALREADY_CLAIMED') {
         parsedErrorCode = DeviceProvisioningErrorCode.DEVICE_ALREADY_CLAIMED;
+      } else if (error.code === 'PERMISSION_DENIED') {
+        parsedErrorCode = DeviceProvisioningErrorCode.PERMISSION_DENIED;
       } else {
         parsedErrorCode = parseDeviceProvisioningError(error);
       }
-      
+
       const errorResponse = handleDeviceProvisioningError(parsedErrorCode);
-      
+
       setErrorCode(parsedErrorCode);
       setVerificationState('error');
       setCanProceed(false);
@@ -159,9 +98,6 @@ export function VerificationStep() {
     }
   };
 
-  /**
-   * Retry verification
-   */
   const handleRetry = () => {
     setVerificationState('verifying');
     setErrorCode(null);
@@ -170,12 +106,12 @@ export function VerificationStep() {
   };
 
   return (
-    <ScrollView 
+    <ScrollView
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header */}
+      {/* Status Header */}
       <View style={styles.header}>
         <View style={[
           styles.iconContainer,
@@ -186,7 +122,7 @@ export function VerificationStep() {
             <ActivityIndicator size="large" color={colors.primary[500]} />
           )}
           {verificationState === 'success' && (
-            <Ionicons name="checkmark-circle" size={48} color={colors.success} />
+            <Ionicons name="checkmark-circle" size={48} color={colors.success[500]} />
           )}
           {verificationState === 'error' && (
             <Ionicons name="alert-circle" size={48} color={colors.error[500]} />
@@ -194,67 +130,66 @@ export function VerificationStep() {
         </View>
 
         <Text style={styles.title}>
-          {verificationState === 'verifying' && 'Verificando Dispositivo'}
-          {verificationState === 'success' && '¡Verificación Exitosa!'}
-          {verificationState === 'error' && 'Error de Verificación'}
+          {verificationState === 'verifying' && 'Verificando...'}
+          {verificationState === 'success' && '¡Todo listo!'}
+          {verificationState === 'error' && 'Hubo un problema'}
         </Text>
 
         <Text style={styles.subtitle}>
-          {verificationState === 'verifying' && 'Por favor espera mientras verificamos tu dispositivo'}
-          {verificationState === 'success' && 'Tu dispositivo ha sido registrado correctamente'}
-          {verificationState === 'error' && 'No pudimos verificar tu dispositivo'}
+          {verificationState === 'verifying' && currentStep}
+          {verificationState === 'success' && 'Tu dispositivo ha sido verificado correctamente.'}
+          {verificationState === 'error' && 'No pudimos verificar tu dispositivo.'}
         </Text>
       </View>
 
-      {/* Progress Steps */}
+      {/* Progress Card */}
       {verificationState === 'verifying' && (
-        <View style={styles.progressSection}>
-          <View style={styles.progressCard}>
-            <ActivityIndicator size="small" color={colors.primary[500]} style={styles.progressIcon} />
-            <Text style={styles.progressText}>{currentStep}</Text>
+        <View style={styles.card}>
+          <View style={styles.progressItem}>
+            <View style={[styles.progressDot, styles.progressDotActive]} />
+            <Text style={styles.progressText}>Conectando con el servidor...</Text>
           </View>
-
-          <View style={styles.stepsList}>
-            <ProgressStep 
-              icon="checkmark-circle" 
-              text="Verificar disponibilidad" 
-              completed={currentStep !== 'Verificando disponibilidad del dispositivo...'}
-            />
-            <ProgressStep 
-              icon="document-text" 
-              text="Registrar dispositivo" 
-              completed={!currentStep.includes('Verificando') && !currentStep.includes('Registrando')}
-            />
-            <ProgressStep 
-              icon="link" 
-              text="Vincular a tu cuenta" 
-              completed={!currentStep.includes('Verificando') && !currentStep.includes('Registrando') && !currentStep.includes('Vinculando')}
-            />
-            <ProgressStep 
-              icon="cloud-upload" 
-              text="Sincronizar" 
-              completed={currentStep.includes('exitosamente')}
-            />
+          <View style={styles.connectorLine} />
+          <View style={styles.progressItem}>
+            <View style={[
+              styles.progressDot,
+              !currentStep.includes('disponibilidad') ? styles.progressDotActive : styles.progressDotPending
+            ]} />
+            <Text style={[
+              styles.progressText,
+              currentStep.includes('disponibilidad') && styles.progressTextPending
+            ]}>Validando ID del dispositivo...</Text>
+          </View>
+          <View style={styles.connectorLine} />
+          <View style={styles.progressItem}>
+            <View style={[
+              styles.progressDot,
+              currentStep.includes('Registrando') ? styles.progressDotActive : styles.progressDotPending
+            ]} />
+            <Text style={[
+              styles.progressText,
+              !currentStep.includes('Registrando') && styles.progressTextPending
+            ]}>Vinculando a tu cuenta...</Text>
           </View>
         </View>
       )}
 
-      {/* Success State */}
+      {/* Success Card */}
       {verificationState === 'success' && (
-        <View style={styles.successSection}>
-          <View style={styles.successCard}>
-            <Ionicons name="hardware-chip" size={32} color={colors.primary[500]} style={styles.successIcon} />
-            <View style={styles.successContent}>
-              <Text style={styles.successTitle}>Dispositivo: {formData.deviceId}</Text>
-              <Text style={styles.successText}>Estado: Activo y listo para configurar</Text>
+        <View style={styles.successCard}>
+          <View style={styles.deviceInfoRow}>
+            <Ionicons name="hardware-chip-outline" size={24} color={colors.primary[600]} />
+            <View>
+              <Text style={styles.deviceInfoLabel}>ID del Dispositivo</Text>
+              <Text style={styles.deviceInfoValue}>{formData.deviceId}</Text>
             </View>
           </View>
 
-          <View style={styles.infoCard}>
-            <Ionicons name="information-circle-outline" size={20} color={colors.primary[500]} />
-            <Text style={styles.infoText}>
-              A continuación, configuraremos la conexión WiFi y las preferencias de tu dispositivo
-            </Text>
+          <View style={styles.divider} />
+
+          <View style={styles.successMessage}>
+            <Ionicons name="shield-checkmark-outline" size={20} color={colors.success[500]} />
+            <Text style={styles.successMessageText}>Dispositivo seguro y vinculado</Text>
           </View>
         </View>
       )}
@@ -271,53 +206,30 @@ export function VerificationStep() {
   );
 }
 
-/**
- * ProgressStep Component
- */
-interface ProgressStepProps {
-  icon: keyof typeof Ionicons.glyphMap;
-  text: string;
-  completed: boolean;
-}
-
-function ProgressStep({ icon, text, completed }: ProgressStepProps) {
-  return (
-    <View style={styles.progressStepItem}>
-      <View style={[styles.progressStepIcon, completed && styles.progressStepIconCompleted]}>
-        <Ionicons 
-          name={completed ? 'checkmark' : icon} 
-          size={16} 
-          color={completed ? colors.success : colors.gray[400]} 
-        />
-      </View>
-      <Text style={[styles.progressStepText, completed && styles.progressStepTextCompleted]}>
-        {text}
-      </Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   contentContainer: {
     padding: spacing.lg,
     paddingBottom: spacing.xl * 2,
+    alignItems: 'center',
   },
   header: {
     alignItems: 'center',
     marginBottom: spacing.xl,
+    width: '100%',
   },
   iconContainer: {
     width: 96,
     height: 96,
     borderRadius: borderRadius.full,
-    backgroundColor: '#EFF6FF', // primary[50]
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
+    ...shadows.md,
   },
   iconContainerSuccess: {
     backgroundColor: '#F0FDF4', // success[50]
@@ -329,7 +241,7 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize['2xl'],
     fontWeight: typography.fontWeight.bold,
     color: colors.gray[900],
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
     textAlign: 'center',
   },
   subtitle: {
@@ -338,96 +250,88 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: spacing.md,
   },
-  progressSection: {
-    marginBottom: spacing.xl,
+  card: {
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    ...shadows.sm,
   },
-  progressCard: {
+  progressItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.lg,
+    gap: spacing.md,
   },
-  progressIcon: {
-    marginRight: spacing.md,
+  progressDot: {
+    width: 12,
+    height: 12,
+    borderRadius: borderRadius.full,
+  },
+  progressDotActive: {
+    backgroundColor: colors.primary[500],
+    ...shadows.sm,
+  },
+  progressDotPending: {
+    backgroundColor: colors.gray[300],
   },
   progressText: {
-    flex: 1,
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.medium,
     color: colors.gray[800],
-  },
-  stepsList: {
-    gap: spacing.md,
-  },
-  progressStepItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: spacing.md,
-  },
-  progressStepIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.gray[100],
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  progressStepIconCompleted: {
-    backgroundColor: '#F0FDF4', // success[50]
-  },
-  progressStepText: {
-    fontSize: typography.fontSize.sm,
-    color: colors.gray[600],
-  },
-  progressStepTextCompleted: {
-    color: colors.success,
     fontWeight: typography.fontWeight.medium,
   },
-  successSection: {
-    gap: spacing.md,
+  progressTextPending: {
+    color: colors.gray[400],
+  },
+  connectorLine: {
+    width: 2,
+    height: 24,
+    backgroundColor: colors.gray[200],
+    marginLeft: 5, // Center with dot (12/2 - 1)
+    marginVertical: 4,
   },
   successCard: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: borderRadius.xl,
     padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.success,
+    ...shadows.md,
   },
-  successIcon: {
-    marginRight: spacing.md,
-  },
-  successContent: {
-    flex: 1,
-  },
-  successTitle: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.gray[900],
-    marginBottom: spacing.xs,
-  },
-  successText: {
-    fontSize: typography.fontSize.sm,
-    color: colors.gray[600],
-  },
-  infoCard: {
+  deviceInfoRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#EFF6FF', // primary[50]
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    gap: spacing.sm,
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.md,
   },
-  infoText: {
-    flex: 1,
+  deviceInfoLabel: {
+    fontSize: typography.fontSize.xs,
+    color: colors.gray[500],
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  deviceInfoValue: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.gray[900],
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.gray[100],
+    marginVertical: spacing.md,
+  },
+  successMessage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: '#F0FDF4',
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
+  },
+  successMessageText: {
     fontSize: typography.fontSize.sm,
-    color: colors.gray[700],
-    lineHeight: typography.fontSize.sm * 1.4,
+    color: colors.success[500],
+    fontWeight: typography.fontWeight.medium,
   },
   errorDisplay: {
-    marginTop: 0,
+    width: '100%',
   },
 });

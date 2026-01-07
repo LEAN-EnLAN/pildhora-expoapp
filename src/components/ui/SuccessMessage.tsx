@@ -75,7 +75,7 @@ export const SuccessMessage: React.FC<SuccessMessageProps> = ({
       accessibilityLiveRegion="polite"
     >
       <View style={styles.content}>
-        <View 
+        <View
           style={styles.iconContainer}
           accessible={false}
         >
@@ -91,9 +91,9 @@ const styles = StyleSheet.create({
   container: {
     borderRadius: borderRadius.md,
     padding: spacing.md,
-    backgroundColor: colors.success + '15', // 15% opacity
+    backgroundColor: colors.success[50],
     borderLeftWidth: 4,
-    borderLeftColor: colors.success,
+    borderLeftColor: colors.success[500],
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.success,
+    backgroundColor: colors.success[500],
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.sm,

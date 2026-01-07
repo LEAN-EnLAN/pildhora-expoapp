@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
-import { getRdbInstance } from '../../services/firebase';
+import { getDeviceRdbInstance } from '../../services/firebase';
 import { ref, onValue, update } from 'firebase/database';
 import { DeviceState } from '../../types';
 
@@ -45,7 +45,7 @@ export const startDeviceListener = createAsyncThunk(
       unsubscribeEvents = null;
     }
 
-    const rdb = await getRdbInstance();
+    const rdb = await getDeviceRdbInstance();
     const r = ref(rdb, `devices/${deviceID}/state`);
     unsubscribe = onValue(r, (snap) => {
       const val = snap.val() as DeviceState | null;
@@ -98,7 +98,7 @@ export const updateDeviceConfig = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      const rdb = await getRdbInstance();
+      const rdb = await getDeviceRdbInstance();
       await update(ref(rdb, `devices/${deviceID}/config`), partial as any);
       return true;
     } catch (e: any) {
